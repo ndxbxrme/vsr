@@ -1,0 +1,695 @@
+.dashboard,
+.lettings-dashboard-route,
+.leads-dashboard-route,
+.maintenance-leads-dashboard
+  padding-bottom 30px
+  .snapshot 
+    display flex
+    gap 20px
+    margin-top 0px
+    margin-bottom 30px
+    height 115px
+    .snapshot-item 
+      background white
+      border-radius 20px
+      padding 20px 30px
+      width 30%
+      min-width 250px
+      transition: all .3s ease
+      cursor pointer
+      &:hover
+        box-shadow 0 4px 12px rgba(0,0,0,0.1)
+        transform translateY(-2px)
+      .snapshot-value 
+        color vs-orange
+        font-size 4rem
+        font-weight 600
+        &.currency 
+          text-align right
+      .snapshot-label 
+        font-size 1.4rem
+        color vs-grey
+        margin-bottom 20px
+        a 
+          cursor pointer
+          color vs-grey
+          text-decoration none
+          &:hover
+            color vs-orange
+    .action-item
+      display flex
+      align-items center
+      justify-content flex-start
+      flex-shrink 0
+      width 20%
+  h3
+    margin-bottom: 10px
+    margin-top 30px
+    font-size 2rem
+    font-weight 600
+    color vs-grey
+    i
+      margin-right 10px
+    &.boxed
+      background white
+      padding 22px 25px
+      border-radius 30px
+    .clickable 
+      color vs-orange
+      font-size 3rem
+      cursor pointer
+    .count 
+      color white
+      font-size 2rem
+      font-weight 600
+      width 30px
+      height 30px
+      background vs-orange
+      border-radius 50%
+      display inline-flex
+      justify-content center
+      align-items center
+      margin-left 10px
+  .unknown-row
+    h3 
+      margin-top 0px
+      &.boxed 
+        border-radius 90px
+  .currency
+    width 8rem
+    display inline-block
+    text-align right
+  .overview, .income, .selling, .letting, .valuation 
+    width 100%
+    border-spacing 0
+    border 1px solid vs-lightgrey
+    border-radius 20px
+    margin-bottom 30px
+    position relative
+    box-sizing border-box
+    overflow hidden
+    .tr, tr
+      &.head-two, &.total
+        .td, td
+          font-weight 600
+          background vs-tablegrey
+      &.head-two
+        .td, td
+          background white
+      &.total
+        .td, td
+          font-weight 900
+      .td, td
+        text-align center
+  .pipeline, .exchanged
+    overflow-x auto
+    -webkit-overflow-scrolling touch
+    .tbody
+      min-width max-content
+    .head-two
+      .td
+        display flex
+        flex-direction column
+        align-items center
+        justify-content space-between
+        gap 10px
+  .summary
+    width: 100%
+    margin-bottom 30px
+    th
+      vertical-align bottom
+      font-size 1.2rem
+      font-weight 600
+      line-height 1rem
+      padding 10px
+      height 220px
+      white-space nowrap
+      &:last-of-type
+        width 70px
+    tr td
+      border 1px solid vs-lightgrey
+      vertical-align middle
+      position relative
+      padding 10px
+    p.service-level
+      position absolute
+      top 3px
+      right 3px
+      color vs-orange
+      font-weight 900
+    a.sort
+      color vs-orange
+      display block
+      &.rotate
+        transform rotate(290deg)
+        width 20px
+    .rotate
+      transform rotate(290deg)
+      width 20px
+      font-weight 600
+    svg.fa-times
+      background-color vs-red
+      color white
+      line-height 1
+      padding 7px 10px
+      border-radius 5px
+    svg.fa-check
+      background-color vs-green
+      color white
+      line-height 1
+      padding 7px
+      border-radius 50px
+  
+  .progression-list
+    display flex
+    flex-direction column
+    gap 10px
+    .progression-item
+      background white
+      border-radius 20px
+      padding 25px
+      transition all 0.3s ease
+      &:hover
+        box-shadow 0 4px 12px rgba(0, 0, 0, 0.1)
+      .property-header
+        display flex
+        justify-content space-between
+        align-items center
+        margin-bottom 10px
+        .property-info
+          display flex
+          align-items center
+          gap 15px
+          .property-address
+            font-size 1.8rem
+            font-weight 600
+            color vs-grey
+            text-decoration none
+            &:hover
+              color vs-orange
+          .service-level-badge
+            padding 5px 12px
+            border-radius 30px
+            font-size 1.6rem
+            font-weight 600
+            &.tenant-find,
+            &.managed
+              background vs-body
+              color vs-grey
+        .progress-label
+          font-size 1.6rem
+          font-weight 600
+          color vs-grey
+          border-radius 30px
+          border 1px solid vs-lightgrey
+          padding 5px 12px
+          span
+            font-weight 400
+        .property-dates
+          display flex
+          gap 20px
+          .date-item
+            font-size 1.6rem
+            color vs-grey
+            strong
+              color vs-darkgrey
+      .progress-section
+        .progress-bar-wrapper
+          display flex
+          align-items center
+          gap 15px
+          .progress-bar
+            flex 1
+            height 30px
+            background vs-lightgrey
+            border-radius 15px
+            overflow hidden
+            position relative
+            .progress-fill
+              height 100%
+              background vs-orange
+              border-radius 15px
+              transition width 0.5s ease
+          .progress-text
+            font-size 1.4rem
+            font-weight 600
+            color vs-grey
+            min-width 60px
+            text-align right
+  
+  img.user-avatar
+    border-radius 50%
+    border 1px solid vs-lightgrey
+    background vs-body
+    margin-top 20px 
+  .c-name
+    font-size 1rem
+    line-height 1.2
+.lettings-dashboard-route
+  padding-top 30px
+  .controls
+    .order-item
+      display inline-flex
+      position relative
+      color vs-orange
+      background white
+      font-weight 600
+      margin 0px 5px 10px 0px
+      padding 5px 15px
+      border 1px solid vs-lightgrey
+      border-radius 30px
+      &.selected
+        background vs-orange
+        color white
+        border: 1px solid vs-orange
+.maintenance-leads-dashboard
+  padding 30px 0
+  .button
+    i 
+      margin-left 8px
+  .snapshot-row
+    margin-bottom 40px
+  .snapshot-box
+    background white
+    border-radius 20px
+    padding 20px
+    transition: all .3s ease
+    cursor pointer
+    position relative
+    &:hover
+      box-shadow 0 4px 12px rgba(0,0,0,0.1)
+      transform translateY(-2px)
+    i 
+      position absolute
+      top 10px
+      right 10px
+      font-size 1.4rem
+      color vs-grey
+    .snapshot-label
+      font-size 14px
+      color vs-grey
+      margin-bottom 10px
+      font-weight 600
+    .snapshot-value
+      font-size 32px
+      font-weight 700
+      color vs-orange
+
+  // Tabs Styling
+  .maintenance-tabs
+    margin-top 30px
+    .nav-tabs
+      border-bottom 2px solid vs-lightgrey
+      margin 0
+      .nav-item
+        margin-bottom 0
+        .nav-link
+          border none
+          border-radius 0px
+          border-bottom 3px solid transparent
+          color vs-grey
+          padding 15px 20px
+          font-weight 500
+          background transparent
+          transition all 0.3s ease
+          position relative
+          .badge
+            background vs-lightgrey
+            color vs-grey
+            padding 5px 8px
+            border-radius 12px
+            font-size 12px
+            margin-left 8px
+            font-weight 600
+          &:hover
+            color vs-orange
+            border-bottom-color vs-orange
+            background transparent
+          &.active
+            color vs-orange
+            border-bottom-color vs-orange
+            background transparent
+            .badge
+              background vs-orange
+              color white
+    .tab-content
+      background white
+      border-radius 20px
+      margin-top 10px
+      padding 30px
+      box-shadow 0 2px 4px rgba(0, 0, 0, 0.1)
+      .issues-list
+        .issue
+          display flex
+          align-items center
+          padding 20px 0px
+          border-bottom 1px solid vs-lightgrey
+          cursor pointer
+          transition all 0.3s ease
+          &:hover
+            .details .address
+              color vs-orange
+          &:last-child
+            border-bottom none
+          .details
+            flex 1
+            .address
+              font-weight 600
+              color vs-grey
+              margin-bottom 5px
+              font-size 18px
+            .issue-title
+              font-size 14px
+          .status
+            display flex
+            gap 10px
+            margin-right 20px
+            > div
+              width 30px
+              height 30px
+              display flex
+              align-items center
+              justify-content center
+              border-radius 50%
+              background vs-lightgrey
+              color white
+              font-size 14px
+          &.booked
+            .status .booked
+              background vs-green
+          &.completed
+            .status .completed
+              background vs-orange
+          &.invoiced
+            .status .invoiced
+              background vs-grey
+          .messages
+            width 40px
+            height 40px
+            display flex
+            align-items center
+            justify-content center
+            border-radius 50%
+            background vs-lightgrey
+            color vs-grey
+            font-weight 600
+            &.newmessage
+              background vs-orange
+              color white
+        pagination
+          margin-top 30px
+          display flex
+          justify-content center
+  &.admin-boards
+    .maintenance-tabs .nav-tabs .nav-item .nav-link
+      padding 15px
+@media (max-width: 768px)
+  .maintenance-leads-dashboard
+    .maintenance-tabs
+      .nav-tabs
+        border-bottom none
+        .nav-item
+          width 50%
+          .nav-link
+            white-space nowrap
+            padding 12px 10px
+            display flex
+            justify-content space-between
+            width 100%
+
+
+.maintenance-dashboard-route, 
+.diary-route
+  display flex
+  .toolbar
+    background vs-grey
+    color white
+    display flex
+    flex-direction column
+    width 300px
+    min-width 300px
+    max-width 300px
+    flex-wrap wrap
+    padding-bottom .5rem
+    margin 10px
+    border-radius 20px
+    overflow hidden
+    .dates
+      .date-swiper-holder
+        position relative
+        display block
+        z-index 10
+        .day-names
+          color inherit
+          margin-top 1.6rem
+        .month
+          background #394a58
+        .controls
+          display none
+        .month-holder
+          height 2rem
+          position relative
+        .month-name
+          position absolute
+          top -5px
+          left 0
+          width 100%
+          display block
+          pointer-events none
+        .is-selected
+          .date
+            background vs-orange
+    h4
+      margin 20px 0 10px 0
+      padding-bottom 10px
+      border-bottom 1px solid rgba(50,50,50,0.5)
+      font-weight 700
+      font-size 1.6rem
+    .today, .income, .counts, .users, .filters
+      padding 0rem 1rem .5rem 1rem
+      .mobile
+        display none
+    .today
+      padding-top 1rem
+      color white
+      background vs-orange
+      box-sizing border-box
+    .income-item, .counts-item
+      display flex
+      justify-content space-between
+      margin .5rem 0
+      .total
+        padding 4px 8px
+        margin-right -8px
+        border-radius 10px
+        background #035c03
+        &.loss
+          background red
+        
+    .user-select
+      display flex
+      flex-direction column
+      background vs-grey
+      z-index 1000001
+      //height 40px
+      label 
+        padding 10px
+      .select2-container
+        border none
+        .select2-arrow
+          display none
+        .select2-choice
+          height 50px
+          background none
+          background-image none
+          border none
+          box-shadow none
+          padding 0.5rem
+          color white
+        .select2-chosen
+          padding 10px
+    .filters
+      .filter
+        width 100px
+        height 30px
+        background #333
+        margin 10px 0 0 0
+        border-radius 50px
+        position relative
+        span
+          position absolute
+          left 110px
+          top 7px
+        &:before
+          content ''
+          position absolute
+          top 15px
+          left 14px
+          height 2px
+          width 70px
+          background #111
+        label
+          display block
+          width 18px
+          height 18px
+          border-radius 50%
+          transition: all .5s ease
+          cursor pointer
+          position absolute
+          top 6px
+          z-index 1
+          left 12px
+          background #ddd
+      input[type=checkbox]
+        vertical-align middle
+        visibility hidden
+        &:checked + label
+          left 70px
+          background #26ca28
+      #filterConfirmed span
+        color vs-green
+      #filterQuote span
+        color vs-orange
+    .users
+      .user
+        padding-bottom 5px
+        img
+          vertical-align middle
+          border-radius 50%
+          margin-right 5px
+.select2-highlighted
+  background vs-grey!important
+.select2-drop
+  li
+    text-indent 0
+    padding 3px
+    &:before
+      height 0
+      display none
+@media screen and (max-width: 1400px)
+  .dashboard,
+  .lettings-dashboard-route,
+  .leads-dashboard-route,
+  .maintenance-leads-dashboard
+    .snapshot 
+      height auto
+      min-height 125px
+      .snapshot-item
+        padding 20px
+        min-width 0px
+        .snapshot-label
+          line-height 1.2
+          min-height 40px
+    .overview-row
+      .snapshot
+        margin-bottom 0px
+@media screen and (max-width: 992px)
+  .dashboard,
+  .lettings-dashboard-route,
+  .leads-dashboard-route,
+  .maintenance-leads-dashboard
+    .income-column
+      margin-top -40px
+@media screen and (max-width: 768px)
+  .dashboard,
+  .lettings-dashboard-route,
+  .leads-dashboard-route,
+  .maintenance-leads-dashboard
+    .snapshot 
+      flex-wrap wrap
+      .snapshot-item 
+        width 100%
+        min-width 100%
+        .snapshot-value 
+          font-size 3rem
+    .progression-list
+      .progression-item
+        .property-header
+          flex-direction column
+          align-items flex-start
+          gap 10px
+          .property-info
+            flex-wrap wrap
+            align-items flex-start
+            gap 10px
+            .property-address
+              width 100%
+          .property-dates
+            width 100%
+            flex-direction row
+            gap 15px
+        .progress-section
+          .progress-bar-wrapper
+            flex-direction column
+            align-items flex-start
+            gap 8px
+            width 100%
+            .progress-bar
+              display block
+              width 100%
+              height 30px
+              min-height 30px
+              background vs-lightgrey
+              border-radius 15px
+              overflow hidden
+              position relative
+              .progress-fill
+                display block
+                height 100%
+                background vs-orange
+                position absolute
+            .progress-text
+              text-align left
+              min-width 0
+    
+@media screen and (max-width: 576px)
+  .dashboard,
+  .lettings-dashboard-route,
+  .leads-dashboard-route,
+  .maintenance-leads-dashboard
+    .income:not(.pipeline):not(.exchanged)
+      background none
+      border none
+      .tbody
+        .tr
+          flex-direction column
+          border 1px solid vs-lightgrey
+          margin-bottom 15px
+          border-radius 30px
+          overflow hidden
+          &.head-two
+            display none
+          &.total
+            margin-top 20px
+            background vs-tablegrey
+            border-radius 10px
+            padding 10px
+            .td
+              border-bottom none
+              &:first-child
+                font-size 1.8rem
+                padding-bottom 5px
+          .td
+            display flex
+            justify-content space-between
+            align-items center
+            text-align left
+            padding 12px 15px
+            border-bottom 1px solid vs-lightgrey
+            &:first-child
+              background vs-tablegrey
+              font-weight 700
+              font-size 1.6rem
+              border-bottom 1px solid vs-lightgrey
+            &:last-child
+              border-bottom none
+            .inner
+              display flex
+              justify-content space-between
+              width 100%
+              label
+                display inline-block
+                font-weight 600
+                color vs-grey
+                margin-right 10px
+    

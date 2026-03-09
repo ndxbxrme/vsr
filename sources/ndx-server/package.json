@@ -1,0 +1,51 @@
+{
+  "name": "ndx-server",
+  "version": "0.18.1",
+  "description": "my server framework",
+  "main": "build/index.js",
+  "scripts": {
+    "test": "node build/test/test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ndxbxrme/ndx-server.git"
+  },
+  "author": "ndxbxrme",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ndxbxrme/ndx-server/issues"
+  },
+  "homepage": "https://github.com/ndxbxrme/ndx-server",
+  "devDependencies": {
+    "glob": "^7.1.2",
+    "grunt": "^1.0.1",
+    "grunt-cli": "^1.2.0",
+    "grunt-contrib-clean": "^1.0.0",
+    "grunt-contrib-coffee": "^2.1.0",
+    "grunt-contrib-watch": "^1.0.0",
+    "grunt-express-server": "^0.5.3",
+    "grunt-keepalive": "^1.0.0",
+    "load-grunt-tasks": "^3.5.2"
+  },
+  "dependencies": {
+    "async": "^2.6.1",
+    "bcrypt-nodejs": "0.0.3",
+    "body-parser": "^1.15.2",
+    "bson-objectid": "^1.1.4",
+    "chalk": "^1.1.3",
+    "compression": "^1.6.2",
+    "continuation-local-storage": "^3.2.1",
+    "cookie-parser": "^1.4.3",
+    "crypto-js": "^3.1.9-1",
+    "express": "^4.14.0",
+    "express-session": "^1.15.1",
+    "helmet": "^3.3.0",
+    "morgan": "^1.7.0",
+    "ndxdb": "^1.10.12",
+    "node-uuid": "^1.4.8",
+    "rotating-file-stream": "^1.2.2",
+    "session-memory-store": "^0.2.2",
+    "socket.io": "^2.1.1",
+    "underscore.string": "^3.3.4"
+  }
+}

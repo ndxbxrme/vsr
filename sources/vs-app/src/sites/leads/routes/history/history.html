@@ -1,0 +1,85 @@
+
+<div class="history-route client-management-list">
+  <div class="container-xl">
+    <div class="row align-items-center">
+      <div class="col-md-6 col-sm-6">
+        <h1><i class="fa-duotone fa-light fa-clock-rotate-left"></i> {{mla('history-heading')}}</h1>
+      </div>
+      <div class="text-end d-flex align-items-center col-md-6 col-sm-6">
+        <input type="text" ng-model="history.args.where.s.$like" placeholder="Search leads"/>
+        <button class="button button-alt orange-button add-lead-button" ng-click="openAddLeadModal()">Add Lead <i class="fa fa-plus"></i></button>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="row align-items-end">
+        <div class="col-md-9 d-flex">
+          <div class="sort">Order By:<br>
+            <a class="order-item" href="" ng-click="sort.set(&quot;modifiedAt&quot;)" ng-class="sort.class(&quot;modifiedAt&quot;)">Last Updated</a>
+            <a class="order-item" href="" ng-click="sort.set(&quot;date&quot;)" ng-class="sort.class(&quot;date&quot;)">Enquiry Date</a>
+          </div>
+          <div class="show">Show:<br>
+            <label class="filter-item" ng-class="{selected:history.args.where.roleType==='Selling'}">
+              <input id="rts" type="radio" name="roleType" ng-model="history.args.where.roleType" value="Selling"/> Selling
+            </label>
+            <label class="filter-item" ng-class="{selected:history.args.where.roleType==='Letting'}">
+              <input id="rtl" type="radio" name="roleType" ng-model="history.args.where.roleType" value="Letting"/> Letting
+            </label>
+            <label class="filter-item" ng-class="{selected:history.args.where.roleType==='Valuation'}">
+              <input id="rtv" type="radio" name="roleType" ng-model="history.args.where.roleType" value="Valuation"/> Valuation
+            </label>
+          </div>
+        </div>
+        <div class="col-md-3 text-end">
+          <div class="showing">Showing {{history.total}} of {{allhistory.total}} lead{{history.total!==1?'s':''}}</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="properties-list" ng-show="history.total">
+      <div class="property-card compact" ng-repeat="lead in history.items">
+        <div class="property-main row g-3">
+          <div class="property-image col-md-2">
+            <div class="source-badge {{ lead.source }} {{lead.method}}"></div>
+          </div>
+          
+          <div class="property-info col-md-7">
+            <div class="lead-status">
+              <div class="status-badge" ng-class="{'deleted':lead.deleted, 'booked':!lead.deleted}">
+                <i class="fa-duotone fa-light" ng-class="{'fa-trash':lead.deleted, 'fa-calendar-check':!lead.deleted}"></i>
+                {{lead.deleted ? 'Deleted': 'Booked'}}
+              </div>
+            </div>
+
+            <div class="property-meta">
+              <div class="property-address">
+                <strong>Address:</strong> 
+                <a ui-sref="leads_leadDeleted({_id: lead._id})">
+                  {{ lead.property.address || lead.user.address}}<span ng-if="lead.property.postcode || lead.user.postcode">, {{ lead.property.postcode || lead.user.postcode}}</span>
+                </a>
+              </div>
+              <span class="price" ng-show="lead.price"><strong>Price:</strong> {{ lead.price | currency:'£'}}</span>
+            </div>
+
+            <div class="lead-details">
+              <p class="applicant-info"><i class="fa-duotone fa-light fa-user"></i> <strong>Applicant:</strong> {{lead.applicant}}</p>
+              <span class="date-info"><i class="fa-duotone fa-light fa-calendar"></i> <strong>Enquiry Date:</strong> {{lead.date | date:'dd/MM/yy'}} ({{lead.date | timeAgo}})</span>
+            </div>
+          </div>
+          
+          <div class="property-stats-actions col-md-3">
+            <div class="property-actions button-row">
+              <a class="button" ui-sref="leads_leadDeleted({_id: lead._id})">{{ mla('history-table-view') }}</a>
+              <a class="button button-alt" href="" ng-click="restore(lead)">{{ mla('history-table-restore') }}</a>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+    <paging total="history.total" opts="history.args"></paging>
+    <div ng-show="!history.total" class="nothing-to-show">
+      <h3>{{ mla('history-message-no-items') }}</h3>
+    </div>
+  </div>
+</div>

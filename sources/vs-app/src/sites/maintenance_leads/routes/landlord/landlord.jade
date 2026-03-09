@@ -1,0 +1,12 @@
+include ../../mixins/form.jade
+.landlord-route.route
+  h1 {{ m('landlord-heading') }}
+  +form({data:'landlord'})
+    .form-section
+      +input({name:'name'})
+      +input({name:'phone'})
+      +input({name:'email',type:'email'})
+      +select({name:'addresses', list:'addresses', multiple:true})
+      .addresses
+        .address(ng-repeat='address in landlord.item.addresses') {{ address }}
+    +controls()

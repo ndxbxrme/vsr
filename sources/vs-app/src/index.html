@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base href="/">
+   <!-- Favicons -->
+   <link rel="apple-touch-icon" sizes="180x180" href="public/favicon/apple-touch-icon.png">
+   <link rel="icon" type="image/png" sizes="32x32" href="public/favicon/favicon-32x32.png">
+   <link rel="icon" type="image/png" sizes="16x16" href="public/favicon/favicon-16x16.png">
+   <link rel="manifest" href="public/favicon/site.webmanifest">
+   <link rel="mask-icon" href="public/favicon/safari-pinned-tab.svg" color="#df542c">
+   <meta name="msapplication-TileColor" content="#f1f1f1">
+   <meta name="theme-color" content="#ffffff">
+   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+
+  <link rel="stylesheet" href="https://use.typekit.net/dwe5aet.css">
+  <script src="https://kit.fontawesome.com/10a8778e9a.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+</head>
+<body ng-app="vs-app" ng-click="bodyTap($event)">
+  <menu ng-if="auth.getUser() || state('invited') || state('forgot') || state('forgot-response')"></menu>
+  <breadcrumbs ng-if="auth.getUser()"></breadcrumbs>
+  <login></login>
+  <div ui-view="" ng-if="auth.getUser() || state('invited') || state('forgot') || state('forgot-response')" class="main-view"></div>
+  <footer ng-if="auth.getUser()"></footer>
+  <agency-progression-popup ng-if="auth.isAuthorized('agency_dashboard')"></agency-progression-popup>
+  <lettings-progression-popup ng-if="auth.isAuthorized('lettings_dashboard')"></lettings-progression-popup>
+  <maintenance-date-swiper config="{prefix:&quot;swiper&quot;, modifier:1.5, show:false}"></maintenance-date-swiper>
+  <maintenance-task-popup ng-if="auth.isAuthorized('maintenance_dashboard')"></maintenance-task-popup>
+  <date-swiper config="{prefix:&quot;swiper&quot;, modifier:1.5, show:false}"></date-swiper>
+  <div class="printScreen"><h1></h1></div>
+  <script type="text/javascript" src="public/third-party/marked.js"></script>
+  <script type="text/javascript" src="public/third-party/third-party.js?7"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.min.js" crossorigin="anonymous"></script>
+</body>
+</html>

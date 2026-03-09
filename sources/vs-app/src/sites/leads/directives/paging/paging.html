@@ -1,0 +1,10 @@
+
+<div class="paging-dir" ng-show="total">
+  <pagination ng-model="opts.page" total="total" page-size="opts.pageSize" prev-text="&lt;" next-text="&gt;"></pagination>
+  <div class="page-count" ng-show="total &gt; 10"><span>{{mla('paging-text-pre')}}</span>
+    <div class="page-size" popout="popout"><a>{{opts.pageSize}}</a>
+      <div class="popout"><a class="ps100" tap="opts.pageSize=100;opts.page=1" ng-class="{selected:opts.pageSize===100}">100</a><a class="ps50" tap="opts.pageSize=50;opts.page=1" ng-class="{selected:opts.pageSize===50}">50</a><a class="ps25" tap="opts.pageSize=25;opts.page=1" ng-class="{selected:opts.pageSize===25}">25</a><a class="ps10" tap="opts.pageSize=10;opts.page=1" ng-class="{selected:opts.pageSize===10}">10</a></div>
+    </div><span>{{mla('paging-text-post')}}</span>
+  </div>
+  <div class="list-total">{{mla('paging-total-label')}} <span>{{total}}</span></div>
+</div>

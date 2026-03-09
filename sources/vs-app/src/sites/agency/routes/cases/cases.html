@@ -1,0 +1,94 @@
+<div class="cases">
+  <div class="container-xl">
+
+    <div class="row align-items-center">
+      <div class="col-md-6">
+        <h1><i class="fa-duotone fa-light fa-arrow-progress"></i> SSTC Cases</h1>
+      </div>
+      <div class="col-md-2">
+        <select ng-model="filterMode">
+          <option value="0">Show All</option>
+          <option value="1">VITALSPACE</option>
+          <option value="2">HOME</option>
+        </select>
+      </div>
+      <div class="col-md-4 search">
+        <input type="text" ng-model="search" placeholder="Search Cases" ng-change="page=1"/>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="row align-items-end">
+        <div class="col-md-9 d-flex">
+          <div class="sort">Order By:<br>
+            <a class="order-item" href="" ng-click="sort=&quot;-$case.item.modifiedAt&quot;;page=1" ng-class="{selected:sort===&quot;-$case.item.modifiedAt&quot;}">Last updated</a>
+            <a class="order-item" href="" ng-click="sort=&quot;-$case.item.offer.DateTime&quot;;page=1" ng-class="{selected:sort===&quot;-$case.item.offer.DateTime&quot;}">Offer accepted date</a>
+          </div>
+          <div class="show">Show:<br>
+            <a class="filter-item icon-green" href="" ng-click="filter=&quot;completed&quot;;page=1" ng-class="{selected:filter===&quot;completed&quot;}">Up-to-date</a>
+            <a class="filter-item icon-orange" href="" ng-click="filter=&quot;progressing&quot;;page=1" ng-class="{selected:filter===&quot;progressing&quot;}">In Progress</a>
+            <a class="filter-item icon-red" href="" ng-click="filter=&quot;overdue&quot;;page=1" ng-class="{selected:filter===&quot;overdue&quot;}">Overdue</a>
+            <a class="filter-item" href="" ng-click="filter=&quot;&quot;;page=1" ng-class="{selected:!filter}">All</a>
+          </div>
+        </div>
+        <div class="col-md-3 text-end">
+          <div class="showing">Showing {{filterData.length}} of {{totalProps = properties.items.length - nodeleted}} case{{totalProps!==1?'s':''}}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="properties-list" ng-show="filterData.length &gt; 0">
+      <div class="property-card" ng-class="{'no-milestone': !(property.$case.item.milestone && property.$case.item.milestone.title)}" ng-repeat="property in filterData =(properties.items | filter:{&quot;deleted&quot;:false} | filter:{&quot;search&quot;:search} | filter:{&quot;milestoneStatus&quot;:filter} | filter:filterByPipeline  | orderBy:sort) | limitTo:limit:limit*(page-1)">
+        <div class="property-main row g-5">
+          <div class="property-image col-md-3" ng-class="{&quot;has-request animated pulse infinite&quot;:hasRequest(property)}">
+            <img src="{{property.Images[0].Url}}&width=500" class="image"/>
+            <div class="property-milestone">
+              <div class="milestone" ng-class="property.$case.item.cssMilestone" title="{{property.$case.item.milestone.title}}">
+                <div class="icon {{ property.$case.item.milestone.icon || &quot;house&quot;}}"></div>
+              </div>
+              <span ng-if="property.$case.item.milestone.title" class="milestone-title">{{property.$case.item.milestone.title}}</span>
+            </div>
+          </div>
+          
+          <div class="property-info col-md-6">
+            <div class="property-meta">
+              <div class="property-address"><strong>Address:</strong> {{property.$case.item.override.address || property.displayAddress}}</div>
+              <span class="purchase-price"><strong>Offer Price:</strong> {{property.$case.item.offer.Value | currency : "£" : 0}}</span>
+              <span class="fees" ng-show="property.Fees[0].FeeValueType.SystemName===&quot;Absolute&quot;"><strong>Fees:</strong> {{ property.Fees[0].DefaultValue | currency : "£" : 0 }}</span>
+              <span class="fees" ng-show="property.Fees[0].FeeValueType.SystemName===&quot;Percentage&quot;"><strong>Fees:</strong> {{ property.$case.item.offer.Value * (property.Fees[0].DefaultValue / 100) | currency : "£" : 0 }}</span>
+            </div>
+              
+            <div class="dates">
+              <span class="last-updated"><i class="fa-duotone fa-light fa-clock"></i> <strong>Last Updated:</strong> {{property.$case.item.modifiedAt | timeAgo}} - {{property.$case.item.modifiedAt | date:'dd/MM/yy'}}</span><br>
+              <span class="start-date" ng-show="property.$case.item.offer.DateTime"><i class="fa-duotone fa-light fa-calendar-check"></i> <strong>Start Date:</strong> {{property.$case.item.offer.DateTime | date:'dd/MM/yy'}}</span>
+            </div>
+          </div>
+          
+          <div class="property-stats-actions col-md-3">
+            <div class="vendor-purchaser">
+              <div class="property-vendor">
+                <div class="label"><i class="fa-duotone fa-light fa-user-tie"></i> Vendor</div>
+                <div class="value">{{property.$case.item.vendor}}</div>
+              </div>
+
+              <div class="property-purchaser">
+                <div class="label"><i class="fa-duotone fa-light fa-user-check"></i> Purchaser</div>
+                <div class="value">{{property.$case.item.purchaser}}</div>
+              </div>
+            </div>
+
+            <div class="property-actions">
+              <a class="button {{property.$case.item.pipeline==='HOME'?'pipeline-home':''}}" ui-sref="agency_case({roleId:property.RoleId})">View Case</a>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+    <pagination class="pagination-sm pagination" total="filterData.length" ng-model="page" page-size="limit" page-change="pageChange" show-first-last="true"></pagination>
+    <div class="nothing-to-show" ng-show="filterData.length===0">
+      <h3>Nothing to show</h3>
+    </div>
+  </div>
+
+</div>

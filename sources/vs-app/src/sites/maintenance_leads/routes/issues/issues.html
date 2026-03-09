@@ -1,0 +1,75 @@
+
+<div class="issues-route route"> 
+  <div class="container-xl">
+    <div class="row align-items-center">
+      <div class="col-xl-6">
+        <h1><i class="fa-duotone fa-light fa-tools"></i> {{ mml('issues-heading') }}</h1>
+      </div>
+      <div class="col-xl-6 text-xl-end d-flex align-items-center search-row">
+        <input type="text" ng-model="mysearch.$like" placeholder="Search Issues" ng-change="page=1"/>
+        <div class="button-row">
+          <button ng-click="openAddIssueModal()" class="button button-alt orange-button">{{ mml('issues-button-new') }} <i class="fas fa-plus"></i></button>
+          <button type="button" ng-click="openAddWorksOrderModal()" class="button button-grey">New works order <i class="fas fa-plus"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="row">
+        <div class="col-lg-6">
+          <div class="sort">Order By:<br>
+            <a class="order-item" href="" ng-click="sort.set('source')" ng-class="sort.class('source')">Source</a>
+            <a class="order-item" href="" ng-click="sort.set('date')" ng-class="sort.class('date')">Date</a>
+            <a class="order-item" href="" ng-click="sort.set('address')" ng-class="sort.class('address')">Address</a>
+          </div>
+        </div>
+        <div class="col-lg-6 text-end">
+          <div class="showing">Showing {{issues.items.length}} of {{issues.total}} issue{{issues.total!==1?'s':''}}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="properties-list" ng-show="issues.items.length > 0">
+      <div class="property-card" ng-repeat="issue in issues.items">
+        <div class="property-main row g-5">
+          <div class="property-image col-md-2">
+            <div class="source-badge {{ issue.source }}">{{ issue.source }}</div>
+            <div ng-show="issue.media.length" ng-click="showLightbox(issue.media)" class="media-badge"><i class="fad fa-camera-retro"></i></div>
+          </div>
+          
+          <div class="property-info col-md-7">
+            <div class="property-meta">
+              <div class="property-address">
+                <strong>Address:</strong> 
+                <a ui-sref="maintenance_leads_issue({_id:issue._id})">
+                  {{ issue.address }}
+                </a>
+              </div>
+            </div>
+
+            <div class="lead-details">
+              <p class="applicant-info"><i class="fa-duotone fa-light fa-user"></i> <strong>Tenant:</strong> {{issue.tenant}}</p>
+              <p class="applicant-info"><i class="fa-duotone fa-light fa-clipboard"></i> <strong>Title:</strong> {{issue.title}}</p>
+            </div>
+          </div>
+          
+          <div class="property-stats-actions col-md-3">
+            <div class="property-vendor">
+              <div class="label"><i class="fa-duotone fa-light fa-calendar-check"></i> Date Reported</div>
+              <div class="value">{{issue.date | date:'dd/MM/yy HH:mm'}}</div>
+            </div>
+
+            <div class="property-actions">
+              <button ui-sref="maintenance_leads_issue({_id:issue._id})" class="button">View Issue <i class="fa-light fa-duotone fa-eye"></i></button>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+
+    <div ng-show="!issues.items.length" class="empty-table">{{ mml('issues-empty-table') }}</div>
+    <pagination ng-model="issues.args.page" total="issues.total" page-size="issues.args.pageSize"></pagination>
+    
+  </div>
+</div>

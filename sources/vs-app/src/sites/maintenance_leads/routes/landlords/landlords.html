@@ -1,0 +1,42 @@
+
+<div class="landlords-route route">
+  <div class="container-xl">
+    
+    <div class="row align-items-center">
+      <div class="col-sm-6">
+        <h1><i class="fa-duotone fa-light fa-user-tie"></i> {{ mml('landlords-heading') }}</h1>
+      </div>
+      <div class="col-sm-6 search d-flex align-items-center justify-content-end">
+        <input type="text" ng-model="search" placeholder="Search Landlords" ng-change="page=1"/>
+        <button ng-click="openLandlordModal()" class="button button-alt">{{ mml('landlords-button-new') }} <i class="fa-light fa-plus"></i></button>
+      </div>
+      <div class="col-12 text-end">
+        <div class="showing">Showing {{filterData.length}} of {{landlords.items.length}} landlord{{totalProps!==1?'s':''}}</div>
+      </div>
+    </div>
+
+    <div class="landlords row g-5">
+      <div ng-repeat="landlord in filterData =(landlords.items | filter:search | orderBy:sort | limitTo:limit:limit*(page-1))" class="landlord col-lg-4 col-6">
+        <div class="inner">
+          <div ng-click="openLandlordModal(landlord)" ng-class="{empty:!landlord.addresses.length}" class="landlord-heading row">
+            <div class="name col-8">{{ landlord.name }}</div>
+            <div class="no-issues col-4">
+              <div class="label">Properties</div>
+              <div class="number">{{ landlord.addresses.length }}</div>
+            </div>
+          </div>
+          <button type="button" ng-click="openLandlordProperties(landlord)" ng-show="landlord.addresses.length" class="button">View List <i class="fa-light fa-duotone fa-eye"></i></button>
+          <button type="button" ng-click="deletelandlord(landlord)" ng-if="auth.isAuthorized([&quot;superadmin&quot;, &quot;admin&quot;])" class="button-alt button">Delete <i class="fa-light fa-duotone fa-trash-alt"></i></button>
+        </div>
+      </div>
+    </div>
+    <div ng-show="!filterData.length" class="empty-table">No landlords match your current search</div>
+    <div class="paging-dir">
+      <pagination ng-model="page" total="landlords.total" page-size="limit"></pagination>
+    </div>
+    <div ng-if="addresses.length" class="addresses">
+      <div ng-repeat="address in addresses" class="address">{{ address }}</div>
+    </div>
+  
+  </div>
+</div>

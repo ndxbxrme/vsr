@@ -1,0 +1,118 @@
+<div class="site-menu">
+  <div class="container-xl">
+    <div class="row align-items-center">
+      
+      <div class="col-lg-10 col-6 menu-col">
+        <a ui-sref="dashboard">
+          <img class="vs-logo" src="/public/img/vitalspace-logo.svg" alt="" width="220">
+        </a>
+
+        <div class="d-none d-lg-flex slide-menu" ng-class="{menushow:menuOpen}">
+          <sites>
+            <!-- <site>
+              <a>Favorites</a>
+              <pages>
+                <a href="{{item.url}}" ng-repeat="item in breadcrumbs.getFavorites()">
+                  <span class="favorites-site">{{breadcrumbs.getSiteAndTitle(item).site}}</span>
+                  <span class="favorites-title">{{breadcrumbs.getSiteAndTitle(item).title}}</span>
+                  <span class="favorites-info">{{item.info}}</span>
+                </a>
+              </pages>
+            </site> -->
+            <site ng-show="auth.isAuthorized('agency_dashboard')">
+              <a ui-sref="dashboard({view: 'sales'})", ng-class="{selected:isDashboardView('sales')}" ng-click="menuOpen = false">Sales</a>
+              <pages ng-click="menuOpen = false">
+                <a ui-sref="agency_client-management-list", ng-class="{selected:state('agency_client-management-list')}" ng-show="auth.isAuthorized('agency_client-management-list')">Available</a>
+                <a ui-sref="agency_dashboard", ng-class="{selected:state('agency_dashboard')}" ng-show="auth.isAuthorized('agency_dashboard')">Conveyancing</a>
+                <a ui-sref="agency_cases", ng-class="{selected:state(['agency_cases','agency_case'])}" ng-show="auth.isAuthorized('agency_cases')">SSTC Cases</a>
+                <a ui-sref="agency_offers-list", ng-class="{selected:state(['agency_offers-list','agency_offer'])}" ng-show="auth.isAuthorized('agency_offers-list')">Pending Offers</a>
+                <a ui-sref="agency_coming-soon", ng-class="{selected:state('agency_coming-soon')}" ng-show="auth.isAuthorized('agency_coming-soon')">Instructions</a>
+                <a ui-sref="agency_agreed", ng-class="{selected:state('agency_agreed')}" ng-show="auth.isAuthorized('agency_agreed')">Year To Date</a>
+                <a ui-sref="agency_solicitors", ng-class="{selected:state('agency_solicitors')}" ng-show="auth.isAuthorized('agency_solicitors')">Solicitors</a>
+                <a ui-sref="agency_setup", ng-class="{selected:state('agency_setup')}" ng-show="auth.isAuthorized('agency_setup')">Setup</a>
+                <!--<a ui-sref="agency_cleanup", ng-class="{selected:state('agency_cleanup')}" ng-show="auth.isAuthorized('agency_cleanup')">Cleanup</a>-->
+              </pages>
+            </site>
+            <site ng-show="auth.isAuthorized('lettings_dashboard')">
+              <a ui-sref="dashboard({view: 'lettings'})", ng-class="{selected:isDashboardView('lettings')}" ng-click="menuOpen = false">Lettings</a>
+              <pages ng-click="menuOpen = false">
+                <a ui-sref="lettings_available", ng-class="{selected:state('lettings_available')}" ng-show="auth.isAuthorized('lettings_available')">Available</a>
+                <a ui-sref="lettings_dashboard", ng-class="{selected:state('lettings_dashboard')}" ng-show="auth.isAuthorized('lettings_dashboard')">Dashboard</a>
+                <a ui-sref="lettings_cases", ng-class="{selected:state(['lettings_cases', 'lettings_case'])}" ng-show="auth.isAuthorized('lettings_cases')">Let Cases</a>
+                <a ui-sref="lettings_offers-list", ng-class="{selected:state(['lettings_offers-list','lettings_offer'])}" ng-show="auth.isAuthorized('lettings_offers-list')">Pending Offers</a>
+                <a ui-sref="lettings_coming-soon", ng-class="{selected:state('lettings_coming-soon')}" ng-show="auth.isAuthorized('lettings_coming-soon')">Instructions</a>
+                <a ui-sref="lettings_agreed", ng-class="{selected:state('lettings_agreed')}" ng-show="auth.isAuthorized('lettings_agreed')">Year To Date</a>
+                <a ui-sref="lettings_marketing", ng-class="{selected:state('lettings_marketing')}" ng-show="auth.isAuthorized('lettings_marketing')">Marketing</a>
+                <a ui-sref="lettings_setup", ng-class="{selected:state('lettings_setup')}" ng-show="auth.isAuthorized('lettings_setup')">Setup</a>
+              </pages>
+            </site>
+            <site ng-show="auth.isAuthorized('leads_dashboard')">
+              <a ui-sref="leads_dashboard", ng-class="{selected:state('leads_dashboard')}" ng-click="menuOpen = false">Leads</a>
+              <pages ng-click="menuOpen = false">
+                <a ui-sref="leads_selling", ng-class="{selected:state('leads_selling')}" ng-show="auth.isAuthorized('leads_selling')">Selling</a>
+                <a ui-sref="leads_letting", ng-class="{selected:state('leads_letting')}" ng-show="auth.isAuthorized('leads_letting')">Letting</a>
+                <a ui-sref="leads_valuation", ng-class="{selected:state('leads_valuation')}" ng-show="auth.isAuthorized('leads_valuation')">Valuation</a>
+                <a ui-sref="leads_history", ng-class="{selected:state('leads_history')}" ng-show="auth.isAuthorized('leads_history')">History</a>
+                <a ui-sref="leads_setup", ng-class="{selected:state(['leads_setup'])}" ng-show="auth.isAuthorized('leads_setup')">Setup</a>
+              </pages>
+            </site>
+            <site ng-show="auth.isAuthorized('maintenance_leads_dashboard')">
+              <a ui-sref="maintenance_leads_dashboard", ng-class="{selected:state('maintenance_leads_dashboard')}" ng-click="menuOpen = false">Maintenance</a>
+              <pages ng-click="menuOpen = false">
+                <a ui-sref="maintenance_leads_issues", ng-class="{selected:state('maintenance_leads_issues')}" ng-show="auth.isAuthorized('maintenance_leads_issues')">Issues</a>
+                <a ui-sref="maintenance_leads_worksorders", ng-class="{selected:state(['maintenance_leads_worksorders', 'maintenance_leads_works-orders'])}" ng-show="auth.isAuthorized('maintenance_leads_worksorders')">Works Orders</a>
+                <a ui-sref="maintenance_leads_contractors", ng-class="{selected:state(['maintenance_leads_contractors', 'maintenance_leads_contractor'])}" ng-show="auth.isAuthorized('maintenance_leads_contractors')">Contractors</a>
+                <a ui-sref="maintenance_leads_landlords", ng-class="{selected:state(['maintenance_leads_landlords', 'maintenance_leads_landlord'])}" ng-show="auth.isAuthorized('maintenance_leads_landlords')">Landlords</a>
+                <!--<a ui-sref="maintenance_leads_issue({_id:null})", ng-class="{selected:state(['maintenance_leads_issue'])}" ng-show="auth.isAuthorized('maintenance_leads_issue')">Issue</a>-->
+                <a ui-sref="maintenance_leads_diary({_id:null})", ng-class="{selected:state(['maintenance_leads_diary'])}" ng-show="auth.isAuthorized('maintenance_leads_diary')">Diary</a>
+                <a ui-sref="maintenance_leads_historic", ng-class="{selected:state(['maintenance_leads_historic'])}" ng-show="auth.isAuthorized('maintenance_leads_historic')">Historic</a>
+                <a ui-sref="maintenance_leads_setup", ng-class="{selected:state(['maintenance_leads_setup'])}" ng-show="auth.isAuthorized('maintenance_leads_setup')">Setup</a>
+              </pages>
+            </site>
+            <site ng-show="auth.isAuthorized('maintenance_dashboard')">
+              <a ui-sref="maintenance_dashboard", ng-class="{selected:state('maintenance_dashboard')}" ng-click="menuOpen = false">Diary</a>
+              <pages ng-click="menuOpen = false">
+                <a ui-sref="maintenance_setup", ng-class="{selected:state('maintenance_setup')}" ng-show="auth.isAuthorized('maintenance_setup')">Setup</a>
+              </pages>
+            </site>
+            <site ng-show="auth.isAuthorized('admin_dashboard')">
+              <a ui-sref="admin_dashboard", ng-class="{selected:state('admin_dashboard')}" ng-click="menuOpen = false">Admin</a>
+              <pages ng-click="menuOpen = false">
+                <a ui-sref="admin_boards", ng-class="{selected:state('admin_boards')}" ng-show="auth.isAuthorized('admin_boards')">Boards Management</a>
+                <a ui-sref="admin_epc", ng-class="{selected:state(['admin_epc'])}" ng-show="auth.isAuthorized('admin_epc')">EPC Management</a>
+                <a ui-sref="admin_misdescriptions", ng-class="{selected:state(['admin_misdescriptions'])}" ng-show="auth.isAuthorized('admin_misdescriptions')">Misdescriptions</a>
+                <a ui-sref="agency_marketing", ng-class="{selected:state(['agency_marketing'])}" ng-show="auth.isAuthorized('agency_marketing')">Property Marketing</a>
+                <a ui-sref="sms_dashboard", ng-class="{selected:state(['sms_dashboard'])}" ng-show="auth.isAuthorized('sms_dashboard')">SMS</a>
+                <!-- Probably needs something different for the ngShow -->
+                <a ui-sref="sms_templates", ng-class="{selected:state(['sms_templates'])}" ng-show="auth.isAuthorized('sms_dashboard')">SMS Templates</a>
+                <a ui-sref="admin_windows", ng-class="{selected:state('admin_windows')}" ng-show="auth.isAuthorized('admin_windows')">Windows</a>
+              </pages>
+            </site>
+
+          </sites>
+        </div>
+      </div>
+
+      <div class="col-lg-2 col-6 text-end menu-controls">
+        <sites class="site-settings">
+          <site>
+            <a ui-sref="dashboard" class="menu-profile"><img gravatar-src="auth.getUser().local.email" /><i class="fa-light fa-duotone fa-light fa-sliders"></i></a>
+            <pages>
+              <a ui-sref="main_profile" ng-show="auth.isAuthorized('main_profile')">Profile</a>
+              <a ui-sref="main_setup" ng-show="auth.isAuthorized('main_setup')">Setup</a>
+              <a ui-sref="main_users" ng-show="auth.isAuthorized('main_users')">Users</a>
+              <a href="" ng-click="auth.logOut()">Log out</a>
+            </pages>
+          </site>
+        </sites>
+        <div class="nav-icon" ng-click="menuOpen = !menuOpen" ng-class="{open:menuOpen}">
+          <span></span>
+          <span></span>
+          <span></span>
+          <span></span>
+        </div>  
+      </div>
+
+    </div>
+  </div>
+</div>

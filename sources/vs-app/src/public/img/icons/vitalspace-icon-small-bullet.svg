@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="51px" height="52px" viewBox="0 0 51 52" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 61.2 (89653) - https://sketch.com -->
+    <title>vitalspace-icon-small</title>
+    <desc>Created with Sketch.</desc>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="vitalspace-icon-small" fill-rule="nonzero">
+            <g id="white-shape" transform="translate(26.999719, 0.054775)" fill="#464E53">
+                <polyline id="Fill-36" points="17.5991573 3.08707865 17.5991573 10.0994382 12.5089888 7.01235955 12.5089888 0 17.5991573 3.08707865"></polyline>
+                <polyline id="Fill-38" points="0.0485955056 1.21966292 23.988764 15.3126404 23.988764 23.8657303 20.5070225 21.8567416 20.5070225 37.2 11.9483146 32.258427 11.9483146 18.2328652 0 11.3317416 0.0485955056 1.21966292"></polyline>
+            </g>
+            <polyline id="orange-shape" fill="#DF542C" points="12.2657304 18.2876404 12.2657304 33.6935393 18.9396068 37.5446629 25.6067417 41.3963483 32.2803372 37.5446629 37.0862361 34.7660112 45.6272473 39.719382 36.5573035 44.9578652 25.6067417 51.2800562 3.70702257 38.6356742 3.70702257 21.9115169 0.225281 23.9205056 0.225281 15.3674157 24.1654495 1.2744382 24.2146068 11.3865169 12.2657304 18.2876404"></polyline>
+        </g>
+    </g>
+</svg>

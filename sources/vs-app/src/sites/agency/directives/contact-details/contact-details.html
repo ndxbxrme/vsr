@@ -1,0 +1,35 @@
+
+<div class="contact-details">
+  <h4>{{title}}</h4>
+  <div class="card">
+    <a class="edit-btn" href="" ng-click="edit()" ng-hide="editing"><i class="fa-light fa-user-pen"></i></a>
+    <div ng-show="data().name || editing">
+      
+      <div class="role orange"><span ng-hide="editing">{{data().role}}</span>
+        <input type="text" ng-model="data().role" ng-show="editing" placeholder="Role"/>
+      </div>
+      <div class="contact-name"><span ng-hide="editing">{{data().name}}</span>
+        
+        <input type="text" ng-model="data().name" ng-show="editing" placeholder="Name"/>
+      </div>
+      <div class="communication">
+        
+        <div class="contact-telephone" ng-show="data().telephone || editing">
+          <span ng-hide="editing"><i class="fa-light fa-phone-rotary"></i> {{data().telephone}}</span>
+          <input type="text" ng-model="data().telephone" ng-show="editing" placeholder="Telephone"/>
+        </div>
+        
+        <div class="contact-email" ng-show="data().email || editing">
+          <span ng-hide="editing"><a class="mail-link" href="mailto:{{data().email}}"><i class="fa-light fa-circle-envelope"></i> {{data().email}}</a></span>
+          <input type="email" ng-model="data().email" ng-show="editing" placeholder="Email"/>
+        </div>
+      </div>
+      <div class="controls" ng-show="editing">
+        <button class="small button" ng-click="confirm()">OK</button>
+      </div>
+    </div>
+    <div ng-hide="data().name || editing">
+      <div class="role">No details set</div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,274 @@
+.dashboard
+  padding-top 10px
+  h1
+    margin-bottom 5px
+  .intro
+    h2 
+      margin-bottom 0px
+    h3
+      font-weight 400
+      font-size 1.6rem
+      color vs-silver
+      margin-top 10px
+      margin-bottom: 0px
+    .button-group
+      margin-top 10px
+      .button
+        margin 0px
+        &.button-alt 
+          padding 9px 20px
+          background vs-orange
+        &:first-of-type
+          border-radius 30px 0px 0px 30px;
+        &:last-of-type
+          border-radius 0px 30px 30px 0px;
+.snapshot .snapshot-item
+  width 100% !important
+h3.stats-header
+  margin-top 0px
+.stats-box 
+  background white
+  border-radius 20px
+  margin-bottom 30px
+  padding 10px
+  .stats-item
+    color vs-grey
+    display: flex
+    justify-content space-between
+    align-items baseline
+    border 1px solid vs-lightgrey
+    border-radius 10px
+    margin-bottom 10px
+    padding 15px
+    box-shadow 1px 1px 2px rgba(0, 0, 0, 0.1)
+    &:last-of-type
+      margin-bottom 0
+    &.offer-with-image
+      align-items center
+      .offer-thumbnail
+        flex-shrink 0
+        width 60px
+        height 60px
+        border-radius 8px
+        overflow hidden
+        margin-right 15px
+        background vs-lightgrey
+        display flex
+        align-items center
+        justify-content center
+        &.no-image
+          background vs-lightsilver
+          i
+            font-size 24px
+            color vs-grey
+        img
+          width 100%
+          height 100%
+          object-fit cover
+      .offer-content
+        flex 1
+        display flex
+        justify-content space-between
+        align-items center
+        width calc(100% - 75px)
+        .offer-applicant-section
+          flex 1
+          display flex
+          flex-direction column
+          gap 4px
+          .offer-applicant
+            font-size 14px
+            line-height 1.2
+            font-weight 600
+          .offer-financial, .offer-movein
+            font-size 14px
+            line-height: 1.2
+            font-weight 600
+            span
+              color vs-orange
+              font-weight 600
+        .offer-amount
+          width 120px
+          text-align right
+          font-weight 600
+    div
+      font-weight 600
+      &.offer-address
+        &.outstanding-address
+          width auto
+      span
+        font-weight 400
+        &.value
+          color vs-orange
+          font-weight 600
+      &.solicitor-flags
+        span 
+          color white
+          background vs-grey
+          font-size 1.2rem
+          font-weight 600
+          border-radius 50%
+          height 25px
+          width 25px
+          display inline-flex
+          justify-content center
+          align-items center
+          margin-left 3px
+  &.cs-stats
+    .stats-item
+      display flex
+      flex-direction row
+      align-items center
+      .offer-thumbnail
+        background none
+        border-radius 0px
+        width 50px
+        height 50px
+        img 
+          margin-top 0px
+      .offer-content
+        display flex
+        flex-direction column
+        align-items flex-start
+      .offer-address
+        margin-bottom 0px
+        &.photos-date
+          color vs-orange
+.graph-box
+  background white
+  border-radius 20px
+  padding 20px 0px
+  h3
+    margin-top 0
+    margin-bottom 20px
+    margin-left: 20px
+    font-size 18px
+    font-weight 600
+
+.graph-container
+  padding 20px 0
+
+.chart-bars
+  display flex
+  justify-content flex-start
+  height 300px
+  margin-bottom 10px
+  padding 20px
+.bar-group
+  display flex
+  flex-direction column
+  align-items center
+  flex 1
+  max-width 80px
+  width calc(100% / 12)
+  margin: 0 3px
+.bars
+  display flex
+  gap 2px
+  align-items flex-end
+  width 100%
+  height 100%
+  margin-bottom 10px
+.bar
+  flex 1
+  min-height 0
+  background-color #ccc
+  border-radius 4px
+  position relative
+  transition all 0.3s ease
+  opacity 0
+  transform scaleY(0)
+  transform-origin bottom
+  display flex
+  align-items flex-end
+  justify-content center
+  padding-bottom 5px
+  &.animate
+    opacity 1
+    transform scaleY(1)
+    animation barGrow 0.6s ease-out forwards
+.bar-actual
+  background-color vs-grey
+.bar-target
+  background-color vs-orange
+
+.bar-value
+  font-size 11px
+  font-weight 600
+  color white
+  &.bar-value-small
+    color vs-grey
+    text-shadow none
+
+.bar-label
+  font-size 13px
+  color #666
+  margin-top 8px
+  text-align center
+
+.chart-legend
+  display flex
+  justify-content center
+  gap 30px
+  padding-top 20px
+  border-top 1px solid #eee
+
+.legend-item
+  display flex
+  align-items center
+  gap 8px
+  font-size 18px
+
+.legend-color
+  width 35px
+  height 35px
+  border-radius 4px
+
+.legend-actual
+  background-color vs-grey
+
+.legend-target
+  background-color vs-orange
+
+.legend-label
+  color #666
+
+.legend-value
+  font-weight 600
+  color #333
+
+@keyframes barGrow
+  from
+    opacity 0
+    transform scaleY(0)
+  to
+    opacity 1
+    transform scaleY(1)      
+.quick-links
+  .button-row 
+    display flex
+    flex-wrap wrap
+  a.big-link
+    color white
+    background vs-orange
+    border 1px solid vs-orange
+    font-size 1.8rem
+    line-height 2.4rem
+    display block
+    padding 15px 25px
+    border-radius 50px
+    transition all 0.4s linear
+    &:hover
+      background vs-grey
+      border 1px solid vs-grey
+      box-shadow none
+    svg
+      display block
+      font-size 6rem
+      margin 0 auto 30px
+@media screen and (max-width:1200px)
+  a.big-link
+    font-size: 2.4rem;
+    line-height: 3rem;
+    svg
+      font-size 4rem

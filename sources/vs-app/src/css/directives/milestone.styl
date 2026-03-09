@@ -1,0 +1,159 @@
+@import '../global/variables'
+.milestone
+  display flex
+  flex-direction column
+  align-items center
+  text-align center
+  font-size 1rem
+  cursor pointer
+  .icon
+    height 40px
+    width 40px
+    background vs-lightgrey
+    border none
+    border-radius 50%
+    margin-bottom 10px
+    position relative
+    font-size 2rem
+    display flex
+    justify-content center
+    align-items center
+    &:before
+      position absolute
+      top 10px
+      left 10px
+      width 20px
+      height 20px
+      content ''
+      border-radius 50%
+    &:after
+      font: var(--fa-font-duotone);
+      font-weight 300
+      color white
+    &.house, 
+    &.start
+      &:after
+        font-family: "Font Awesome Kit"
+        content '\e002'
+    &.credit-check-and-sme
+      &:after
+        content '\f316'
+    &.epc
+      &:after
+        content '\e473'
+    &.instruction
+      &:after
+        font-family: "Font Awesome Kit"
+        content '\e003'
+    &.inventory-booked
+      &:after
+        content '\f4b8'
+    &.inventory-issued
+      &:after
+        font-family: "Font Awesome Kit"
+        content '\e005'
+    &.board-and-window-updated
+      &:after
+        content '\f4d9'
+    &.asta-issued
+      &:after
+        content '\f570'
+    &.asta-signed
+      &:after
+        content '\f56c'
+    &.security-deposit-received
+      &:after
+        content '\e528'
+    &.rent-received
+      &:after
+        content '\f0d6'
+    &.draft
+      &:after
+        content '\f573'
+    &.move-in-booked
+      &:after
+        content '\e0d1'
+    &.move-in-complete
+      &:after
+        font-family: "Font Awesome Kit"
+        content '\e006'
+    &.fandf
+      &:after
+        content '\e016'
+    &.file-to-accounts
+      &:after
+        content '\f571'
+    &.readings-on-sme
+      &:after
+        content '\e1e9'
+    &.rental-complete
+      &:after
+        content '\f058'    
+    &.survey
+      &:after
+       content '\f737'
+    &.offer,
+    &.holding-deposit
+      &:after
+        content '\f657'
+    &.raised
+      &:after
+        font-family: "Font Awesome Kit"
+        content '\e002'
+    &.satisfied
+      &:after
+        content '\e509'
+    &.applied
+      &:after
+        content '\e521'
+    &.complete
+      &:after
+        content '\f00e'
+    &.report
+      &:after
+        content '\e0bc'
+    &.exchange
+      &:after
+        content '\f362'
+    &.invoice
+      &:after
+        font-family: "Font Awesome Kit"
+        content '\e004'
+    &.completion
+      &:after
+        content '\e7b0'
+    &.guarantor-id
+      &:after
+        content '\f2c2'
+    &.proof-of-address-ownership
+      &:after
+        content '\f602'
+    &.employer-reference
+      &:after
+        content '\f4fc'
+    &.guarantor-application-successful
+      &:after
+        content '\e1d9'
+  .title
+    font-size 1.4rem
+    line-height 1.8rem
+    font-weight 600
+    white-space normal
+    word-wrap break-word
+    min-height 55px
+    max-width 100px
+  &.progressing
+    .icon
+      background vs-amber
+  &.overdue
+    .icon
+      background vs-red
+  &.completed
+    .icon
+      background vs-green
+@media screen and (max-width:992px)
+  .milestone
+    width 50px
+    .title
+      font-size 0.8rem
+      line-height 1.2

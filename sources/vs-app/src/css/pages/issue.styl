@@ -1,0 +1,733 @@
+.issue-route
+  padding-top 30px
+  
+  .issue
+    .header-row
+      margin-bottom 30px
+      h1
+        font-size 2.8rem
+        font-weight 600
+        color vs-grey
+        margin-top 0px
+        margin-bottom 20px
+        i
+          margin-right 10px
+      h2
+        font-size 2rem
+        font-weight 600
+        margin-bottom 5px
+        i
+          margin-right 8px
+        span
+          display inline-block
+          font-weight 300
+      .edit-issue-button
+        flex-shrink 0
+        margin-left 15px
+        margin-bottom 20px
+        i 
+          margin-left 8px
+      .contacts
+        display flex
+        justify-content flex-end
+        .tenant
+          &:nth-of-type(2n)
+            margin-left 20px
+            padding-left 10px
+            border-left 1px solid vs-lightgrey
+      .contact-details
+        display flex
+        justify-content flex-end
+        margin-left 10px
+        font-size 1.6rem
+        .card
+          background none
+          border none
+          position relative
+          margin-bottom 10px
+          .contact-name
+            font-weight 600
+            margin-bottom 5px
+          .edit-btn
+            position absolute
+            top 10px
+            right 10px
+          .role
+            font-weight 600
+          .mail-link
+            width 200px
+            white-space nowrap
+            overflow hidden
+            text-overflow ellipsis
+          .edit-button
+            color vs-grey
+            margin-top 10px
+            margin-bottom 20px
+    
+    .issue-details-section
+      background white
+      border-radius 20px
+      padding 30px
+      margin-bottom 20px
+      
+    .info-card
+      background white
+      border 1px solid vs-lightgrey
+      border-radius 20px
+      padding 25px
+      margin-bottom 20px
+      transition all 0.3s ease
+      &:hover
+        box-shadow 0 4px 12px rgba(0,0,0,0.08)
+      h3
+        font-size 1.8rem
+        font-weight 600
+        color vs-grey
+        margin-bottom 15px
+        i
+          margin-right 10px
+    .source
+      width 120px
+      height 80px
+      display flex
+      align-items center
+      justify-content center
+      background vs-body
+      border-radius 10px
+      text-transform uppercase
+      font-weight 600
+      font-size 1.2rem
+      color vs-grey
+      background-repeat no-repeat
+      background-position center
+      margin-bottom: 10px
+      &.walkin
+        background-image url(./public/img/icons/walkin.svg)
+        background-color vs-body
+        background-size contain
+        width 50px
+        height 50px
+        text-indent -9999px
+      &.telephone
+        background-image url(./public/img/icons/phone-office-duotone.svg)
+        background-color vs-body
+        background-size contain
+        width 50px
+        height 50px
+        text-indent -9999px
+      &.email
+        background-image url(./public/img/icons/email-duo.svg)
+        background-color vs-body
+        background-size contain
+        width 50px
+        height 50px
+        text-indent -9999px
+      &.fixflo
+        background-image url(./public/img/fixflo-logo.svg)
+        background-color white
+        background-size 100px 50px
+        width 100px
+        height 50px
+        text-indent -9999px
+      &.icn-house
+        background-image url(./public/img/vs_house.png)
+        background-size contain
+        text-indent -9999px
+      &.sorting.desc
+        background-image url(./public/img/icons/sort-amount-down-alt-light.svg)
+        background-size 25px
+      &.sorting
+        background-image url(./public/img/icons/sort-amount-up-alt-light.svg)
+        background-size 25px
+      &.pipeline-logo
+        max-height 30px
+        border-radius 5px
+        margin-right 10px
+    .details
+      border 1px solid vs-lightgrey
+      border-radius 20px
+      background white
+      padding 30px
+      transition all 0.3s ease
+      &:hover
+        box-shadow 0 4px 12px rgba(0,0,0,0.08)
+      h3
+        font-size 1.8rem
+        font-weight 600
+        color vs-grey
+        margin-bottom 15px
+        i
+          margin-right 10px
+      p
+        font-size 1.6rem
+        line-height 1.6
+        color vs-grey
+        
+    .controls
+      margin-top 0px
+      margin-bottom 0px
+      .button
+        i
+          margin-left 8px
+  
+  // Header section
+  .header-row
+    margin-bottom 30px
+    h1
+      font-size 2.8rem
+      font-weight 600
+      color vs-grey
+      margin-top 0px
+      margin-bottom 20px
+      i
+        margin-right 10px
+    h2
+      font-size 2rem
+      font-weight 600
+      margin-bottom 5px
+      &.issue-address
+        span
+          font-weight 300
+          color vs-silver
+          font-size 1.6rem
+          margin-left 15px
+      i
+        margin-right 8px
+      span
+        display inline-block
+        font-weight 300
+    .edit-issue-button
+      flex-shrink 0
+      margin-left 15px
+      margin-bottom 20px
+      i 
+        margin-left 8px
+  
+  h1
+    display flex
+    align-items center
+    .source-icon
+      margin 0
+      
+  h2.issue-address
+    color vs-grey
+    display flex
+    justify-content space-between
+    margin-top 10px
+    margin-bottom 20px
+    span
+      color vs-silver
+      font-weight 300
+      font-size 1.6rem
+  .nav-row
+    margin-bottom 10px
+    nav
+      display flex
+      justify-content flex-end
+      gap 10px
+      a
+        margin-left 15px
+        font-size 1.4rem
+        color vs-orange
+        font-weight 600
+        align-items center
+        i
+          color vs-grey
+  // Source icons
+  .source-icon
+    display inline-block
+    vertical-align middle
+    width 35px
+    height 35px
+    margin-left 15px
+    position relative
+    top -3px
+    &.email
+      background url(./public/img/icons/vs_icons.png) no-repeat
+      background-position -130px -336px
+      zoom 0.4
+    &.telephone
+      background url(./public/img/icons/vs_icons.png) no-repeat
+      background-position -16px -336px
+      zoom 0.4
+    &.walkin
+      background url(./public/img/icons/vs_icons.png) no-repeat
+      background-position -256px -336px
+      zoom 0.4
+    &.fixflo
+      background url(./public/img/icons/vs_icons.png) no-repeat
+      background-position -382px -336px
+      zoom 0.4
+  
+  .form-holder.issue-header
+    background white
+    border 1px solid vs-lightgrey
+    border-radius 20px
+    padding 25px
+    margin-bottom 20px
+    label.checkbox-label
+      display inline-flex
+      margin-top: 30px
+      margin-right 25px
+      font-size 1.6rem
+      font-weight 500
+      color vs-grey
+      cursor pointer
+      input[type="checkbox"]
+        margin-left 8px
+        width 18px
+        height 18px
+        cursor pointer
+        border: 1px solid vs-lightgrey
+        &:checked
+          background vs-orange
+          border-color vs-orange
+    .quote
+      label
+        font-size 1.4rem
+        font-weight 600
+        color vs-grey
+        margin-bottom 5px
+        display block
+      input[type="text"]
+        width 100%
+        padding 10px 15px
+        border 1px solid vs-lightgrey
+        border-radius 8px
+        font-size 1.5rem
+        margin-bottom 0
+    .quote-save
+      display flex
+      align-items flex-end
+      button
+        margin-bottom 0
+        i
+          margin-left 8px
+  
+  .tenant-details
+    background white
+    border 1px solid vs-lightgrey
+    border-radius 20px
+    padding 25px
+    margin-bottom 20px
+    h3
+      font-size 1.8rem
+      font-weight 600
+      color vs-grey
+      margin-bottom 15px
+      i
+        margin-right 10px
+        color vs-orange
+    p
+      font-size 1.6rem
+      line-height 1.8
+      color vs-grey
+      .tenant-name
+        font-weight 600
+        font-size 2rem
+        color vs-grey
+      .tenant-email, .tenant-phone
+        display block
+        margin-top 8px
+        i
+          margin-right 8px
+          color vs-orange
+          width 20px
+      a
+        color vs-orange
+        text-decoration none
+        &:hover
+          text-decoration underline
+    .edit-icons
+      margin-top 25px
+      padding-top 20px
+      border-top 1px solid vs-lightgrey
+      h3
+        font-size 1.6rem
+        margin-bottom 10px
+      i, svg
+        font-size 3rem
+        color vs-grey
+        margin-right 15px
+        cursor pointer
+        transition all 0.3s ease
+        &:hover
+          color vs-orange
+      span.disabled i
+        opacity 0.3
+        cursor not-allowed
+        &:hover
+          color vs-grey
+  
+  .issue-details
+    background white
+    border 1px solid vs-lightgrey
+    border-radius 20px
+    padding 25px
+    margin-bottom 20px
+    h2
+      font-size 2.2rem
+      font-weight 600
+      margin-bottom 20px
+      &.orange
+        color vs-orange
+    h3
+      font-size 1.6rem
+      font-weight 600
+      color vs-grey
+      margin-bottom 10px
+      margin-top 15px
+      &:first-of-type
+        margin-top 0
+    p
+      font-size 1.5rem
+      line-height 1.6
+      color vs-grey
+      margin-bottom 15px
+  
+  // Issue actions row
+  .issue-actions
+    background white
+    border 1px solid vs-lightgrey
+    border-radius 20px
+    padding 25px
+    margin-bottom 20px
+    margin-top 0
+    border-top none
+    h3
+      font-size 1.6rem
+      font-weight 600
+      color vs-grey
+      margin-bottom 10px
+    label
+      font-size 1.4rem
+      font-weight 500
+      color vs-grey
+      margin-bottom 5px
+      display block
+    .form-item
+      margin-bottom 0
+  
+  // Contractor actions
+  .contractor-actions
+    background white
+    border 1px solid vs-lightgrey
+    border-radius 20px
+    padding 25px
+    margin-bottom 20px
+    h3
+      font-size 1.6rem
+      font-weight 600
+      color vs-grey
+      margin-bottom 10px
+    label
+      font-size 1.4rem
+      font-weight 500
+      color vs-grey
+      margin-bottom 5px
+      display block
+    input[type="text"]
+      width 100%
+      padding 10px 15px
+      border 1px solid vs-lightgrey
+      border-radius 8px
+      font-size 1.5rem
+      background vs-body
+      margin-bottom 0
+      &:disabled
+        cursor not-allowed
+    .button
+      i 
+        margin-left 8px
+    .SumoSelect,
+    select
+      margin-bottom 0
+  
+  // Button rows
+  .button-row
+    margin-bottom 15px
+    button
+      width 100%
+      i
+        margin-right 8px
+  
+  .button-green
+    background #28a745
+    color white
+    border none
+    padding 12px 25px
+    border-radius 8px
+    font-size 1.6rem
+    font-weight 500
+    cursor pointer
+    transition all 0.3s ease
+    &:hover
+      background #218838
+  
+  // Documents section
+  h2
+    font-size 2.2rem
+    font-weight 600
+    color vs-grey
+    margin-bottom 15px
+    i
+      margin-right 10px
+    span
+      font-size 1.8rem
+      margin-left 5px
+  
+  .documents-section 
+      display flex
+      flex-direction column
+      justify-content space-between
+      height 100%
+    .flex-pipeline
+      display flex
+      flex-direction column
+      margin-top 10px
+      margin-bottom 50px
+      gap 0px
+      h2
+        margin-right 15px
+      .staff-selection
+        display flex
+        flex-direction row
+        align-items center
+        gap 20px
+        width 100%
+        background: vs-white
+        border-radius 30px
+        padding 15px 30px 5px 30px
+        label
+          font-size 1.8rem
+          font-weight 600
+          color vs-grey
+    .document-list
+      .document
+        display flex
+        align-items center
+        padding 10px
+        margin-bottom 10px
+        background white
+        border 1px solid vs-lightgrey
+        border-radius 30px
+        transition all 0.2s ease
+        &:hover
+          box-shadow 0 2px 8px rgba(0,0,0,0.1)
+        .document-icon-wrapper
+          flex-shrink 0
+          width 50px
+          height 40px
+          margin-right 10px
+          .document-link
+            display block
+            width 100%
+            height 100%
+            img
+              width 100%
+              height 100%
+              object-fit cover
+              border-radius 5px
+            .document-icon
+              width 100%
+              height 100%
+              display flex
+              align-items center
+              justify-content center
+              i
+                font-size 3rem
+                color vs-grey
+        .document-details
+          flex 1
+          min-width 0
+          .filename
+            font-size 16px
+            font-weight 600
+            color vs-grey
+            span
+              display block
+              white-space nowrap
+              overflow hidden
+              text-overflow ellipsis
+            input
+              width 100%
+              padding 5px 10px
+              border 1px solid vs-lightgrey
+              border-radius 5px
+              font-size 16px
+        .document-actions
+          display flex
+          gap 10px
+          flex-shrink 0
+          a
+            display flex
+            align-items center
+            justify-content center
+            width 35px
+            height 35px
+            border-radius 50%
+            transition all 0.2s ease
+            i
+              font-size 18px
+          .edit-icon, .save-icon
+            &:hover
+              background vs-body
+              i
+                color vs-orange
+          .delete-icon
+            &:hover
+              background #fee
+              i
+                color vs-red
+    .drop-box
+      margin-top 10px
+  // Case notes section
+  .case-notes
+    border 1px solid vs-lightgrey
+    padding 30px
+    margin 10px 0 30px
+    border-radius 30px
+    background white
+    .case-note
+      background vs-white
+      padding 20px
+      margin 10px 0
+      border-radius 20px
+      .header-row
+        display flex
+        justify-content space-between
+        margin-bottom 10px
+      .date 
+        font-weight 600
+        line-height 1.2
+        display flex
+        align-items center
+        .date 
+          font-weight 400
+          font-size 1.4rem
+          color vs-orange
+      .actions
+        border 1px solid #ccc
+        border-radius 20px
+        padding 5px 10px
+        display flex
+        justify-content center
+        gap 10px
+        height 30px
+      .edit, .delete
+        color vs-grey
+        display inline-flex
+        align-items center
+        justify-content center
+        float right
+      p, h1, h2, h3, h4, h5, h6
+        margin 0 0 0px 0
+      img
+        margin-right 10px
+        border-radius 50%
+        width 48px
+  .add-note
+    margin-top 10px
+    .CodeMirror
+      border 1px solid vs-lightgrey
+      border-radius 5px
+      background #f1f1f1
+      padding-left 15px
+      height 120px
+      pre
+        font-size 1.8rem
+    button
+      margin 0px
+      background vs-orange
+      color white
+      border vs-orange
+      &:hover
+        background vs-grey
+  
+  // Form holder for add/edit
+  .form-holder
+    background white
+    border 1px solid vs-lightgrey
+    border-radius 20px
+    padding 30px
+    margin-bottom 20px
+    h3
+      font-size 1.8rem
+      font-weight 600
+      color vs-grey
+      margin-bottom 15px
+      margin-top 25px
+      &:first-child
+        margin-top 0
+    .form-row
+      margin-bottom 20px
+      border-bottom 1px solid vs-lightgrey
+      padding-bottom 10px
+      &.top-row
+        padding-bottom 20px
+        border-bottom 2px solid vs-lightgrey
+    label
+      font-size 1.4rem
+      font-weight 500
+      color vs-grey
+      margin-bottom 5px
+      display block
+    input[type="text"],
+    input[type="email"],
+    textarea
+      width 100%
+      padding 10px 15px
+      border 1px solid vs-lightgrey
+      border-radius 8px
+      font-size 1.5rem
+      &:focus
+        outline none
+        border-color vs-orange
+    textarea
+      min-height 100px
+      resize vertical
+    .error
+      color #dc3545
+      font-size 1.3rem
+      margin-top 5px
+    .controls
+      margin-top 30px
+      padding-top 20px
+      border-top 1px solid vs-lightgrey
+      .button
+        margin-right 10px
+  
+  .message-center
+    background white
+    border 1px solid vs-lightgrey
+    border-radius 20px
+    padding 30px
+    padding 30px
+  .notes-and-messages
+    margin-bottom 20px
+
+@media (max-width: 768px)
+  .issue-route
+    .issue
+      .header-row
+        .edit-issue-button
+          margin-left 0
+        .contacts 
+          justify-content flex-start
+          margin-top 15px
+          padding-top 15px
+          border-top 1px solid vs-lightgrey
+        .contact-details
+          justify-content flex-start
+          margin-left 0
+          margin-right 10px
+    .nav-row
+      nav
+        justify-content flex-start
+    .form-holder.issue-header
+      .quote-save
+        margin-top 10px
+    .contractor-actions
+      .button
+        margin-top 10px
+  

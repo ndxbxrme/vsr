@@ -1,0 +1,39 @@
+.has-popout
+  position relative
+  cursor pointer
+.popout
+  cursor default
+  background vs-text
+  position absolute
+  font-size 1.28rem
+  display flex
+  flex-direction column
+  top calc(100% + 3px)
+  visibility hidden
+  pointer-events none
+  box-shadow 0 0.61rem 1.28rem rgba(57,74,88,.382)
+  border 1px solid vs-brightwhite
+  border-top none
+  &:before
+    content ''
+    position absolute
+    width 20px
+    height 20px
+    transform rotate(45deg)
+    top -3px
+    left 6px
+    background vs-text
+    z-index -1
+  &.out
+    visibility visible
+    pointer-events all
+  a
+    color #ccc
+    padding 0.5rem 1.6rem
+    background-color rgba(0,0,0,.044)
+    transition .1s
+  a[href]
+    color white
+  a[href]:hover
+    background-color mix(vs-text, white, 80)
+  

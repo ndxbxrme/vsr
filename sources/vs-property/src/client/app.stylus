@@ -1,0 +1,451 @@
+@import 'variables'
+input, textarea, button
+  -webkit-appearance none
+  -moz-appearance none
+  -ms-appearance none
+  -o-appearance none
+  appearance none
+  --webkit-border-radius 0
+body
+  font-family 'Arial', sans-serif
+  margin 0
+  display flex
+  flex-direction column
+  background #fff!important
+  -webkit-text-size-adjust 100%
+  .body
+    flex 1
+    transition 0.4s
+    z-index 10
+    background #fff
+    width 100%
+    transform translateX(0px)
+    &.mobile-menu-out
+      transform translateX(-180px)  
+  .viewings, .feedback, .offers, .admin
+    h2 
+      font-family ProximaNova-SemiBold, sans-serif
+    .prop-single
+      margin-bottom 30px
+      padding 10px 20px 20px 20px
+      border-radius 20px
+      background white
+      h3
+        color vs-grey
+        font-family ProximaNova-SemiBold, sans-serif
+        margin-bottom 30px
+      .nav-tabs
+        border-bottom 1px solid vs-grey
+        display flex
+        justify-content space-between
+        margin-bottom 30px
+        &>li 
+          width 33.33%
+          text-align center
+          a
+            color vs-grey
+            font-size 20px
+            font-family ProximaNova-SemiBold, sans-serif
+            border none
+            width  100%
+          &.active a
+            border-bottom 2px solid vs-orange
+          .badge
+            color vs-grey
+            font-family ProximaNova-SemiBold, sans-serif
+            font-size 16px
+            margin-left 10px
+            padding 5px 15px
+            background none
+            border 1px solid vs-lightgrey
+            border-radius 30px
+      .viewing,
+      .no-viewings
+        border 1px solid vs-lightgrey
+        border-radius 20px
+        margin-bottom 15px
+        .viewing-header
+          display flex
+          justify-content space-between
+          align-items center
+          padding 10px 20px
+          border-bottom 1px solid vs-lightgrey
+          .person
+            display flex
+            align-items center
+            width 25%
+            img
+              border-radius 50%
+              margin-right 10px
+            span
+              font-family ProximaNova-SemiBold, sans-serif
+              font-size 18px
+          .person-position, .viewing-date, .viewing-time
+            width 25%
+            p
+              margin 0
+              font-size 16px
+              span
+                font-family ProximaNova-SemiBold, sans-serif
+          .viewing-date, .viewing-time
+            text-align right
+        .viewing-details
+          padding 10px 20px
+          display flex
+          justify-content space-between
+          align-items center
+          .viewing-status
+            color white
+            background vs-orange
+            padding 5px 15px
+            border-radius 20px
+            font-family ProximaNova-SemiBold, sans-serif
+          .viewing-accompanied
+            display flex
+            align-items center
+            justify-content flex-end 
+            p
+              margin 0 10px
+              font-size 14px
+              line-height 1.2
+            .person
+              display flex
+              align-items center
+              margin-right 10px
+              line-height 1.2
+              img
+                border-radius 50%
+                margin-right 5px
+                border 1px solid vs-lightgrey
+              span
+                font-family ProximaNova-SemiBold, sans-serif
+                font-size 14px
+      .no-viewings
+        padding 10px 20px
+        .col-xs-12
+          float none
+        a
+          position relative
+          display block
+          width 100%
+          img
+            max-width 100%
+            height 250px
+            object-fit cover
+            border-radius 20px 
+            margin-bottom: 20px    
+          &:after
+            content ''
+            position absolute
+            top 0
+            left 0
+            right 0
+            bottom 0  
+            background-color rgba(0, 0, 0, 0.5)
+            mix-blend-mode multiply
+            border-radius 20px
+            pointer-events none
+          span
+            color: white
+            font-size 20px
+            font-family ProximaNova-SemiBold, sans-serif
+            position absolute
+            top 70px
+            left 30px
+            width 55%
+            z-index 1
+            &.title
+              color vs-orange
+              font-size 25px
+              top 30px
+              
+          &:hover
+            img
+              filter grayscale(100%)
+              transition: all 1s ease
+              box-shadow none
+              background #f1f1f1
+            span
+              color white
+  .feedback
+    .feedback-controls
+      display flex
+      align-items center
+      .viewing-notes
+        color vs-orange
+        font-family ProximaNova-SemiBold, sans-serif
+        margin-left: 10px
+        padding 5px 15px
+        border-radius 20px
+        border 1px solid vs-lightgrey
+        transition all 0.4s ease
+        i
+          color vs-lightgrey
+          margin-right 10px
+        &:hover
+          color white
+          background vs-orange
+          border-color vs-orange
+    .modal
+      z-index 1050
+    .modal-backdrop
+      z-index 1040
+
+  .offers
+    .prop-single
+      padding 0px
+      background none
+    .offer-item
+      background white
+      .viewing-header
+        .offer-property
+          p
+            margin 0
+            font-size 14px
+            color vs-grey
+            span
+              font-family ProximaNova-SemiBold, sans-serif
+        .offer-datetime
+          p
+            margin 0
+            font-size 16px
+            span
+              font-family ProximaNova-SemiBold, sans-serif
+      .viewing-details
+         .offer-amount
+          p
+            margin 0
+            font-size 16px
+            span.amount
+              font-family ProximaNova-SemiBold, sans-serif
+              color vs-orange
+              font-size 24px
+              margin-left 5px
+        .offer-controls
+          display flex
+          align-items center
+          gap 15px
+          .viewing-status
+            &.accepted
+              background vs-green
+              color white
+          .viewing-notes
+            color vs-orange
+            font-family ProximaNova-SemiBold, sans-serif
+            padding 5px 15px
+            border-radius 20px
+            border 1px solid vs-lightgrey
+            transition all 0.4s ease
+            i
+              color vs-lightgrey
+              margin-right 10px
+            &:hover
+              color white
+              background vs-orange
+              border-color vs-orange
+
+
+  .admin 
+    table tbody:last-of-type td
+      border-bottom 1px solid #f1f1f1
+    .controls input[type=text]
+      width 300px
+      margin 20px 0
+      padding 10px
+      background #f1f1f1          
+
+.subscribed, .unsubscribed
+  display flex
+  flex-direction column
+  align-items center
+
+// Title Row
+.title-row
+  display flex
+  align-items center
+  justify-content space-between
+  margin-bottom 20px
+  &:before, 
+  &:after 
+    display none
+
+// Buttons
+.property-hub
+  .medium.button
+    color vs-grey
+    background white
+    font-size 18px 
+    font-family ProximaNova-SemiBold, sans-serif
+    margin-right 10px
+    padding 10px 20px
+    border 1px solid vs-lightgrey
+    display inlineflex
+    align-items center
+    margin-bottom 10px
+    text-align center
+    border-radius 30px
+    width auto
+    box-shadow none
+    i,svg
+      font-size 2rem
+      margin-right 10px
+    &.orange
+      color vs-orange
+      i,svg
+        color vs-lightgrey
+
+// Modal
+html
+  overflow-y scroll !important
+// Prevent Bootstrap from adding padding when modal opens
+body.modal-open
+  width 100%
+  padding-right 0px !important
+  overflow visible !important
+// Override any inline padding-right styles Bootstrap adds
+body.modal-open [style*="padding-right"]
+  padding-right 0px !important
+.modal
+  .modal-dialog
+    max-width 700px
+  .modal-content
+    border-radius 20px
+    border 1px solid vs-lightgrey
+    box-shadow 0 5px 15px rgba(0,0,0,0.3)
+  .modal-header
+    padding 20px
+    border-bottom 1px solid vs-lightgrey
+    border-radius 20px 20px 0 0
+    .close
+      font-size 28px
+      font-family ProximaNova-SemiBold, sans-serif
+      opacity 0.5
+      position absolute
+      top 20px
+      right 0px
+      border 1px solid vs-lightgrey
+      border-radius 20px
+      height 30px
+      width 30px
+      display flex
+      align-items center
+      justify-content center
+      &:hover
+        opacity 1
+    .modal-title
+      color vs-grey
+      font-family ProximaNova-SemiBold, sans-serif
+      font-size 24px
+      margin 0
+    .modal-subtitle
+      margin-top 15px
+      display flex
+      align-items center
+      color vs-grey
+      .person
+        display flex
+        align-items center
+        margin-right 10px
+        img
+          border-radius 50%
+          margin-right 10px
+          width 32px
+          height 32px
+        span
+          font-family ProximaNova-SemiBold, sans-serif
+  .modal-body
+    padding 20px
+    .feedback-container
+      .viewing-feedback,
+      .feedback-request
+        margin-bottom 20px
+        &:last-child
+          margin-bottom 0
+        .feedback-header
+          h4
+            color vs-grey
+            font-family ProximaNova-SemiBold, sans-serif
+            font-size 18px
+            margin-bottom 15px
+        .feedback-list
+          .feedback-entry
+            padding 15px
+            border 1px solid vs-lightgrey
+            border-radius 15px
+            margin-bottom 10px
+            &:last-child
+              margin-bottom 0
+            h6
+              color vs-orange
+              font-family ProximaNova-SemiBold, sans-serif
+              font-size 14px
+              margin 0 0 10px 0
+            p
+              color vs-grey
+              margin 0
+              line-height 1.5
+  .modal-footer
+    padding 15px 20px
+    border-top 1px solid vs-lightgrey
+    border-radius 0 0 20px 20px
+    text-align right
+    .btn
+      padding 10px 20px
+      border-radius 20px
+      font-family ProximaNova-SemiBold, sans-serif
+      &.btn-default
+        background white
+        border 1px solid vs-lightgrey
+        color vs-grey
+        &:hover
+          background #f1f1f1
+
+@media (max-width: 768px)
+  body
+    .viewings, .feedback, .offers, .admin
+      padding 20px 0px
+      h2
+        font-size 20px
+      .prop-single
+        .nav-tabs
+          &>li 
+            width 33.33%
+            text-align center
+            a
+              font-size 16px
+        .viewing
+          .viewing-header
+            flex-direction column
+            align-items flex-start
+            .person, .person-position, .viewing-date, .viewing-time
+              width 100%
+              margin-bottom 0px
+            .viewing-date, .viewing-time
+              text-align left
+            p
+              padding: 5px 0px
+          .viewing-details
+            flex-direction column
+            align-items flex-start
+            padding 20px
+            .viewing-status, .viewing-accompanied
+              margin-bottom 0px
+              flex-direction column
+              align-items flex-start
+        .no-viewings
+          a 
+            img 
+              height 200px
+            span
+              width 100%
+              left 20px
+    .feedback
+      .feedback-controls
+        flex-direction column
+        align-items flex-start
+        .viewing-notes
+          margin-top 10px
+          margin-left 0px
+          i 
+            margin-right 0px
+        

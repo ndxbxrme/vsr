@@ -1,0 +1,124 @@
+.client-management-details
+  h1 Case 
+  h2 At a glance
+  .property()
+    h5.loading(ng-show='property.loading') Contacting Dezrez
+    .property-item
+      .property-image(style='background-image: url({{property.item.Images[0].Url}})')
+      .property-status
+        .item
+          label Address:
+          h4 {{property.item.displayAddress}}
+        .item
+          label Property Status
+          h4 {{property.item.RoleStatus.DisplayName}}
+      .property-marketing
+        .item(ng-show='!loading("offers")')
+          label Offers:
+          h4 {{property.item.offers.TotalCount}}
+        .item(ng-show='!loading("all")')
+          label Viewings:
+          h4 {{property.item.viewings.length}}
+
+    .header1
+      .info
+        h2 
+          i.mortgage.ic50
+          |  Property Report
+        p Date Instructed 
+          span {{property.item.DateInstructed | date:'mediumDate'}}
+    .row.results
+      .col-md-3.col-sm-6
+        i.vs-iconsale.ic50
+        p {{property.item.DateInstructed | daysSince}}
+        p.small On Market
+      .col-md-3.col-sm-6(ng-show='!loading("all")')
+        i.vs-iconstaff.ic50
+        p {{property.item.viewings.length}}
+        p.small Viewings Arranged
+      .col-md-3.col-sm-6(ng-show='!loading("all")')
+        i.vs-iconstaff.ic50
+        p {{property.item | viewingContacted}}
+        p.small Viewings Conducted
+      .col-md-3.col-sm-6(ng-show='!loading("all")')
+        i.guarantor.ic50
+        p {{property.item | getFeedbackCount}}
+        p.small Feedback Received
+      .col-md-3.col-sm-6
+        i.mail
+        p {{property.item | numMailouts}}
+        p.small Mail Outs
+      .col-md-3.col-sm-6
+        i.vs-iconphoto.ic50
+        p {{property.item.Images.length}}
+        p.small Photographs
+      .col-md-3.col-sm-6
+        i.vs-iconvideo.ic50
+        p {{ property.item | hasDocument:'Virtual Tour' }}
+        p.small Video Walkthrough
+      .col-md-3.col-sm-6
+        i.offer.ic50
+        p {{property.item.offers.TotalCount}}
+        p.small Offers Received
+    
+    .rightmove-stats
+      .info
+        img(src="../../public/img/rm-logo.svg" width="300")
+        p Online Stats - Updated 
+          span {{property.item.rightmove.RightmoveStatsLastExportedDate | date:'mediumDate'}}
+    .row.stats
+      .col-md-3.col-sm-6
+        i.vs-iconsearch.ic50
+        p {{property.item.rightmove.TotalSummaryViews}}
+        p.small Summary Views
+      .col-md-3.col-sm-6
+        i.vs-icondocument.ic50
+        p {{property.item.rightmove.TotalDetailedViews}}
+        p.small Detail Views
+      .col-md-3.col-sm-6
+        i.reserving.ic50
+        p {{property.item.rightmove.IsCurrentlyAPremiumListing ? 'Yes' : 'No'}}
+        p.small Premium Listing
+      .col-md-3.col-sm-6
+        i.vs-iconthumb.ic50
+        p {{property.item.rightmove.IsCurrentlyAFeaturedProperty ? 'Yes' : 'No'}}
+        p.small Feature Property
+
+
+
+    .header1
+      .info
+        h2 
+          i.mortgage.ic50
+          |  Our Client(s)
+        p Fee
+          span &nbsp;{{property.item | getFees | currency : "£" : 0}} + VAT
+    .contacts.row
+      .contact-details.col-sm-6(ng-repeat='vendor in property.item.vendor.Members')
+        h4 {{$index===0?"Vendor's Contact":""}}
+        .card
+          div
+            .name
+              span {{vendor.Person.ContactName}}
+            .communication
+              .telephone
+                span {{vendor.Person.PrimaryTelephone.Value}}
+              .email
+                span
+                  a.mail-link(href='mailto:{{vendor.Person.PrimaryEmail.Value}}') {{vendor.Person.PrimaryEmail.Value}}
+    .case-notes
+      h2.orange Case Notes
+      .case-note(ng-repeat='note in notesData = ( getNotes() | orderBy:"-date" ) | limitTo:notesLimit:notesLimit*(notesPage-1)')
+        .date {{note.date | date:'mediumDate'}}, {{note.date | date:'shortTime'}} | 
+          img(gravatar-src='note.user.local.email')  
+          span {{note.user.displayName || note.user.local.email}}
+          a.delete(href='', ng-click='deleteNote(note)', ng-show='auth.checkRoles(["admin", "superadmin"]) && !note.advanceTo') Delete
+          a.edit(href='', ng-click='editNote(note)', ng-show='auth.checkRoles(["admin","superadmin"]) && !note.advanceTo') Edit
+        .note 
+          .details
+            span(ng-show='note.side') - {{note.side}}
+            .note-body(ng-bind-html='note.text | markdown:true')
+      pagination.pagination-sm.pagination(total='notesData.length', ng-model='notesPage', page-size='notesLimit')
+      .add-note
+          code-mirror(ng-model='note.text', options='{mode:markdown, lineWrapping:true}')
+          button(ng-click='addNote()') {{note.date?'Update':'Add'}} Note

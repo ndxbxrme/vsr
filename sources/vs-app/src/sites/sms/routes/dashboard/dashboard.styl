@@ -1,0 +1,33 @@
+.sms-dashboard-route
+  padding-top 30px
+  .tabs
+    display flex
+    .nav-link
+      &.disabled
+        opacity 0.5
+        cursor not-allowed
+        pointer-events none
+        &:hover
+          background-color transparent
+          border-color transparent
+    .tab
+      padding .5em
+      margin .5em .5em .5em 0
+      background white
+      min-width 5em
+      display flex
+      justify-content center
+      &.selected
+        background blue
+  .confirm-details
+    .item
+      display flex
+      label
+        min-width 9em
+      .number-details
+        white-space pre-wrap
+        max-height 5em
+        overflow hidden
+        text-overflow ellipsis
+        &:hover
+          max-height 2000em

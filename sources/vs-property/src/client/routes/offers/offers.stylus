@@ -1,0 +1,39 @@
+@import '../../variables'
+.offers
+  background #f1f1f1
+  padding 45px 0px
+  height 100%
+  h2 
+    margin-top 
+    
+body
+  .offers
+    .prop-single
+      .viewing
+        .viewing-header
+          align-items flex-end
+          .person
+            flex-direction column
+            align-items flex-start
+            width 30%
+            p,
+            p span
+              font-size 14px
+              padding-top 0px
+          .person-position
+            width 40%
+  
+@media (max-width: 768px)
+  body
+    .offers
+      .prop-single
+        .viewing
+          .viewing-header
+            align-items flex-start
+            .person
+              width 100%
+              p,
+              p span
+                padding-bottom 0px
+            .person-position
+              width 100%

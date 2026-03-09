@@ -1,0 +1,127 @@
+.dashboard(ng-show='auth.getDezrezUser()')
+  .intro-row
+    .container          
+      .row.align-items-center
+        .col-md-6
+          .intro
+            h2 {{getSalutation()}} 
+              span {{auth.getUser().dezrez.ContactName}}
+            p.lead Welcome to the VitalSpace online dashboard
+            p Our dashboard is an overview of any activity relating to your property. You can use the main navigation above or click the boxes below to take action.
+            p All updates are delivered on a real time basis
+        .col-md-6
+          img.mp-image(src="public/img/dashboard-image.jpg", alt="Dashboard Overview")
+
+  .property-details
+    .container
+      .row.mt-4
+        .col-xs-12.buttons
+          a(href='/viewings').icon-button
+            i.fa-duotone.fa-light.fa-eye
+            span Viewings
+          a(href='/feedback').icon-button
+            i.fa-duotone.fa-light.fa-comment-smile
+            span Feedback
+          a(href='/offers').icon-button
+            i.fa-duotone.fa-light.fa-envelope-open-dollar
+            span Offers
+          a(href='/conveyancing').icon-button
+            i.fa-duotone.fa-light.fa-bar-progress-three-quarters
+            span Conveyancing
+          a(href="https://vitalspace.co.uk/offer-solicitor-quote/", target="_blank").icon-button
+            i.fa-duotone.fa-light.fa-scale-balanced
+            span Need a Solicitor?
+        .col-xs-12.property-summary
+          h2 My Property Summary
+          .row
+            .property(ng-repeat='property in getProperties() | filter:isCurrentProperty')
+              .col-md-5
+                h5.loading(ng-show='property.loading') Contacting Dezrez
+                a(href='/{{property.id}}/property', ng-hide='property.error || property.loading || !property.details.Address')
+                  .property-item
+                    .property-image
+                      img(ng-src='{{property.details.Images[0].Url}}' alt='{{property.Address.Street}}')
+                    span.status {{property.details.RoleStatus.DisplayName}}
+                h4 {{property.Address.Number}} {{property.Address.Street }}, {{property.Address.Locality }}, {{property.Address.Town}}
+                p.date-instructed Date Instructed 
+                  span {{property.details.DateInstructed | date:'mediumDate'}}
+                .progression-bar(ng-show='property.progressions && property.progressions.length')
+                  .progression-label Sale Progress: {{getProgressionPercent(property)}}%
+                  .progression-track
+                    .progression-fill(style='width: {{getProgressionPercent(property)}}%')
+                .buttons
+                  
+              .col-md-1
+              .col-md-6
+                .property-report
+                  .results
+                    .result
+                      i.fa-duotone.fa-light.fa-hourglass-clock
+                      p 
+                        span {{property.details.DateInstructed | daysSince}}
+                        |  On Market
+                    .result(ng-show='!loading("all")')
+                      i.fa-duotone.fa-light.fa-eye
+                      p 
+                        span {{property.viewings.length}}
+                        |  Viewings Arranged
+                    .result(ng-show='!loading("all")')
+                      i.fa-duotone.fa-light.fa-bullseye-pointer
+                      p 
+                        span {{property | viewingContacted}}
+                        |   Viewings Conducted
+                    .result(ng-show='!loading("all")')
+                      i.fa-duotone.fa-light.fa-comment-smile
+                      p 
+                        span {{property | getFeedbackCount}}
+                        |  Feedback Received
+                    .result
+                      i.fa-duotone.fa-light.fa-mailbox-open-letter
+                      p 
+                        span {{property.mailouts}}
+                        |  Mail Outs
+                    .result
+                      i.fa-duotone.fa-light.fa-camera
+                      p 
+                        span {{property.details.Images.length}}
+                        |  Photographs
+                    .result
+                      i.fa-duotone.fa-light.fa-video
+                      p 
+                        | Video Walkthrough: 
+                        span {{ property | hasDocument:'Virtual Tour' }}
+                    .result
+                      i.fa-duotone.fa-light.fa-envelope-open-dollar
+                      p 
+                        span {{property.offers.length}}
+                        |  Offers Received
+                    
+                  .rightmove-stats
+                    .info
+                      img(src="../../public/img/rm-logo.svg" width="200")
+                      p.updated Online Stats - Updated 
+                        span {{property.portals.RightmoveRTDF.RightmoveStatsLastExportedDate | date:'mediumDate'}}
+                    .results
+                      .result
+                        i.fa-light.fa-magnifying-glass-chart
+                        p 
+                          span {{property.portals.RightmoveRTDF.TotalSummaryViews}}
+                          |  Summary Views
+                      .result
+                        i.fa-light.fa-file
+                        p 
+                          span {{property.portals.RightmoveRTDF.TotalDetailedViews}}
+                          |  Detail Views
+                      .result
+                        i.fa-light.fa-hourglass-clock
+                        p 
+                          |  Premium Listing: 
+                          span {{property.portals.RightmoveRTDF.IsCurrentlyAPremiumListing ? 'Yes' : 'No'}}
+                          
+                      .result
+                        i.fa-light.fa-thumbtack
+                        p 
+                          | Feature Property:  
+                          span {{property.portals.RightmoveRTDF.IsCurrentlyAFeaturedProperty ? 'Yes' : 'No'}}
+                        
+admin(ng-if='auth.checkRoles(["superadmin","admin"])')

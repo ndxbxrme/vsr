@@ -1,0 +1,275 @@
+
+<div ng-show="fetched" class="issue-route route">
+  <div class="container-xl">
+    <!-- View Issue -->
+    <div ng-if="issue.item._id">
+      <div class="issue">
+        <div class="header-row">
+          <div class="row align-items-end">
+            <div class="col-sm-6">
+              <h1><i class="fa-duotone fa-light fa-tools"></i> {{ mml('issue-heading-issue') }}</h1>
+            </div>
+            <div class="col-sm-6 text-sm-end">
+              <button class="button button-alt edit-issue-button" ng-click="openEditIssueModal()" ng-class="{disabled:issue.item.statusName===&quot;Completed&quot;}">Edit Issue <i class="fa-light fa-pen"></i></button>
+            </div>
+            <div class="col-md-6">
+              <h2>Address: <span>{{ issue.item.address1 }}, {{ issue.item.postcode }}</span></h2>
+              <h2>Issue: <span class="orange">{{ issue.item.title }}</span></h2>
+              <h2 class="date">Date Reported: <span>{{ issue.item.date | date:'mediumDate' }}</span></h2>
+            </div>
+            <div class="contacts col-md-6">
+              <div class="tenant">
+                <div class="contact-details">
+                  <div class="card">
+                    <div class="contact-name"><span>{{ issue.item.tenantFirstName }} {{ issue.item.tenantLastName }}</span></div>
+                    <div class="communication">
+                      <div class="contact-telephone" ng-if="issue.item.tenantPhone"><span><i class="fa-duotone fa-light fa-mobile"></i> {{ issue.item.tenantPhone }}</span></div>
+                      <div class="contact-email" ng-if="issue.item.tenantEmail"><span><a href="mailto:{{issue.item.tenantEmail}}" class="mail-link"><i class="fa-duotone fa-light fa-at"></i> {{issue.item.tenantEmail}}</a></span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="row nav-row">
+          <div class="col-12 text-md-end">
+            <nav>
+              <a href="#details"><i class="fa-duotone fa-light fa-info-circle"></i> Details</a>
+              <a href="#documents"><i class="fa-duotone fa-light fa-file-lines"></i> Documents</a>
+              <a href="#messages"><i class="fa-duotone fa-light fa-comment-captions"></i> Messages</a>
+              <a href="#notes"><i class="fa-duotone fa-light fa-note-sticky"></i> Notes</a>
+            </nav>
+          </div>
+        </div>
+        <div class="issue-details-section" id="details">
+          <div class="row">
+            <div class="col-md-2">
+              <div class="source {{issue.item.source}}"></div>
+            </div>
+            <div class="controls col-md-10 text-md-end">
+              <a href="https://server.vitalspace.co.uk/maintenance-leads/api/fixflo/pdf/{{issue.item.fixfloId}}" target="_blank" class="button" ng-show="issue.item.source === 'fixflo' && issue.item.fixfloId">View PDF <i class="fa-duotone fa-light fa-file-pdf"></i></a>
+              <a ng-href="{{getWorksOrderPdfUrl()}}" target="_blank" class="button" ng-show="getWorksOrderPdfUrl()">View PDF <i class="fa-duotone fa-light fa-file-pdf"></i></a>
+              <button type="button" ng-click="$parent.showLightbox(issue.item.media)" ng-show="issue.item.media.length" class="button">View Photos <i class="fa-duotone fa-light fa-camera-retro"></i></button>
+              <button type="button" ui-sref="maintenance_leads_createworksorder({_id:issue.item._id})" class="button">Create Works Order <i class="fa-duotone fa-light fa-plus"></i></button>
+              <button type="button" ng-show="issue.item.statusName===&quot;Booked&quot;" ng-click="completeIssue(issue)" class="button button-green">{{ mml('issue-label-complete') }} <i class="fa-light fa-duotone fa-check"></i></button>
+              <button type="button" ng-click="deleteIssue(issue)" class="button-alt">{{ mml('forms-delete') }} <i class="fa-duotone fa-light fa-trash-alt"></i></button>
+            </div>
+            <div class="col-12 details" ng-if="issue.item.details">
+              <h3><i class="fa-duotone fa-light fa-message-lines"></i> {{ mml('issue-heading-fault-detail') }}</h3>
+              <p>{{ issue.item.details }}</p>
+            </div>
+          </div>
+        </div>
+
+        <form name="myForm" novalidate="novalidate" autocomplete="off" ng-submit="save('issue')" class="form-controls issue-form">
+          <!-- Checkboxes and Quotes -->
+          <div class="form-holder issue-header">
+            <div class="row g-5 align-items-center">
+              <div class="col-lg-6">
+                <label class="checkbox-label" for="sc-booked">Booked
+                  <input id="sc-booked" type="checkbox" ng-model="issue.item.status.booked" ng-change="issue.save()"/>
+                </label>
+                <label class="checkbox-label" for="sc-completed">Job Completed
+                  <input id="sc-completed" type="checkbox" ng-model="issue.item.status.completed" ng-change="issue.save()"/>
+                </label>
+                <label class="checkbox-label" for="sc-invoiced">Invoice Received
+                  <input id="sc-invoiced" type="checkbox" ng-model="issue.item.status.invoiced" ng-change="issue.save()"/>
+                </label>
+                <label class="checkbox-label" for="sc-inspection">Inspection
+                  <input id="sc-inspection" type="checkbox" ng-model="issue.item.inspectionWorks" ng-change="issue.save()"/>
+                </label>
+              </div>
+
+              <div class="col-lg-6">
+                <div class="row g-2 align-items-end">
+                  <div class="quote col-xl-5 col-lg-6">
+                    <label>Contractor Quote</label>
+                    <input type="text" ng-model="issue.item.quoteContractor" placeholder="Contractor Quote"/>
+                  </div>
+                  <div class="quote col-xl-5 col-lg-6">
+                    <label>VitalSpace Quote</label>
+                    <input type="text" ng-model="issue.item.quoteVitalSpace" placeholder="VitalSpace Quote"/>
+                  </div>
+                  <div class="quote-save col-xl-2">
+                    <button type="button" ng-click="issue.save()" class="button">Save <i class="fa-light fa-duotone fa-save"></i></button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="issue-actions">
+          <div class="row g-2 align-items-end">
+            <div class="col-xl-3 col-sm-6">
+              <h3><strong>{{ mml('issue-heading-landlord') }}</strong></h3>
+              <label>Assign Landlord</label>
+              <div ng-class="{warning: submitted &amp;&amp; myForm.landlordId.$invalid}" class="form-item c-select landlordId  no-label ">
+                <div class="input-holder">
+                  <select sumoselect="{placeholder:mml('issue-landlordId-placeholder'), search:true}" ng-model="issue.item.landlordId" name="landlordId" ng-disabled="disabled" ng-change="issue.save()">
+                    <option ng-repeat="landlordId in landlords.items" value="{{landlordId._id}}" ng-disabled="landlordId.disabled" ng-hide="landlordId.hidden">{{ landlordId.name }}</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-xl-3 col-sm-6">
+              <h3><strong>{{ mml('issue-heading-action-taken') }}</strong></h3>
+              <div ng-class="{warning: submitted &amp;&amp; myForm.repliedToTenant.$invalid}" class="form-item c-select repliedToTenant required  ">
+                <label class="label">{{ mml('issue-repliedToTenant-label') }}</label>
+                <div class="input-holder">
+                  <select sumoselect="{placeholder:mml('issue-repliedToTenant-placeholder'), search:true}" ng-model="issue.item.repliedToTenant" name="repliedToTenant" ng-disabled="issue.item.statusName===&quot;Completed&quot;" ng-change="issue.save()" required="required">
+                    <option ng-repeat="repliedToTenant in yesno" value="{{repliedToTenant._id}}" ng-disabled="repliedToTenant.disabled" ng-hide="repliedToTenant.hidden">{{ repliedToTenant.name }}</option>
+                  </select>
+                </div> 
+                <p ng-show="submitted &amp;&amp; myForm.repliedToTenant.$error.required" class="error">{{ mml('issue-repliedToTenant-error-required') }}</p>
+              </div>
+            </div>
+
+            <div class="col-xl-3 col-sm-6">
+              <div ng-class="{warning: submitted &amp;&amp; myForm.landlordInformed.$invalid}" class="form-item c-select landlordInformed required  ">
+                <label class="label">{{ mml('issue-landlordInformed-label') }}</label>
+                <div class="input-holder">
+                  <select sumoselect="{placeholder:mml('issue-landlordInformed-placeholder'), search:true}" ng-model="issue.item.landlordInformed" name="landlordInformed" ng-disabled="issue.item.statusName===&quot;Completed&quot;" ng-change="issue.save()" required="required">
+                    <option ng-repeat="landlordInformed in yesno" value="{{landlordInformed._id}}" ng-disabled="landlordInformed.disabled" ng-hide="landlordInformed.hidden">{{ landlordInformed.name }}</option>
+                  </select>
+                </div>
+                <p ng-show="submitted &amp;&amp; myForm.landlordInformed.$error.required" class="error">{{ mml('issue-landlordInformed-error-required') }}</p>
+              </div>
+            </div>
+
+            <div class="col-xl-3 col-sm-6">
+              <div ng-class="{warning: submitted &amp;&amp; myForm.contractorArranged.$invalid}" class="form-item c-select contractorArranged required  ">
+                <label class="label">{{ mml('issue-contractorArranged-label') }}</label>
+                <div class="input-holder">
+                  <select sumoselect="{placeholder:mml('issue-contractorArranged-placeholder'), search:true}" ng-model="issue.item.contractorArranged" name="contractorArranged" ng-disabled="issue.item.statusName===&quot;Completed&quot;" ng-change="issue.save()" required="required">
+                    <option ng-repeat="contractorArranged in yesno" value="{{contractorArranged._id}}" ng-disabled="contractorArranged.disabled" ng-hide="contractorArranged.hidden">{{ contractorArranged.name }}</option>
+                  </select>
+                </div>
+                <p ng-show="submitted &amp;&amp; myForm.contractorArranged.$error.required" class="error">{{ mml('issue-contractorArranged-error-required') }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="contractor-actions">
+          <div class="row g-2 align-items-end">
+            <div ng-show="issue.item.statusName!==&quot;Completed&quot;" class="col-xl-3 col-sm-6">
+              <h3><strong>{{ mml('issue-heading-contractor-assigned') }}</strong></h3>
+              <div ng-class="{warning: submitted &amp;&amp; myForm.booked.$invalid}" class="form-item c-select booked">
+                <label class="label">{{ mml('issue-booked-label') }}</label>
+                <div class="input-holder">
+                  <select sumoselect="{placeholder:mml('issue-booked-placeholder'), search:true}" ng-model="tasks.items[0].contractor" name="booked" ng-disabled="true">
+                    <option ng-repeat="booked in contractors.items" value="{{booked._id}}" ng-disabled="booked.disabled" ng-hide="booked.hidden">{{ booked.name }}</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-xl-3 col-sm-6">
+              <h3><strong>{{ mml('issue-heading-diary') }}</strong></h3>
+              <label>Task Date</label>
+              <input type="text" value="{{tasks.items[0].date | date:&quot;dd/MM/yyyy&quot;}}" disabled="disabled" ng-hide="issue.item.statusName===&quot;Reported&quot;" class="task-date"/>
+            </div>
+            <div class="col-xl-3 col-sm-6">
+              <label>Task Time</label>
+              <input type="text" value="{{tasks.items[0].date | date:&quot;HH:mm&quot;}}" disabled="disabled" ng-hide="issue.item.statusName===&quot;Reported&quot;" class="task-time"/>
+            </div>
+            <div class="col-xl-3 col-sm-6 text-sm-end">
+              <button type="button" ui-sref="maintenance_leads_diary({_id:issue.item._id})" class="button">{{ mml('issue-diary-label') }} <i class="fa-duotone fa-light fa-calendar"></i></button>
+            </div>
+          </div>
+
+          <div ng-show="issue.item.cfpJobNumber &amp;&amp; issue.item.statusName===&quot;Booked&quot; &amp;&amp; tasks.total" class="form-section">
+            <div class="form-label">{{ mml('issue-heading-chase-invoice') }}</div>
+            <div class="form-controls">
+              <div class="buttons">
+                <button type="button" ng-click="chaseInvoice(&quot;email&quot;, tasks.items[0])" class="button">{{ mml('issue-label-email-invoice') }} <i class="fa-duotone fa-light fa-at"></i></button>
+                <button type="button" ng-click="chaseInvoice(&quot;sms&quot;, tasks.items[0])" class="button">{{ mml('issue-label-sms-invoice') }} <i class="fa-duotone fa-light fa-sms"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </form>
+
+      <div class="row g-5" id="documents">
+        <div class="col-12">
+          <h2><i class="fa-duotone fa-light fa-file-certificate"></i> Documents <span ng-show="issue.item.documents.length">{{issue.item.documents.length}}</span></h2>
+          <div class="documents-section">
+            <div class="documents">
+              <div class="document-list" ng-show="issue.item.documents.length">
+                <div class="document" ng-repeat="document in issue.item.documents">
+                  <div class="document-icon-wrapper">
+                    <a class="document-link" ng-href="{{makeDownloadUrl('maintenance_leads', document)}}" target="_self" data-bs-toggle="tooltip" data-bs-placement="top" title="Created by {{document.user.local.email}} on {{document.date | date:'dd/MM/yy'}} at {{document.date | date:'shortTime'}}">
+                      <img ng-src="{{makeDownloadUrl('maintenance_leads', document)}}" ng-if="document.basetype===&quot;image&quot;"/>
+                      <div class="document-icon {{document.basetype}}" ng-hide="document.basetype===&quot;image&quot;">
+                        <i class="fa-light fa-duotone fa-file-lines"></i>
+                      </div>
+                    </a>
+                  </div>
+                  <div class="document-details">
+                    <div class="filename">
+                      <span ng-show="!document.editing">{{document.name || document.originalFilename}}</span>
+                      <input type="text" ng-model="document.name" ng-show="document.editing" placeholder="Name"/>
+                    </div>
+                  </div>
+                  <div class="document-actions" ng-show="auth.checkRoles([&quot;superadmin&quot;, &quot;admin&quot;])">
+                    <a class="edit-icon" href="" ng-click="document.editing=!document.editing" ng-show="!document.editing" title="Edit">
+                      <i class="fa-light fa-pen-to-square"></i>
+                    </a>
+                    <a class="save-icon" href="" ng-click="saveDocument(document)" ng-show="document.editing" title="Save">
+                      <i class="fa-light fa-check"></i>
+                    </a>
+                    <a class="delete-icon" href="" ng-click="deleteDocument(document)" title="Delete">
+                      <i class="fa-light fa-trash"></i>
+                    </a>
+                  </div>
+                </div>
+              </div>
+              <div class="drop-box" ngf-drop="uploadFiles($files)" ngf-drag-over-class="'dragover'" ngf-multiple="true">
+                <div ng-hide="documentUploading">
+                  <h3>Drop files here to upload</h3>
+                  <button class="file-upload" type="file" ngf-select="uploadFiles($file, $invalidFiles)">Or click here to choose</button>
+                </div>
+                <div ng-show="documentUploading" class="uploading">
+                  <h3>Uploading</h3>
+                  <div class="progressBar">
+                    <div class="bar" style="width: {{uploadProgress}}%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-12">
+          <message-center ng-if="issue.item &amp;&amp; tasks.items"></message-center>
+        </div>
+      </div>
+
+      <div class="case-notes" id="notes">
+        <h2 class="orange">{{ mml('issue-heading-notes') }}</h2>
+        <div ng-repeat="note in notesData = ( issue.item.notes | orderBy:&quot;-date&quot; ) | limitTo:notesLimit:notesLimit*(notesPage-1)" class="case-note">
+          <div class="header-row">
+            <div class="date"><img gravatar-src="note.user.local.email"/><span>{{note.user.displayName || note.user.local.email}}<br><span class="date">{{note.date | date:'mediumDate'}}, {{note.date | date:'shortTime'}}</span></span></div>
+            <div class="actions">
+              <a class="delete" href="" ng-click="deleteNote(note)" ng-show="auth.checkRoles([&quot;admin&quot;, &quot;superadmin&quot;])"><i class="fa-light fa-duotone fa-trash"></i></a><a class="edit" href="" ng-click="editNote(note)" ng-show="auth.checkRoles([&quot;admin&quot;,&quot;superadmin&quot;])"><i class="fa-light fa-duotone fa-pen"></i></a>
+            </div>
+          </div>
+          <div class="note"> 
+            <span ng-show="note.side">- {{note.side}}</span>
+            <div class="note-body" ng-bind-html="note.text | markdown:true"></div>
+          </div>
+        </div>
+        <pagination class="pagination-sm pagination" total="notesData.length" ng-model="notesPage" page-size="notesLimit"></pagination>
+        <div class="add-note">
+          <code-mirror ng-model="$parent.note.text" options="{mode:markdown, lineWrapping:true}"></code-mirror>
+          <button ng-click="addNote()">{{note.date?'Update':'Add'}} Note</button>
+        </div>
+      </div>
+      
+      </div><!-- .issue -->
+    </div>
+  </div>
+</div>

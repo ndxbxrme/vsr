@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="52px" height="38px" viewBox="0 0 52 38" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 42 (36781) - http://www.bohemiancoding.com/sketch -->
+    <title>coinstack</title>
+    <desc>Created with Sketch.</desc>
+    <defs>
+        <path d="M9,18 C13.971,18 18,13.971 18,9 C18,4.029 13.971,0 9,0 C4.029,0 0,4.029 0,9 C0,13.971 4.029,18 9,18 L9,18 Z" id="path-1"></path>
+        <path d="M0,2.5 C0,1.122 1.124,0 2.503,0 L19.497,0 C20.878,0 22,1.122 22,2.5 C22,3.878 20.876,5 19.497,5 L2.503,5 C1.122,5 0,3.878 0,2.5" id="path-3"></path>
+        <path d="M0,3.5 C0,1.567 1.575,0 3.503,0 L20.497,0 C22.432,0 24,1.571 24,3.5 C24,5.433 22.425,7 20.497,7 L3.503,7 C1.568,7 0,5.429 0,3.5 L0,3.5 Z" id="path-5"></path>
+        <path d="M0,2.5 C0,1.122 1.124,0 2.503,0 L19.497,0 C20.878,0 22,1.122 22,2.5 C22,3.878 20.876,5 19.497,5 L2.503,5 C1.122,5 0,3.878 0,2.5" id="path-7"></path>
+        <path d="M0,3.5 C0,1.567 1.575,0 3.503,0 L20.497,0 C22.432,0 24,1.571 24,3.5 C24,5.433 22.425,7 20.497,7 L3.503,7 C1.568,7 0,5.429 0,3.5 L0,3.5 Z" id="path-9"></path>
+        <path d="M0,2.5 C0,1.122 1.124,0 2.503,0 L19.497,0 C20.878,0 22,1.122 22,2.5 C22,3.878 20.876,5 19.497,5 L2.503,5 C1.122,5 0,3.878 0,2.5" id="path-11"></path>
+        <path d="M0,3.5 C0,1.567 1.575,0 3.503,0 L20.497,0 C22.432,0 24,1.571 24,3.5 C24,5.433 22.425,7 20.497,7 L3.503,7 C1.568,7 0,5.429 0,3.5 L0,3.5 Z" id="path-13"></path>
+        <path d="M0,2.5 C0,1.122 1.124,0 2.503,0 L19.497,0 C20.878,0 22,1.122 22,2.5 C22,3.878 20.876,5 19.497,5 L2.503,5 C1.122,5 0,3.878 0,2.5" id="path-15"></path>
+        <path d="M0,3.5 C0,1.567 1.575,0 3.503,0 L20.497,0 C22.432,0 24,1.571 24,3.5 C24,5.433 22.425,7 20.497,7 L3.503,7 C1.568,7 0,5.429 0,3.5 L0,3.5 Z" id="path-17"></path>
+        <path d="M0,2.5 C0,1.122 1.124,0 2.503,0 L19.497,0 C20.878,0 22,1.122 22,2.5 C22,3.878 20.876,5 19.497,5 L2.503,5 C1.122,5 0,3.878 0,2.5" id="path-19"></path>
+        <path d="M0,3.5 C0,1.567 1.575,0 3.503,0 L20.497,0 C22.432,0 24,1.571 24,3.5 C24,5.433 22.425,7 20.497,7 L3.503,7 C1.568,7 0,5.429 0,3.5 L0,3.5 Z" id="path-21"></path>
+        <path d="M0,2.5 C0,1.122 1.124,0 2.503,0 L19.497,0 C20.878,0 22,1.122 22,2.5 C22,3.878 20.876,5 19.497,5 L2.503,5 C1.122,5 0,3.878 0,2.5" id="path-23"></path>
+        <path d="M0,3.5 C0,1.567 1.575,0 3.503,0 L20.497,0 C22.432,0 24,1.571 24,3.5 C24,5.433 22.425,7 20.497,7 L3.503,7 C1.568,7 0,5.429 0,3.5 L0,3.5 Z" id="path-25"></path>
+        <rect x="9" y="20" width="7" height="10" id="rect-27"></rect>
+    </defs>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="coinstack">
+            <g id="outlined">
+                <g id="Imported-Layers">
+                    <path d="M13,38 C5.832,38 0,32.168 0,25 C0,17.832 5.832,12 13,12 C20.168,12 26,17.832 26,25 C26,32.168 20.168,38 13,38 L13,38 Z M13,14 C6.935,14 2,18.935 2,25 C2,31.065 6.935,36 13,36 C19.065,36 24,31.065 24,25 C24,18.935 19.065,14 13,14 L13,14 Z" id="Fill-1403" fill="#535353" fill-rule="nonzero"></path>
+                    <g id="Group-1406" transform="translate(4.000000, 16.000000)">
+                        <g id="Fill-1404-Clipped">
+                            <mask id="mask-2" fill="white">
+                                <use xlink:href="#path-1"></use>
+                            </mask>
+                            <g id="path-1"></g>
+                            <polygon id="Fill-1404" fill="#F15B25" fill-rule="nonzero" mask="url(#mask-2)" points="0 0 18 0 18 18 0 18"></polygon>
+                        </g>
+                    </g>
+                    <path d="M13,35 C7.486,35 3,30.514 3,25 C3,19.486 7.486,15 13,15 C18.514,15 23,19.486 23,25 C23,30.514 18.514,35 13,35 L13,35 Z M13,17 C8.589,17 5,20.589 5,25 C5,29.411 8.589,33 13,33 C17.411,33 21,29.411 21,25 C21,20.589 17.411,17 13,17 L13,17 Z" id="Fill-1407" fill="#535353" fill-rule="nonzero"></path>
+                    <g id="Group-1410" transform="translate(29.000000, 26.000000)">
+                        <g id="Fill-1408-Clipped">
+                            <mask id="mask-4" fill="white">
+                                <use xlink:href="#path-3"></use>
+                            </mask>
+                            <g id="path-3"></g>
+                            <path d="M-1,2.5 C-1,0.567 0.575,-1 2.503,-1 L19.497,-1 C21.432,-1 23,0.571 23,2.5 C23,4.433 21.425,6 19.497,6 L2.503,6 C0.568,6 -1,4.429 -1,2.5" id="Fill-1408" fill="#D8D8D8" fill-rule="nonzero" mask="url(#mask-4)"></path>
+                        </g>
+                    </g>
+                    <g id="Group-1413" transform="translate(28.000000, 25.000000)">
+                        <g id="Fill-1411-Clipped">
+                            <mask id="mask-6" fill="white">
+                                <use xlink:href="#path-5"></use>
+                            </mask>
+                            <g id="path-5"></g>
+                            <path d="M20.498,9 L3.502,9 C0.468,9 -2,6.532 -2,3.5 C-2,0.468 0.468,-2 3.502,-2 L20.498,-2 C23.532,-2 26,0.468 26,3.5 C26,6.532 23.532,9 20.498,9 L20.498,9 Z M3.502,2 C2.674,2 2,2.673 2,3.5 C2,4.327 2.674,5 3.502,5 L20.498,5 C21.326,5 22,4.327 22,3.5 C22,2.673 21.326,2 20.498,2 L3.502,2 L3.502,2 Z" id="Fill-1411" fill="#535353" fill-rule="nonzero" mask="url(#mask-6)"></path>
+                        </g>
+                    </g>
+                    <g id="Group-1416" transform="translate(29.000000, 21.000000)">
+                        <g id="Fill-1414-Clipped">
+                            <mask id="mask-8" fill="white">
+                                <use xlink:href="#path-7"></use>
+                            </mask>
+                            <g id="path-7"></g>
+                            <path d="M-1,2.5 C-1,0.567 0.575,-1 2.503,-1 L19.497,-1 C21.432,-1 23,0.571 23,2.5 C23,4.433 21.425,6 19.497,6 L2.503,6 C0.568,6 -1,4.429 -1,2.5" id="Fill-1414" fill="#D8D8D8" fill-rule="nonzero" mask="url(#mask-8)"></path>
+                        </g>
+                    </g>
+                    <g id="Group-1419" transform="translate(28.000000, 20.000000)">
+                        <g id="Fill-1417-Clipped">
+                            <mask id="mask-10" fill="white">
+                                <use xlink:href="#path-9"></use>
+                            </mask>
+                            <g id="path-9"></g>
+                            <path d="M20.498,9 L3.502,9 C0.468,9 -2,6.532 -2,3.5 C-2,0.468 0.468,-2 3.502,-2 L20.498,-2 C23.532,-2 26,0.468 26,3.5 C26,6.532 23.532,9 20.498,9 L20.498,9 Z M3.502,2 C2.674,2 2,2.673 2,3.5 C2,4.327 2.674,5 3.502,5 L20.498,5 C21.326,5 22,4.327 22,3.5 C22,2.673 21.326,2 20.498,2 L3.502,2 L3.502,2 Z" id="Fill-1417" fill="#535353" fill-rule="nonzero" mask="url(#mask-10)"></path>
+                        </g>
+                    </g>
+                    <g id="Group-1422" transform="translate(29.000000, 16.000000)">
+                        <g id="Fill-1420-Clipped">
+                            <mask id="mask-12" fill="white">
+                                <use xlink:href="#path-11"></use>
+                            </mask>
+                            <g id="path-11"></g>
+                            <path d="M-1,2.5 C-1,0.567 0.575,-1 2.503,-1 L19.497,-1 C21.432,-1 23,0.571 23,2.5 C23,4.433 21.425,6 19.497,6 L2.503,6 C0.568,6 -1,4.429 -1,2.5" id="Fill-1420" fill="#D8D8D8" fill-rule="nonzero" mask="url(#mask-12)"></path>
+                        </g>
+                    </g>
+                    <g id="Group-1425" transform="translate(28.000000, 15.000000)">
+                        <g id="Fill-1423-Clipped">
+                            <mask id="mask-14" fill="white">
+                                <use xlink:href="#path-13"></use>
+                            </mask>
+                            <g id="path-13"></g>
+                            <path d="M20.498,9 L3.502,9 C0.468,9 -2,6.532 -2,3.5 C-2,0.468 0.468,-2 3.502,-2 L20.498,-2 C23.532,-2 26,0.468 26,3.5 C26,6.532 23.532,9 20.498,9 L20.498,9 Z M3.502,2 C2.674,2 2,2.673 2,3.5 C2,4.327 2.674,5 3.502,5 L20.498,5 C21.326,5 22,4.327 22,3.5 C22,2.673 21.326,2 20.498,2 L3.502,2 L3.502,2 Z" id="Fill-1423" fill="#535353" fill-rule="nonzero" mask="url(#mask-14)"></path>
+                        </g>
+                    </g>
+                    <g id="Group-1428" transform="translate(29.000000, 6.000000)">
+                        <g id="Fill-1426-Clipped">
+                            <mask id="mask-16" fill="white">
+                                <use xlink:href="#path-15"></use>
+                            </mask>
+                            <g id="path-15"></g>
+                            <path d="M-1,2.5 C-1,0.567 0.575,-1 2.503,-1 L19.497,-1 C21.432,-1 23,0.571 23,2.5 C23,4.433 21.425,6 19.497,6 L2.503,6 C0.568,6 -1,4.429 -1,2.5" id="Fill-1426" fill="#D8D8D8" fill-rule="nonzero" mask="url(#mask-16)"></path>
+                        </g>
+                    </g>
+                    <g id="Group-1431" transform="translate(28.000000, 5.000000)">
+                        <g id="Fill-1429-Clipped">
+                            <mask id="mask-18" fill="white">
+                                <use xlink:href="#path-17"></use>
+                            </mask>
+                            <g id="path-17"></g>
+                            <path d="M20.498,9 L3.502,9 C0.468,9 -2,6.532 -2,3.5 C-2,0.468 0.468,-2 3.502,-2 L20.498,-2 C23.532,-2 26,0.468 26,3.5 C26,6.532 23.532,9 20.498,9 L20.498,9 Z M3.502,2 C2.674,2 2,2.673 2,3.5 C2,4.327 2.674,5 3.502,5 L20.498,5 C21.326,5 22,4.327 22,3.5 C22,2.673 21.326,2 20.498,2 L3.502,2 L3.502,2 Z" id="Fill-1429" fill="#535353" fill-rule="nonzero" mask="url(#mask-18)"></path>
+                        </g>
+                    </g>
+                    <g id="Group-1434" transform="translate(29.000000, 11.000000)">
+                        <g id="Fill-1432-Clipped">
+                            <mask id="mask-20" fill="white">
+                                <use xlink:href="#path-19"></use>
+                            </mask>
+                            <g id="path-19"></g>
+                            <path d="M-1,2.5 C-1,0.567 0.575,-1 2.503,-1 L19.497,-1 C21.432,-1 23,0.571 23,2.5 C23,4.433 21.425,6 19.497,6 L2.503,6 C0.568,6 -1,4.429 -1,2.5" id="Fill-1432" fill="#D8D8D8" fill-rule="nonzero" mask="url(#mask-20)"></path>
+                        </g>
+                    </g>
+                    <g id="Group-1437" transform="translate(28.000000, 10.000000)">
+                        <g id="Fill-1435-Clipped">
+                            <mask id="mask-22" fill="white">
+                                <use xlink:href="#path-21"></use>
+                            </mask>
+                            <g id="path-21"></g>
+                            <path d="M20.498,9 L3.502,9 C0.468,9 -2,6.532 -2,3.5 C-2,0.468 0.468,-2 3.502,-2 L20.498,-2 C23.532,-2 26,0.468 26,3.5 C26,6.532 23.532,9 20.498,9 L20.498,9 Z M3.502,2 C2.674,2 2,2.673 2,3.5 C2,4.327 2.674,5 3.502,5 L20.498,5 C21.326,5 22,4.327 22,3.5 C22,2.673 21.326,2 20.498,2 L3.502,2 L3.502,2 Z" id="Fill-1435" fill="#535353" fill-rule="nonzero" mask="url(#mask-22)"></path>
+                        </g>
+                    </g>
+                    <g id="Group-1440" transform="translate(29.000000, 1.000000)">
+                        <g id="Fill-1438-Clipped">
+                            <mask id="mask-24" fill="white">
+                                <use xlink:href="#path-23"></use>
+                            </mask>
+                            <g id="path-23"></g>
+                            <path d="M-1,2.5 C-1,0.567 0.575,-1 2.503,-1 L19.497,-1 C21.432,-1 23,0.571 23,2.5 C23,4.433 21.425,6 19.497,6 L2.503,6 C0.568,6 -1,4.429 -1,2.5" id="Fill-1438" fill="#D8D8D8" fill-rule="nonzero" mask="url(#mask-24)"></path>
+                        </g>
+                    </g>
+                    <g id="Group-1443" transform="translate(28.000000, 0.000000)">
+                        <g id="Fill-1441-Clipped">
+                            <mask id="mask-26" fill="white">
+                                <use xlink:href="#path-25"></use>
+                            </mask>
+                            <g id="path-25"></g>
+                            <path d="M20.498,9 L3.502,9 C0.468,9 -2,6.532 -2,3.5 C-2,0.468 0.468,-2 3.502,-2 L20.498,-2 C23.532,-2 26,0.468 26,3.5 C26,6.532 23.532,9 20.498,9 L20.498,9 Z M3.502,2 C2.674,2 2,2.673 2,3.5 C2,4.327 2.674,5 3.502,5 L20.498,5 C21.326,5 22,4.327 22,3.5 C22,2.673 21.326,2 20.498,2 L3.502,2 L3.502,2 Z" id="Fill-1441" fill="#535353" fill-rule="nonzero" mask="url(#mask-26)"></path>
+                        </g>
+                    </g>
+                </g>
+            </g>
+            <g id="Group">
+                <image x="9" y="20" width="7" height="10" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABcAAAAgCAYAAAD5VeO1AAAABGdBTUEAALGPC/xhBQAAAbJJREFUSA3tlr9Lw0AUx3upoEhDdCyo/4GDOHSQSkH9C/pjMGOluBT8U4TYwUDBqUja/gN2EcWlIA4uzgXT0aURREj8PoyQe7nWFOkiOTjCe+/zvnn3cuROZGaMarW67ft+XQhxBGwrREdBEAw0TWt3u93nGekZoQo2m83l8Xh8jlgDQpqKwQt9+O18Pn9mWdaHioklhsIDiJ5iQkNcosoCph7OAvkoRozrujeUoxJf4k5UfIGkIgReIXbsOM4dY4awh7VarYOWdcDuI8eCr8E4uS3lcnkHwCOEAzxLvV7vnidE7UqlUoR9S6vAc7ff7z9F41JbIHqCIIGt34RJJGRalINRJ190SOIIHFAwm81e0TPJiLCHnJfEsbxNAgzDeOHgNDvCbnBGEkdwlQDbtt85OM0O2TYKu+ZMbLdwIImND0nfKjZ45THgL45UXNm9tC3/rC0Cv1n6vSYedGDgeJskSVjobpEKoFXMuxJJgBkLrTwVZ93+NtO2KNsi3RV/9jjuIG9KOqETh/VI1/USP6AfkL+H4HpCHSWG4gLP81akyiEqTNNcU2bM4czlchNcOT6/APd3k5uf4Ha8AAAAAElFTkSuQmCC"></image>
+                <use fill="#FFFFFF" fill-rule="evenodd" xlink:href="#rect-27"></use>
+            </g>
+        </g>
+    </g>
+</svg>

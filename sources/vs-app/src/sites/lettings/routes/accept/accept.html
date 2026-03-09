@@ -1,0 +1,102 @@
+
+<div class="accept">
+  <div class="container-xl">
+    <h1>Acceptance Confirmation Email</h1>
+    <div class="row">
+      <div class="col-sm-8">
+        <div class="form-holder">
+          <form name="acceptEmail" novalidate="novalidate" ng-submit="submit()" ng-hide="emailSent">
+            <div class="property">
+              <h3 class="orange">Property</h3>
+              <select name="property" ng-model="property" required="required">
+                <option ng-repeat="property in properties.items" ng-value="property">{{property.displayAddress}}</option>
+              </select>
+              <div class="error" ng-show="submitted &amp;&amp; acceptEmail.property.$invalid">Please select a property</div>
+            </div>
+            <div class="applicant">
+              <h3 class="orange">Applicant</h3>
+              <div class="row">
+                <div class="input-holder col-2">
+                  <label>Title</label>
+                  <select name="title" ng-model="applicant.title" required="required">
+                    <option value="Mr">Mr.</option>
+                    <option value="Mrs">Mrs.</option>
+                    <option value="Miss">Miss.</option>
+                    <option value="Dr">Dr.</option>
+                  </select>
+                  <div class="error" ng-show="submitted &amp;&amp; acceptEmail.title.$invalid">Please select a title</div>
+                </div>
+                <div class="input-holder col-5">
+                  <label>First Name</label>
+                  <input type="text" name="firstName" ng-model="applicant.firstName" required="required"/>
+                  <div class="error" ng-show="submitted &amp;&amp; acceptEmail.firstName.$invalid">Please enter the first name</div>
+                </div>
+                <div class="input-holder col-5">
+                  <label>Last Name</label>
+                  <input type="text" name="lastName" ng-model="applicant.lastName" required="required"/>
+                  <div class="error" ng-show="submitted &amp;&amp; acceptEmail.lastName.$invalid">Please enter the last name</div>
+                </div>
+                <div class="email-holder">
+                  <label>Email</label>
+                  <input type="email" name="email" ng-model="applicant.email" required="required"/>
+                  <div class="error" ng-show="submitted &amp;&amp; acceptEmail.email.$invalid">Please enter a valid email address</div>
+                </div>
+              </div>
+            </div>
+            <div class="rental-terms">
+              <h3 class="orange">Rental Terms</h3>
+              <div class="row">
+                <div class="col-4">
+                  <label>Tenancy Terms</label>
+                  <select name="terms" ng-model="applicant.terms" required="required">
+                    <option value="6" selected="selected">6 Months</option>
+                    <option value="12">12 Months</option>
+                    <option value="24">24 Months</option>
+                  </select>
+                  <div class="error" ng-show="submitted &amp;&amp; acceptEmail.terms.$invalid">Please select the terms</div>
+                </div>
+                <div class="col-8">
+                  <label>Proposed Moving in Date</label>
+                  <input type="date" name="movingInDate" ng-model="applicant.movingInDate" required="required"/>
+                  <div class="error" ng-show="submitted &amp;&amp; acceptEmail.movingInDate.$invalid">Please enter the moving in date</div>
+                </div>
+                <div class="col-6">
+                  <label>Agreed Monthly Rent</label>
+                  <input type="text" name="rent" ng-model="applicant.rent" required="required"/>
+                  <div class="error" ng-show="submitted &amp;&amp; acceptEmail.rent.$invalid">Please enter the rent</div>
+                </div>
+                <div class="col-6">
+                  <label>Holding Deposit</label>
+                  <input type="text" name="holdingDeposit" ng-model="applicant.deposit" required="required"/>
+                  <div class="error" ng-show="submitted &amp;&amp; acceptEmail.deposit.$invalid">Please enter the Deposit Value</div>
+                </div>
+              </div>
+            </div>
+            <div class="employment">
+              <h3 class="orange">Employment Status</h3>
+              <div class="checkbox-holder">
+                <label class="checkbox-label" for="employed">Employed
+                  <input id="employed" type="radio" name="employment" ng-model="applicant.employment" value="Employed" required="required"/>
+                </label>
+                <label class="checkbox-label" for="selfemployed">Self-Employed
+                  <input id="selfemployed" type="radio" name="employment" ng-model="applicant.employment" value="Self Employed" required="required"/>
+                </label>
+                <div class="error" ng-show="submitted &amp;&amp; acceptEmail.email.$invalid">Please select an employment status</div>
+              </div>
+            </div>
+            <div class="controls right">
+              <input type="submit" value="Submit"/>
+              <button type="button" ng-click="cancel()">Cancel</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="success" ng-show="emailSent">
+      <h2>Form Submitted Successfully</h2>
+    </div>
+
+    <hr class="white">
+  </div>
+</div>

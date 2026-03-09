@@ -1,0 +1,26 @@
+@import '../../variables'
+
+.admin
+  background #f1f1f1
+  padding 45px 0px
+  height 100%
+  h2 
+    margin-top 0px
+    font-family ProximaNova-SemiBold, sans-serif
+  table
+    thead
+    background vs-grey
+      tr
+        th
+          color white
+          font-family ProximaNova-SemiBold, sans-serif
+          padding 10px 0px
+  td
+    a.property
+      display block
+      background none
+      padding 10px 0px
+      font-family ProximaNova-SemiBold, sans-serif
+    label
+      display none
+  collapse-table()

@@ -1,0 +1,12 @@
+@import '../../variables'
+.offer-details
+  .pdf-upload
+    font-size 3em
+.prefsIcon 
+  span 
+    svg
+      background-color #00a685
+      color #fff
+      line-height 1
+      padding 7px
+      border-radius 50px

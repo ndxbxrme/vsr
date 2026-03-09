@@ -1,0 +1,14 @@
+.dezrez(ng-show='auth.getUser() && !auth.checkRoles(["superadmin","admin"]) && !auth.getDezrezUser()')
+  div(ng-show='auth.loading()') Contacting DezRez
+  div(ng-hide='auth.loading()')
+    .dezrez-email(ng-show='!auth.getPotentialUsers().length')
+      h2 Please enter your Dezrez email address
+      form(name='emailForm', ng-submit='findEmail()')
+        input(type='email', ng-model='dezrezEmail', placeholder='Dezrez Email')
+        input(type='submit', value='Find')
+    .dezrez-potential-users(ng-show='auth.getPotentialUsers().length')
+      h2 Please select a Dezrez user
+      .potential-user(ng-repeat='user in auth.getPotentialUsers()') 
+        .name {{user.FirstName}} {{user.LastName}} {{user.CreatedDate | date}}
+        .controls
+          a(ng-click='selectDezrezUser(user)', href='') Select

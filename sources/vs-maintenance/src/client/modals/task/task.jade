@@ -1,0 +1,66 @@
+.modal.task-modal
+  h1(ng-show='!task._id') Book a maintenance appointment
+  h1(ng-show='task._id') Edit maintenance appointment
+  form(name='forms.myForm', ng-submit='save()', novalidate)
+    .form-item
+      label.title For:
+      select(sumoselect='options', ng-model='task.assignedTo')
+        option(ng-repeat='user in maintenance', value='{{user._id}}') {{user.displayName || user.local.email}}'s diary
+    .form-item
+      label.title Property:
+      input(type='text', ng-model='task.property')
+    
+    .form-item.half
+      label.title Job:
+      select(sumoselect='options', ng-model='task.job')
+        option(ng-repeat='job in jobs', value='{{job}}') {{job}}
+    .form-item.half
+      label.title Status:
+      select(sumoselect='options', ng-model='task.status')
+        option(ng-repeat='status in statuses', value='{{status.id}}') {{status.name}}
+
+    .form-item.half
+      label.title Date:
+      a.date(tap='setDate()') {{task.date | date:"mediumDate"}}
+    .form-item.half
+      label.title Time:
+      input(type='time', ng-model='task.date')
+    .form-item.half
+      label.title Duration:
+      input(type='time', ng-model='task.duration')
+    .form-item
+      label.title Job brief:
+      textarea(ng-model='task.brief')
+    .form-item
+      label.title Cost (£):
+      input(type='number', name='cost', ng-model='task.cost', required)
+      small.error(ng-show='submitted && forms.myForm.cost.$error.required') Please enter the cost of the job
+    .form-item.half
+      label.title Materials (£):
+      input(type='number', ng-model='task.materials')
+    .form-item
+      label.title Job card:
+      .documents
+        .drop-box(ngf-drop='uploadFiles($files)', ngf-drag-over-class="'dragover'", ngf-multiple='true')
+          h3 Drop files here to upload
+          button.file-upload(type='file', ngf-select='uploadFiles($file, $invalidFiles)') Or click here to choose
+        .document-list(ng-show='task.documents.length')
+          .document(ng-repeat='document in task.documents')
+            a.document-link(ng-href='{{makeDownloadUrl(document)}}', target='_self')
+              img(ng-src='{{makeDownloadUrl(document)}}', ng-if='document.basetype==="image"')
+              .document-icon(ng-hide='document.basetype==="image"', class='{{document.basetype}}')
+                img.logo(src="public/img/icons/vs-document.png")
+            .filename 
+              label Name: 
+              span(ng-show='!document.editing') &nbsp;{{document.name || document.originalFilename}}
+            .controls(ng-show='auth.checkRoles(["superadmin", "admin"])')
+              a.delete(href='', ng-click='deleteDocument(document)') Delete
+    .form-item
+      label.title Created by:
+      span {{task.createdDate | date:'mediumDate'}}, {{task.createdDate | date:'shortTime'}} | &nbsp;
+        img(gravatar-src='task.createdBy.local.email')
+        span {{task.createdBy.displayName || task.createdBy.local.email}}
+    .controls.bottom
+      button.delete(type='button', tap='delete()', ng-show='task._id') Delete
+      input.submit(type='submit', value='Submit')
+  a.close-reveal-modal(ng-click='cancel()') &times;

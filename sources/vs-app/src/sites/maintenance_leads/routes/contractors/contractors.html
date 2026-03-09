@@ -1,0 +1,37 @@
+
+<div class="contractors-route route">
+  <div class="container-xl">
+    <div class="row align-items-center">
+      <div class="col-sm-6">
+        <h1><i class="fa-duotone fa-light fa-helmet-safety"></i> {{ mml('contractors-heading') }}</h1>
+      </div>
+      <div class="col-sm-6 search d-flex align-items-center justify-content-end">
+        <input type="text" ng-model="search" placeholder="Search Contractors" ng-change="page=1"/>
+        <button ng-click="openContractorModal()" class="button button-alt"></i>{{ mml('contractors-button-new') }} <i class="fa-light fa-plus"></i></button>
+      </div>
+      <div class="col-12 text-end">
+        <div class="showing">Showing:<br>{{filterData.length}} of {{contractors.items.length}} contractor{{totalProps!==1?'s':''}}</div>
+      </div>
+    </div>
+  
+    <div class="contractors row g-5">
+      <div ng-repeat="contractor in filterData =(contractors.items | filter:search | orderBy:sort | limitTo:limit:((page-1) * limit))" class="contractor col-lg-4 col-6">
+        <div class="inner">
+          <div ng-click="openContractorModal(contractor)" ng-class="{empty:!contractor.issues.total}" class="contractor-heading row">
+            <div class="name col-8">{{ contractor.name }}</div>
+            <div class="no-issues col-4">
+              <div class="label">Issues</div>
+              <div class="number">{{ contractor.issues.total }}</div>
+            </div>
+          </div>
+          <button type="button" ng-click="openContractorIssues(contractor)" ng-show="contractor.issues.total" class="button">View List <i class="fa-light fa-duotone fa-eye"></i></button>
+          <button type="button" ng-click="deleteContractor(contractor)" ng-if="auth.isAuthorized([&quot;superadmin&quot;, &quot;admin&quot;])" class="button button-alt">Delete <i class="fa-light fa-duotone fa-trash"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <div ng-show="!filterData.length" class="empty-table">No contractors match your current search</div>
+    <div class="paging-dir">
+      <pagination ng-model="page" total="contractors.total" page-size="limit"></pagination>
+    </div>
+</div>

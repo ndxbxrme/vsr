@@ -1,0 +1,66 @@
+
+<div class="modal task-modal" ng-click="$event.preventDefault()">
+  <h1 ng-show="!task._id">Book a maintenance appointment</h1>
+  <h1 ng-show="task._id">Edit maintenance appointment</h1>
+  <form name="forms.myForm" ng-submit="saveMLTask()" novalidate="novalidate">
+    <div class="row">
+      <div class="form-item col-sm-6">
+        <label class="title">Property:</label>
+        <p>{{task.address}}</p>
+      </div>
+      <div class="form-item col-sm-6">
+        <label class="title">Title:</label>
+        <p>{{task.title}}</p>
+      </div>
+    
+    <hr>
+
+    <div class="form-item col-12">
+      <label class="title">Created by:</label><span>{{task.createdDate | date:'mediumDate'}}, {{task.createdDate | date:'shortTime'}} | &nbsp;<img gravatar-src="task.createdBy.local.email"/><span>{{task.createdBy.displayName || task.createdBy.local.email}}</span></span>
+    </div>
+
+    <hr>
+
+    <div class="form-item col-12">
+      <label class="title">Contractor</label>
+      <div class="input-holder">
+        <select sumoselect="{placeholder:'Contractor', search:true}" ng-model="task.contractor" name="contractors" required="required">
+          <option ng-repeat="contractor in contractors" value="{{contractor._id}}">{{ contractor.name }}</option>
+        </select>
+      </div>
+    </div>
+
+      <div class="form-item col-sm-6">
+        <label class="title">Date:</label><a tap="setDate()" class="date">{{task.date | date:"mediumDate"}}</a>
+      </div>
+      <div class="form-item col-sm-3">
+        <label class="title">Time:</label>
+        <input type="time" ng-model="task.date" required="required"/>
+      </div>
+      <div class="form-item col-sm-3">
+        <label class="title">Duration:</label>
+        <input type="time" ng-model="task.duration" required="required"/>
+      </div>
+    </div>
+
+    <div ng-show="task._id" class="buttons contractor-buttons">
+      <button type="button" ng-click="chaseContractor(&quot;email&quot;, task)" class="button-alt"> <i class="fal fa-at"></i>{{ mml('issue-label-email') }}</button>
+
+      <button type="button" ng-click="chaseContractor(&quot;sms&quot;, task)" class="button-grey"> <i class="fal fa-sms"></i>{{ mml('issue-label-sms') }}</button>
+    </div>
+    <!--.form-item.half(ng-if='needsJobNumber')
+    label.title CFP Job Number
+    input(type='text', ng-model='$parent.$parent.$parent.cfpJobNumber', required)
+    -->
+    <hr>
+
+    <div class="row">
+      <div class="controls bottom col-12">
+        <button class="button-grey" type="button" tap="delete()" ng-show="task._id" class="delete">Delete</button>
+        <input class="button" type="button" value="Submit" ng-click="saveMLTask()"/>
+      </div>
+    </div>
+  </form>
+  
+  <a ng-click="cancel()" class="close-reveal-modal">&times;</a>
+</div>

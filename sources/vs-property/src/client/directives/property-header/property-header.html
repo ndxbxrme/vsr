@@ -1,0 +1,44 @@
+	<section class="main-page-content p-details">
+
+        <div ng-class="{active: $state.current.name !== 'overview'}" class="headimage">
+         <div class="container">
+            <div class="image-block">
+
+                <div class="row">
+                    <div class="col-xs-9 col-sm-9 col-md-9 big-image">
+
+                        <!-- Play Button -->
+                        <img ng-show="hasDocument('Virtual Tour')" class="large-play-button action action--hidden action--play" src="../wp-content/themes/VitalSpace2015/public/img/int/icons/large-play-button.png" title="Click for video walkthrough"/>
+
+                        <!-- Video Container -->
+                        <div class="vidcontainer" ng-show="hasDocument('Virtual Tour')">
+                            <div class="video-wrap">
+                                <div class="video-inner">
+                                    <video class="video-player" controls ng-src="{{ getTrustedUrl( getDocument('Virtual Tour').Url) }}" preload="auto">
+                                        <source ng-src="{{ getTrustedUrl( getDocument('Virtual Tour').Url) }}" type='video/mp4; codecs="avc1.4D401E, mp4a.40.2"'>
+                                        <p>Sorry, but your browser does not support this video format.</p>
+                                    </video>
+                                    <button class="action action--close"><i class="fa fa-close"></i><span class="action__label action__label--hidden">Close preview</span></button>
+                                </div> <!-- /video-inner -->
+                            </div><!-- /video-wrap-->
+                        </div>
+
+                    <!-- Ribbon -->
+                    <div ng-if="Properties.current().RoleStatus.SystemName == 'OfferAccepted'" class="ribbon">
+                        <span ng-if="Properties.current().RoleType.SystemName == 'Selling'">SOLD STC</span>
+                        <span ng-if="Properties.current().RoleType.SystemName != 'Selling'">LET AGREED</span>
+                    </div>
+                    <!-- Main Image -->
+                    <img ng-src="{{ getMainImage() }}?width=850" />
+                    </div>
+
+                    <!-- Thumbnails -->
+                    <ul class="small-image cl-xs-3 col-sm-3 col-md-3">
+
+                        <li ng-if="!$first" ng-repeat="image in Properties.current().Images | first: 4"><img ng-src="{{ makeImageUrl(image.Url,330) }}" /></li>
+                    </ul>
+                </div>
+              </div>
+          </div>
+      </div>
+    </section>

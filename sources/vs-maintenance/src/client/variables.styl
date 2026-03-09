@@ -1,0 +1,26 @@
+vs-orange = #f15b25
+vs-grey = #464e53
+vs-green = #25f15c
+vs-amber = orange
+vs-red = #f12540
+vs-lightgrey = #ccc
+$bounce = cubic-bezier(.3,1.4,.5,.9)
+$transition = .4s
+vs-button()
+  display inline-block
+  white-space nowrap
+  padding 1rem
+  border 1px solid #ccc
+  border-radius 0.5rem
+  color vs-orange
+  background white
+  transition all 0.4s ease-in-out
+  outline none
+  &:hover
+    background vs-orange
+    color white
+vs-input()
+  padding 10px
+  border-radius 3px
+  border 1px solid vs-lightgrey
+  box-sizing border-box

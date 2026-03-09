@@ -1,0 +1,82 @@
+
+
+<div class="client-management-list">
+  <div class="container-xl">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <h1><i class="fa-duotone fa-light fa-people-roof"></i> Available Sales Properties</h1>
+      </div>
+      <div class="col-md-4 search">
+        <input type="text" ng-model="search" placeholder="Search Cases" ng-change="page=1"/>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="row align-items-end">
+        <div class="col-lg-6">
+          <div class="sort">Order By:<br>
+            <a href="" ng-click="sort=&quot;-DateInstructed&quot;;page=1" ng-class="{selected:sort===&quot;-DateInstructed&quot;}" class="order-item">First Listed</a>
+            <a href="" ng-click="sort=&quot;-viewings.length&quot;;page=1" ng-class="{selected:sort===&quot;-viewings.length&quot;}" class="order-item">Viewings</a>
+            <a href="" ng-click="sort=&quot;-Price.PriceValue&quot;;page=1" ng-class="{selected:sort===&quot;-Price.PriceValue&quot;}" class="order-item">Asking Price</a>
+          </div>
+        </div>
+        <div class="col-lg-6 text-lg-end">
+          <div class="showing">Showing {{filterData.length}} of {{totalProps = properties.items.length - nodeleted}} case{{totalProps!==1?'s':''}}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="properties-list" ng-show="filterData.length &gt; 0">
+      <div class="property-card" ng-repeat="property in filterData =(properties.items | filter:{&quot;SearchField&quot;:search} | orderBy:sort) | limitTo:limit:limit*(page-1)" ng-click="property.open = !property.open">
+        <div class="property-main row g-5">
+          <div class="property-image col-lg-3 col-md-4" ng-class="{&quot;has-request animated pulse infinite&quot;:hasRequest(property)}">
+            <img src="{{property.Images[0].Url}}&width=500" class="image"/>
+          </div>
+          
+          <div class="property-info col-lg-6 col-md-8">
+            <div class="property-meta">
+              <div class="property-address"><strong>Address:</strong> {{property.displayAddress}}</div>
+              <span class="purchase-price"><strong>Purchase Price:</strong> {{property.Price.PriceValue | currency : "£" : 0}}</span>
+              <span class="fees"><strong>Fees:</strong> {{property | getFees | currency : "£" : 0}}</span>
+            </div>
+
+            <div class="property-viewing">
+              <p class="title">{{property.extendedData.SpecialArrangements[0].SpecialArrangementType.Name}}</p>
+              <p>{{property.extendedData.SpecialArrangements[0].Text}}</p>
+              <p class="title">{{property.extendedData.SpecialArrangements[1].SpecialArrangementType.Name}}</p>
+              <p>{{property.extendedData.SpecialArrangements[1].Text}}</p>
+              <p class="title">{{property.extendedData.SpecialArrangements[2].SpecialArrangementType.Name}}</p>
+              <p>{{property.extendedData.SpecialArrangements[2].Text}}</p>
+            </div>
+          </div>
+          
+          <div class="property-stats-actions col-lg-3 col-12">
+            <div class="property-vendor">
+              <div class="label"><i class="fa-duotone fa-light fa-sign-hanging"></i> Vendor</div>
+              <div class="value">{{property.vendor.Name}}</div>
+            </div>
+
+            <div class="property-stats">
+              <div class="stat-item">
+                <span class="instructed"><i class="fa-duotone fa-light fa-calendar-circle-user"></i> <strong>Instructed on:</strong> {{property.DateInstructed | date:'dd/MM/yy'}}</span><br>
+                <span class="time-ago">({{property.DateInstructed | timeAgo}})</span>
+              </div>
+              <div class="stat-item">
+                <span class="viewings-count"><i class="fa-duotone fa-light fa-eye"></i> <strong>Viewings:</strong> <strong class="orange">{{property.viewings.TotalCount}}</strong></span>
+              </div>
+            </div>
+
+            <div class="property-actions">
+              <a class="button" ui-sref="agency_client-management-details({id:property._id})">View Case</a>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+    <pagination total="filterData.length" ng-model="page" page-size="limit" page-change="pageChange" show-first-last="true" class="pagination-sm pagination"></pagination>
+    <div ng-show="filterData.length===0" class="nothing-to-show">
+      <h3>Nothing to show</h3>
+    </div>
+  </div>
+</div>

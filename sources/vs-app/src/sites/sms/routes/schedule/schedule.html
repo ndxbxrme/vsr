@@ -1,0 +1,14 @@
+<div class="sms-schedule-route">
+  <div class="container-xl">
+    <h1>Upcomming</h1>
+    <div ng-repeat="item in schedule.items" class="event">
+      <div>{{item.when | date:'dd/MM/yyyy hh:mm a'}}</div>
+      <div class="numbers">{{item.numbers}}</div>
+      <div>{{item.message}}</div>
+      <div class="options">
+        <input type="button" ng-click="deleteEvent(item)" value="Delete" />
+      </div>
+    </div>
+    <div ng-show="!schedule.total">There are no events to show.</div>
+  </div>
+</div>

@@ -1,0 +1,79 @@
+include ../../mixins/form.jade
+.message-center 
+  .message-center-heading
+    h2.orange {{ m('outgoingEmail-messageCenter-heading')}}
+    button(class='small-orange-button', type='button', ng-click='(composingMessage=true) && (outgoingEmail={})') 
+      i.fal.fa-feather
+      | New message
+  
+  +form({data:'outgoingEmail', ignore:true})(ng-show='composingMessage')
+    .form-section
+      +select({name:'messageTo', list:'messageRecipients', errors:{required:true}})
+    .form-section
+      .form-controls
+        +input({name:'subject'})
+    .form-section
+      .form-item
+        label.space-between Attachments {{noAttachments()}}
+          button(class='small-black-button', type='button', ng-click='outgoingEmail.showAttachments = !outgoingEmail.showAttachments') {{ outgoingEmail.showAttachments? m('outgoingEmail-documentsHide-label') : m('outgoingEmail-documentsShow-label') }}
+        .attachments(ng-show='outgoingEmail.showAttachments')
+          .drop-box(ngf-drop='uploadFiles($files)', ngf-drag-over-class="'dragover'", ngf-multiple='true')
+            h3 Drop files here to upload
+            button.file-upload(type='file', ngf-select='uploadFiles($file, $invalidFiles)') Or click here to choose
+          .document-list(ng-show='issue.item.documents.length')
+            .document(ng-repeat='document in issue.item.documents')
+              .document-link(ng-click='document.$attached=!document.$attached', ng-class='{attached:document.$attached}')
+                img(ng-src='{{makeDownloadUrl(document)}}', ng-if='document.basetype==="image"')
+                img.logo(src="public/img/icons/vs-document.png", ng-hide='document.basetype==="image"', class='{{document.basetype}}')
+                .filename 
+                  span(ng-show='!document.editing') {{document.name || document.originalFilename}}
+    .form-section
+      .form-item
+        label {{ m('outgoingEmail-messageBody-label') }}
+        code-mirror(name='messageBody', ng-model='outgoingEmail.body', options='{lineWrapping:true}')
+    .form-section
+      .form-controls
+        button(class='small-orange-button', type='button', name='send', ng-click='sendEmail()') 
+          .fal.fa-paper-plane
+          | {{ m('outgoingEmail-send-label') }}
+        button(class='small-black-button', type='button', name='cancel', ng-click='(outgoingEmail={}) && (composingMessage=false)') 
+          .fal.fa-window-close
+          | {{ m('outgoingEmail-cancel-label') }}
+  .messages
+    .message-filters 
+      .filter
+        .fas.fa-filter
+        a(ng-click='setMessageFilter("Landlord")', ng-class="{selected:messageFilter=='Landlord'}") Landlord
+        |  | 
+        a(ng-click='setMessageFilter("Contractor")', ng-class="{selected:messageFilter=='Contractor'}") Contractor
+        |  | 
+        a(ng-click='setMessageFilter("Tenant")', ng-class="{selected:messageFilter=='Tenant'}") Tenant
+      a.sort(ng-click='messageSort=(messageSort=="date"?"-date":"date")')
+        .fas.fa-sort-alt
+        span(ng-show='messageSort=="date"') Oldest First
+        span(ng-hide='messageSort=="date"') Newest First
+    .message(ng-repeat='message in issue.item.messages | filter:{entity:messageFilter} | orderBy:messageSort', ng-class='{in:message.dir==="in"}') 
+      .message-entity(class='{{message.from || "vitalspace"}}') {{message.from.substr(0,1) || ''}}
+        img.user-img(gravatar-src='message.user.local.email', ng-hide='message.from') 
+      .message-holder
+        .message-subject 
+          .left 
+            .subject {{message.subject}}
+          .right
+            .message-date {{message.date | date:medium }}
+        .message-details
+          .left
+            .message-to(ng-show='message.dir==="out"') To {{message.toName}}, {{message.toEntity}}
+            .message-from(ng-show='message.dir==="in"') From {{message.fromName}}, {{message.from}}
+          button(class='small-black-button', type='button', ng-click='reply(message)', ng-show='message.from') 
+            .fal.fa-reply
+            | Reply
+        .message-content
+          .document-list(ng-show='message.attachments.length')
+            .document(ng-repeat='document in message.attachments')
+              a.document-link(ng-href='{{makeDownloadUrl(document)}}', target='_self')
+                img(ng-src='{{makeDownloadUrl(document)}}', ng-if='document.basetype==="image"')
+                img.logo(src="public/img/icons/vs-document.png", ng-hide='document.basetype==="image"', class='{{document.basetype}}')
+                .filename 
+                  span(ng-show='!document.editing') {{document.name || document.originalFilename}}
+          .message-body {{message.text}}

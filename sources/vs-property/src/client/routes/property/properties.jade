@@ -1,0 +1,39 @@
+.properties
+  a(href='/').backlink 
+    i.fa.fa-long-arrow-left(aria-hidden='true')  
+    |  Dashboard
+  h2
+    i.vs-iconhouse
+    |  My property
+  .property(ng-repeat='property in getProperties()' ng-hide='!property.details.Address')
+    h5.loading(ng-show='property.loading') Contacting Dezrez
+    a(href='/{{property.id}}/overview', ng-hide='property.error || property.loading')
+      .property-item
+        .property-image(style='background-image: url({{property.details.Images[0].Url}})')
+        .property-details
+          h2 {{property.Address.Number}} {{property.Address.Street }}, {{property.Address.Locality }}, {{property.Address.Town}}
+          p(ng-show='!loading("all") || property.viewings.length || property.offers.length').hidden
+            ul
+              li               
+                a(href='/offers')
+                  i.offer 
+                  | Offers
+                  p.l-number {{property.offers.length}}
+              li
+                a(href='/viewings') 
+                  i.vs-iconstaff 
+                  | Viewings
+                  p.l-number {{property | viewingContacted}} 
+              li
+                a(href='/feedback')
+                  i.guarantor 
+                  | Feedback
+                  p.l-number {{getFeedbackCount(property)}}             
+        .property-controls
+          p.quali {{property.details.Price.PriceQualifierType.DisplayName}}
+          h3 {{property.details.Price.PriceValue | currency:'£':0}}
+          a(href='/{{property.id}}/overview').medium.orange.button View Details
+          
+    h3(ng-show='property.error') Error fetching property details
+    h3(ng-show='property.loading') Fetching property details
+  h3(ng-show='!loading("properties") && !getProperties().length') No properties to show

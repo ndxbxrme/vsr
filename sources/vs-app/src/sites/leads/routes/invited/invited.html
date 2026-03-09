@@ -1,0 +1,18 @@
+
+<div class="invited-route">
+  <h1>you've been invited</h1>
+  <form name="inviteForm" ng-submit="acceptInvite()" ignore="true">
+    <label>Display Name</label>
+    <input type="text" ng-model="newUser.displayName"/>
+    <label>Telephone Number</label>
+    <input type="text" ng-model="newUser.telephone"/>
+    <label>Choose a password</label>
+    <input type="password" ng-model="newUser.local.password"/>
+    <label>Repeat password</label>
+    <input type="password" ng-model="repeatPassword"/>
+    <label class="error">{{error}}</label>
+    <div class="controls">
+      <input type="submit" value="OK"/>
+    </div>
+  </form>
+</div>

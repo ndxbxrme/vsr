@@ -1,0 +1,51 @@
+.offers-list
+  .container
+    .row.align-items-center
+      .col-sm-8
+        h1 Client management
+      .col-sm-4.search
+        input(type='text' ng-model='search' placeholder='Search Cases' ng-change='page=1')
+    .controls
+      .row
+        .col-sm-4
+          .sort
+            | Order By:
+            a.order-item(href='' ng-click='sort="-DateInstructed";page=1' ng-class='{selected:sort==="-DateInstructed"}') First Listed
+            a.order-item(href='' ng-click='sort="-viewings.length";page=1' ng-class='{selected:sort==="-viewings.length"}') Viewings
+            a.order-item(href='' ng-click='sort="-Price.PriceValue";page=1' ng-class='{selected:sort==="-Price.PriceValue"}') Asking Price
+        .col-sm-6
+          input(type='text' ng-model='search' placeholder='Search Cases' ng-change='page=1')
+        .col-sm-2.text-end
+          .showing
+            | Showing {{filterData.length}} of {{totalProps = properties.items.length - nodeleted}} case{{totalProps!==1?'s':''}}
+    table.table.table-responsive.small-mobile-hide(ng-show='filterData.length > 0')
+      thead
+        tr
+          th(width='35%') Property Address
+          th(width='15%') Vendor
+          th(width='40%') Viewing Arrangements
+          th(width='10%') Listed
+      tbody(ng-repeat='property in filterData =(properties.items | filter:{"SearchField":search} | orderBy:sort) | limitTo:limit:limit*(page-1)')
+        tr(ng-click='property.open = !property.open')
+          td(ng-class='{"has-request animated pulse infinite":hasRequest(property)}')
+            img.image(src='{{property.Images[0].Url}}&width=200' width='100')
+            .address {{property.displayAddress}}
+            .rental-price
+              | {{property.Price.PriceValue | currency : "£" : 0}} ({{property | getFees | currency : "£" : 0}})
+          td.vendor {{property.vendor.Name}}
+          td.viewing-next
+            p.title {{property.extendedData.SpecialArrangements[0].SpecialArrangementType.Name}}
+            p {{property.extendedData.SpecialArrangements[0].Text}}
+            p.title {{property.extendedData.SpecialArrangements[1].SpecialArrangementType.Name}}
+            p {{property.extendedData.SpecialArrangements[1].Text}}
+            p.title {{property.extendedData.SpecialArrangements[2].SpecialArrangementType.Name}}
+            p {{property.extendedData.SpecialArrangements[2].Text}}
+          td.listed
+            .instructed Instructed on: {{property.DateInstructed | date:'dd/MM/yy'}}
+            .time-ago ({{property.DateInstructed | timeAgo}})
+            .viewings-count Viewings: {{property.viewings.length}}
+            a(ui-sref='agency_client-management-details({id:property._id})') View Case
+    pagination.pagination-sm.pagination(total='filterData.length' ng-model='page' page-size='limit' page-change='pageChange' show-first-last='true')
+    .nothing-to-show(ng-show='filterData.length===0')
+      h3 Nothing to show
+  

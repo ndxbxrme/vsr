@@ -1,0 +1,131 @@
+.task-modal
+  padding 1rem
+  background white
+  form
+    box-sizing border-box
+    padding 0 1rem 0 0
+    display flex
+    flex-direction row
+    flex-wrap wrap
+    justify-content space-between
+    .form-item
+      display flex
+      margin-bottom 1rem
+      align-items baseline
+      flex-wrap wrap
+      position relative
+      max-width 100%
+      word-wrap break-word
+      p
+        margin 0 0 5px 0
+      .input-holder
+        width 100%
+      label.title
+        width 100px
+        font-weight 700
+        color vs-orange
+      a.date
+        padding .8rem 1rem
+        background #f5f5f5
+        border 1px solid vs-grey
+        border-radius 3px
+        width 100%
+      input[type='text'], textarea, input[type=time], input[type=number]
+        flex 1
+        font-family inherit
+        font-size 1.3rem
+        font-weight 600
+        margin-top 0
+        padding 0.3rem
+        border 1px solid vs-grey
+        border-radius 3px
+        background #f5f5f5
+      textarea
+        height 70px
+      input[type=time], input[type=number]
+        width 100%
+        display inline
+      .SumoSelect > .CaptionCont
+        border 1px solid vs-grey
+        border-radius 3px
+      .SumoSelect
+        flex 1
+        .optWrapper
+          top 100%
+      .CodeMirror
+        flex 1
+        height 100px
+        border 1px solid #ccc
+      .add-job
+        margin-left 1rem
+      &.half
+        width calc(50% - .5rem)!important
+      &.quarter
+        width calc(25% - .5rem)!important
+    .contractor-buttons
+      margin-top 10px
+      width 100%
+    .controls
+      margin-top 30px
+    .drop-box
+      border 3px dashed #ccc
+      border-radius 1rem
+      background #f1f1f1
+      width 100%
+      text-align center
+      padding-bottom 1rem
+      &.dragover
+        h3
+          color vs-orange
+    .documents
+      flex 1
+      display flex
+      flex-direction column
+      .document-list
+        width 100%
+        display flex
+        justify-content flex-start
+        flex-wrap wrap
+        .document
+          width auto
+          display flex
+          flex-direction column
+          justify-content center
+          box-sizing border-box
+          border 2px solid vs-lightgrey
+          padding 1rem
+          margin 1rem
+          .document-link
+            flex 1
+          .filename
+            margin-top 0.5rem
+            display flex
+            input
+              flex 1
+              margin-left 1rem
+          .controls
+            display flex
+            justify-content space-between
+            a
+              color vs-orange
+          img
+            max-width 100%
+            display block
+            margin 10px auto
+          @media screen and (max-width: 1080px)
+            width calc(33% - 2rem)
+          @media screen and (max-width: 800px)
+            width calc(50% - 2rem)
+          @media screen and (max-width: 590px)
+            width calc(100%)
+  @media screen and (max-width:819px)
+    form .form-item
+      .half
+        min-width 100%
+        margin-bottom 1.6rem
+      input[type=time], input[type=number]
+        flex 1
+  @media screen and (max-height:800px)
+    overflow-Y scroll
+    max-height 100vh
+    top 0

@@ -1,0 +1,31 @@
+
+<html>
+  <head>
+    <base href="/leads/"/>
+    <meta charset="utf-8"/>
+    <title>Vitalspace Leads</title>
+    <meta name="description" content=""/>
+    <meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1, maximum-scale=1"/>
+    <link rel="apple-touch-icon" sizes="180x180" href="public/img/favicons/apple-touch-icon.png"/>
+    <link rel="icon" type="image/png" sizes="32x32" href="public/img/favicons/favicon-32x32.png"/>
+    <link rel="icon" type="image/png" sizes="16x16" href="public/img/favicons/favicon-16x16.png"/>
+    <link rel="manifest" href="public/img/favicons/manifest.json"/>
+    <link rel="mask-icon" href="public/img/favicons/safari-pinned-tab.svg" color="#5bbad5"/>
+    <meta name="theme-color" content="#ffffff"/>
+  </head>
+  <body ng-app="vs-leads" ng-click="mobileMenuOut=false">
+    <header></header>
+    <menu class="mobile-menu"></menu>
+    <login></login>
+    <div class="holder" ng-show="auth.loggedIn()" ng-class="{&quot;mobile-menu-out&quot;:mobileMenuOut}">
+      <div class="body">
+        <div class="container-xl">
+          <!--a.button.twitter(href='/leads/api/google', target='_self') Google-->
+          <div class="view" ui-view="" ng-show="auth.loggedIn()"></div>
+        </div>
+      </div>
+    </div>
+    <footer></footer>
+    <script src="env.js" delay="true" ndx-ignore="true"></script>
+  </body>
+</html>

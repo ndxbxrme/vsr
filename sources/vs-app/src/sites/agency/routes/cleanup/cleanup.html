@@ -1,0 +1,29 @@
+
+<div class="cleanup-route">
+  <div class="row">
+    <h1>Cleanup</h1>
+    <div class="total" ng-show="properties.items.length">Total: {{properties.items.length}}</div>
+  </div>
+  <table class="properties" ng-show="properties.items.length">
+    <tr>
+      <th ng-click="doSort(&quot;offer.Property.Address.Street&quot;)">Address</th>
+      <th>Milestone</th>
+      <th ng-click="doSort(&quot;exchangeDate&quot;)">Est completion date</th>
+      <th></th>
+    </tr>
+    <tr ng-repeat="property in properties.items | orderBy:sort" ng-class="{disabled:property.processing}">
+      <td class="property">{{property.displayAddress}}</td>
+      <td class="ms">{{property.milestone.title}}</td>
+      <td class="ed">
+        <input name="{{property._id}}" agency-date-input="date-input" ng-model="property.exchangeDate"/>
+      </td>
+      <td class="com">
+        <button class="btn" ng-click="complete(property)" ng-show="property.exchangeDate">Completed</button>
+      </td>
+      <td class="fal">
+        <button class="btn" ng-click="fallenThrough(property)">Fallen Through</button>
+      </td>
+    </tr>
+  </table>
+  <div class="loading" ng-show="loading">Loading properties</div>
+</div>

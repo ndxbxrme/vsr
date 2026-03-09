@@ -1,0 +1,109 @@
+
+<div class="template">
+  <div class="container-xl">
+    <h1>{{type==='email'?'Email':'Sms'}} template</h1>
+      <form name="myForm" ng-submit="save()">
+        <div class="row">
+          <section class="col-md-4 col-sm-6">
+            <label>Name</label>
+            <input type="text" ng-model="template.item.name"/>
+            <div class="subject" ng-show="type===&quot;email&quot;">
+              <label>Subject</label>
+              <input type="text" ng-model="template.item.subject"/>
+            </div>
+            <div class="from" ng-show="type===&quot;email&quot;">
+              <label>From</label>
+              <input type="text" ng-model="template.item.from"/>
+            </div>
+            <div>
+              <input class="button" type="submit" value="Save"/>
+              <button class="button" ng-click="cancel()">Cancel</button>
+            </div>
+          </section>
+
+          <section class="col-md-8 col-sm-6">
+            <label>Body</label>
+            <code-mirror ng-model="template.item.body" options="{mode:lang, lineWrapping:true}"></code-mirror><small ng-show="type==='sms'">{{template.item.body.length || 0}} / 130</small>
+          </section>
+        </div>
+
+        <div class="row">
+          <div class="col-12">
+            <h2 class="preview-title orange">Preview</h2>
+            <section  class="email-preview" ng-if="type==='email'">   
+              <template-render ng-model="template.item.subject" data="defaultData"></template-render>
+              <jade-render ng-model="template.item.body" data="defaultData"></jade-render>
+            </section>
+            <section class="sms-preview" ng-if="type==='sms'">
+              <template-render ng-model="template.item.body" data="defaultData"></template-render>
+            </section>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<!--
+<div class="template">
+  <div class="container-xl">
+    <h1>{{type==='email'?'Email':'Sms'}} template</h1>
+    <form name="myForm" novalidate="novalidate" ng-submit="save('template')">
+      <div class="row">
+        <section class="col-md-4 col-sm-6">
+          <div class="form-item c-input name required  " ng-class="{warning: submitted #{'&amp;&amp;'} #{formName}.#{args.name}.$invalid}">
+            <label class="label">{{ m('template-name-label') }}</label>
+            <input type="text" name="name" ng-model="template.item.name" placeholder="{{ m('#{args.prefix}-#{args.name}-placeholder') }}" title="{{ m('#{args.prefix}-#{args.name}-label') }}" ng-disabled="disabled" required="required"/>
+            <p class="error" ng-show="submitted &amp;&amp; myForm.name.$error.required">{{ m('template-name-error-required') }}</p>
+          </div>
+          <div class="form-item c-input subject required  " ng-class="{warning: submitted #{'&amp;&amp;'} #{formName}.#{args.name}.$invalid}" ng-if="type===&quot;email&quot;">
+            <label class="label">{{ m('template-subject-label') }}</label>
+            <input type="text" name="subject" ng-model="template.item.subject" placeholder="{{ m('#{args.prefix}-#{args.name}-placeholder') }}" title="{{ m('#{args.prefix}-#{args.name}-label') }}" ng-disabled="disabled" required="required"/>
+            <p class="error" ng-show="submitted &amp;&amp; myForm.subject.$error.required">{{ m('template-subject-error-required') }}</p>
+          </div>
+          <div class="form-item c-input from required  " ng-class="{warning: submitted #{'&amp;&amp;'} #{formName}.#{args.name}.$invalid}" ng-if="type===&quot;email&quot;">
+            <label class="label">{{ m('template-from-label') }}</label>
+            <input type="email" name="from" ng-model="template.item.from" placeholder="{{ m('#{args.prefix}-#{args.name}-placeholder') }}" title="{{ m('#{args.prefix}-#{args.name}-label') }}" ng-disabled="disabled" required="required" email="email"/>
+            <p class="error" ng-show="submitted &amp;&amp; myForm.from.$error.required">{{ m('template-from-error-required') }}</p>
+            <p class="error" ng-show="submitted &amp;&amp; myForm.from.$error.email">{{ m('template-from-error-email') }}</p>
+          </div>
+          <div class="form-item c-select action required  " ng-class="{warning: submitted #{'&amp;&amp;'} #{formName}.#{args.name}.$invalid}">
+            <label class="label">{{ m('template-action-label') }}</label>
+            <div class="input-holder">
+              <select sumoselect="{placeholder:m('#{args.prefix}-#{args.name}-placeholder'), search:true}" ng-model="template.item.action" name="action" ng-disabled="disabled" required="required">
+                <option ng-repeat="action in emailActions.items" value="{{#{args.name}.#{args.id}}}" ng-disabled="#{args.name}.disabled" ng-hide="#{args.name}.hidden">{{ action.name }}</option>
+              </select>
+            </div>
+            <p class="error" ng-show="submitted &amp;&amp; myForm.action.$error.required">{{ m('template-action-error-required') }}</p>
+          </div>
+          <div class="form-item">
+            <label>Send to</label>
+            <multi-check ng-model="template.item.sendTo">
+              <multi-check-item ng-repeat="item in sendTo.items" value="{{item._id}}">{{item.name}}</multi-check-item>
+            </multi-check>
+          </div>
+          <div>
+            <input type="submit" value="Save"/>
+            <button class="button" ng-click="cancel()">Cancel</button>
+          </div>
+        </section>
+        <section class="col-md-8 col-sm-6">
+          <label>Body</label>
+          <code-mirror ng-model="template.item.body" options="{mode:lang, lineWrapping:true}"></code-mirror><small ng-show="type==='sms'">{{template.item.body.length || 0}} / 130</small>
+        </section>
+      </div>
+      <div class="row">
+        <section class="email-preview" ng-if="type==='email'">
+          <div class="preview-title">Preview</div>
+          <template-render ng-model="template.item.subject" data="defaultData"></template-render>
+          <jade-render ng-model="template.item.body" data="defaultData"></jade-render>
+        </section>
+        <section class="sms-preview" ng-if="type==='sms'">
+          <div class="preview-title">Preview</div>
+          <template-render ng-model="template.item.body" data="defaultData"></template-render>
+        </section>
+      </div>
+    </form>
+      
+  </div>
+</div>
+-->

@@ -1,0 +1,39 @@
+
+<div class="chain-item"> 
+  <div class="inner">
+    <div class="chain-edit" ng-if="$parent.chainEdit===item.side+$index">
+      <form name="chainForm" ng-submit="saveChain(item)">
+        <label>Reference</label>
+        <input type="text" ng-model="item.reference"/>
+        <select ng-model="item.property">
+          <option ng-repeat="property in properties.items | orderBy:&quot;Address.Street&quot;" value="{{property.RoleId}}">{{property.displayAddress}}</option>
+        </select>
+        <label>Notes</label>
+        <code-mirror ng-model="item.note" options="{mode:&quot;markdown&quot;}"></code-mirror>
+        <div class="chain-controls">
+          <input type="submit" value=" Save "/>
+          <button ng-click="deleteChainItem(item, item.side)">Delete</button>
+        </div>
+      </form>
+    </div>
+    <div class="chain-content" ng-hide="$parent.chainEdit===item.side+$index">
+      <div class="chain-text">
+        <h3>{{item.reference}}</h3>
+        <div class="chain-notes" ng-bind-html="item.note | markdown"></div>
+      </div>
+      <a class="chain-property" ng-show="item.property" ui-sref="agency_case({roleId:item.property})">
+        <div class="image"><img ng-src="{{item.propDetails.image}}"/></div>
+        <div class="details">
+          <div class="address">{{item.propDetails.address}}</div>
+          <div class="price">{{item.propDetails.price | currency: '£': 0}}</div>
+        </div>
+      </a>
+      
+      <div class="chain-controls">
+        <div></div>
+        <a ng-click="$parent.chainEdit=item.side+$index"><i class="fa-light fa-pen-to-square"></i></a>
+      </div>
+    </div>
+  </div>
+  <div class="connector"></div>
+</div>

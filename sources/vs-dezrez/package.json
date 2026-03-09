@@ -1,0 +1,24 @@
+{
+  "name": "vs-dezrez",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server/app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ndx-auth": "^0.1.11",
+    "ndx-connect": "0.0.6",
+    "ndx-cors": "0.0.10",
+    "ndx-database-backup": "^0.1.0",
+    "ndx-server": "^0.16.11",
+    "ndx-superadmin": "^0.1.4",
+    "ndx-user-roles": "^0.4.0",
+    "ndxdb": "^1.10.11",
+    "superagent": "^3.5.0"
+  }
+}

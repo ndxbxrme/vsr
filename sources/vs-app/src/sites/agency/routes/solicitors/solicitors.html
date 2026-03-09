@@ -1,0 +1,28 @@
+
+<div class="solicitors-route"> 
+  <div class="container-xl">
+    <div class="row align-items-center">
+      <div class="col-12">
+        <h1><i class="fa-duotone fa-light fa-gavel"></i> Solicitors</h1>
+      </div>
+    </div>
+
+    <div class="solicitors row g-5">
+      <div class="solicitor col-lg-4 col-6" ng-repeat="solicitor in solicitors | orderBy:&quot;name&quot;">
+        <div class="inner">
+          <div class="row">
+            <div class="col-8">
+              <div class="solicitors-name">{{solicitor.name}}</div>
+              <div class="cases">
+                <label>Cases</label><span>{{solicitor.properties.length}}</span>
+              </div>
+            </div>
+            <div class="col-4 text-end">
+              <a class="small button" ng-click="open(solicitor)"><span ng-hide="solicitor.open">View List</span><span ng-show="solicitor.open">Close List</span></a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

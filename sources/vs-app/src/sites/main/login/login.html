@@ -1,0 +1,33 @@
+<div class="login-dir" ng-hide="auth.loggedIn() || auth.loading()">
+  <div class="login-holder">
+    <div class="row">
+      <div class="col-lg-5 col-md-8 text-side">
+        <div class="login-form">
+          <img src="public/img/vitalspace-logo.svg" class="logo">
+          <h2>Welcome to VitalSpace</h2>
+          <form name="loginForm" novalidate="novalidate" ng-submit="login()">
+            <div>
+              <input type="email" name="email" required="required" ng-model="email" placeholder="Email address"/>
+              <span ng-show="submitted &amp;&amp; loginForm.email.$error.email" class="error">Please use a valid email address</span>
+              <span ng-show="submitted &amp;&amp; loginForm.email.$error.required" class="error">Please use a valid email address</span><br>
+              <input type="password" name="password" required="required" ng-model="password" placeholder="Password"/>
+              <small ng-show="submitted &amp;&amp; loginForm.password.$error.required" class="error">A password is required</small>
+            </div>
+            <div class="login-buttons">
+              <div class="error">{{message}}</div>
+              <div class="button-row">
+                <input type="submit" value="Login" class="button">
+              </div>
+              <div class="login-help">
+                <small class="grey">If you need help, registering or logging in, <a href="mailto:hello@vitalspace.co.uk?subject=Help me with VitalSpace App Login..">click here</a> to send us an email</small>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="col-lg-7 col-md-4 image-side">
+        <img src="public/img/vs-apps-bg.jpg">
+      </div>
+    </div>
+  </div>
+</div>

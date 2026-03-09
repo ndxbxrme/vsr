@@ -1,0 +1,62 @@
+<div class="site-menu">
+  <sites>
+    <site>
+      <a ui-sref="dashboard">Main</a>
+      <pages>
+        <a ui-sref="profile" ng-show="auth.isAuthorized('profile')">Profile</a>
+        <a ui-sref="setup" ng-show="auth.isAuthorized('setup')">Setup</a>
+      </pages>
+    </site>
+    <site>
+      <a ui-sref="agency_dashboard", ng-class="{selected:state('agency_dashboard')}" ng-show="auth.isAuthorized('agency_dashboard')">Conveyancing</a>
+      <pages>
+        <a ui-sref="agency_cases", ng-class="{selected:state(['agency_cases','agency_case'])}" ng-show="auth.isAuthorized('agency_cases')">Cases</a>
+        <a ui-sref="agency_agreed", ng-class="{selected:state('agency_agreed')}" ng-show="auth.isAuthorized('agency_agreed')">Agreed</a>
+        <a ui-sref="agency_solicitors", ng-class="{selected:state('agency_solicitors')}" ng-show="auth.isAuthorized('agency_solicitors')">Solicitors</a>
+        <a ui-sref="agency_setup", ng-class="{selected:state('agency_setup')}" ng-show="auth.isAuthorized('agency_setup')">Setup</a>
+        <!--<a ui-sref="agency_cleanup", ng-class="{selected:state('agency_cleanup')}" ng-show="auth.isAuthorized('agency_cleanup')">Cleanup</a>-->
+      </pages>
+    </site>
+    <site>
+      <a ui-sref="leads_dashboard", ng-class="{selected:state('leads_dashboard')}" ng-show="auth.isAuthorized('leads_dashboard')">Leads</a>
+      <pages>
+        <a ui-sref="leads_selling", ng-class="{selected:state('leads_selling')}" ng-show="auth.isAuthorized('leads_selling')">Selling</a>
+        <a ui-sref="leads_letting", ng-class="{selected:state('leads_letting')}" ng-show="auth.isAuthorized('leads_letting')">Letting</a>
+        <a ui-sref="leads_valuation", ng-class="{selected:state('leads_valuation')}" ng-show="auth.isAuthorized('leads_valuation')">Valuation</a>
+        <a ui-sref="leads_history", ng-class="{selected:state('leads_history')}" ng-show="auth.isAuthorized('leads_history')">History</a>
+        <a ui-sref="leads_lead-new", ng-class="{selected:state('leads_lead-new')}" ng-show="auth.isAuthorized('leads_lead-new')">New Lead</a>
+        <a ui-sref="leads_setup", ng-class="{selected:state('leads_setup')}" ng-show="auth.isAuthorized('leads_setup')">Setup</a>
+      </pages>
+    </site>
+    <site>
+      <a ui-sref="lettings_dashboard", ng-class="{selected:state('lettings_dashboard')}" ng-show="auth.isAuthorized('lettings_dashboard')">Lettings</a>
+      <pages>
+        <a ui-sref="lettings_available", ng-class="{selected:state('lettings_available')}" ng-show="auth.isAuthorized('lettings_available')">Available</a>
+        <a ui-sref="lettings_cases", ng-class="{selected:state(['lettings_cases', 'lettings_case'])}" ng-show="auth.isAuthorized('lettings_cases')">Cases</a>
+        <a ui-sref="lettings_agreed", ng-class="{selected:state('lettings_agreed')}" ng-show="auth.isAuthorized('lettings_agreed')">Agreed</a>
+        <a ui-sref="lettings_accept", ng-class="{selected:state('lettings_accept')}" ng-show="auth.isAuthorized('lettings_accept')">Accept</a>
+        <a ui-sref="lettings_marketing", ng-class="{selected:state('lettings_marketing')}" ng-show="auth.isAuthorized('lettings_marketing')">Marketing</a>
+        <a ui-sref="lettings_setup", ng-class="{selected:state('lettings_setup')}" ng-show="auth.isAuthorized('lettings_setup')">Setup</a>
+      </pages>
+    </site>
+    <site>
+      <a ui-sref="maintenance_dashboard", ng-class="{selected:state('maintenance_dashboard')}" ng-show="auth.isAuthorized('maintenance_dashboard')">Maintenance</a>
+      <pages>
+        <a ui-sref="maintenance_setup", ng-class="{selected:state('maintenance_setup')}" ng-show="auth.isAuthorized('maintenance_setup')">Setup</a>
+      </pages>
+    </site>
+    <site>
+      <a ui-sref="maintenance_leads_dashboard", ng-class="{selected:state('maintenance_leads_dashboard')}" ng-show="auth.isAuthorized('maintenance_leads_dashboard')">Maintenance Leads</a>
+      <pages>
+        <a ui-sref="maintenance_leads_issues", ng-class="{selected:state('maintenance_leads_issues')}" ng-show="auth.isAuthorized('maintenance_leads_issues')">Issues</a>
+        <a ui-sref="maintenance_leads_worksorders", ng-class="{selected:state(['maintenance_leads_worksorders', 'maintenance_leads_works-orders'])}" ng-show="auth.isAuthorized('maintenance_leads_worksorders')">Works Orders</a>
+        <a ui-sref="maintenance_leads_contractors", ng-class="{selected:state(['maintenance_leads_contractors', 'maintenance_leads_contractor'])}" ng-show="auth.isAuthorized('maintenance_leads_contractors')">Contractors</a>
+        <a ui-sref="maintenance_leads_landlords", ng-class="{selected:state(['maintenance_leads_landlords', 'maintenance_leads_landlord'])}" ng-show="auth.isAuthorized('maintenance_leads_landlords')">Landlords</a>
+        <a ui-sref="maintenance_leads_issue({_id:null})", ng-class="{selected:state(['maintenance_leads_issue'])}" ng-show="auth.isAuthorized('maintenance_leads_issue')">Issue</a>
+        <a ui-sref="maintenance_leads_historic", ng-class="{selected:state(['maintenance_leads_historic'])}" ng-show="auth.isAuthorized('maintenance_leads_historic')">Historic</a>
+        <a ui-sref="maintenance_leads_setup", ng-class="{selected:state(['maintenance_leads_setup'])}" ng-show="auth.isAuthorized('maintenance_leads_setup')">Setup</a>
+      </pages>
+    </site>
+    
+  </sites>
+</div>

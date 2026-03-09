@@ -1,0 +1,58 @@
+.dashboard-route
+  .toolbar
+    .today {{today | date:'EEEE, MMM dd, yyyy'}}
+    .user-select
+      select.usertheme(ng-model='$root.selectedUser', ui-select2='userSelectOptions', theme='usertheme', ng-change='hidePopup()', style='width:100%')
+        option(ng-repeat='user in maintenance', value='{{user._id}}') {{user.displayName || user.local.email}}
+    .dates
+      date-swiper(config='{prefix:"toolbar", modifier:1.5, show:true}')
+    .filters
+      h4 Status
+      .filter
+        input#filterConfirmed(type='checkbox', ng-change='setFilters()', ng-model='filters.confirmed')
+        label(for='filterConfirmed') 
+        span Confirmed
+      .filter
+        input#filterQuote(type='checkbox', ng-change='setFilters()', ng-model='filters.quote')
+        label(for='filterQuote') 
+        span Quote
+      .filter
+        input#filterCompleted(type='checkbox', ng-change='setFilters()', ng-model='filters.completed')
+        label(for='filterCompleted') 
+        span Completed
+    .income {{income = calculateWeeklyIncome(); ''}}
+      h4 Weekly Target
+      .desktop
+        .income-item
+          label Income
+          span {{income.amount | currency:'£'}}
+        .income-item
+          label Target
+          span {{income.target | currency:'£'}}
+        .income-item
+          label +/-
+          span.total(ng-class='{loss:income.profitloss<0}') {{income.profitloss | currency:'£'}}
+      .mobile
+        .income-item
+          label Income
+          span &nbsp;{{income.amount | currency:'£':0}}
+        .income-item
+          label Target
+          span &nbsp;{{income.target | currency:'£':0}}
+        .income-item
+          label +/-
+          span.total(ng-class='{loss:income.profitloss<0}') &nbsp;{{income.profitloss | currency:'£':0}}
+    .counts
+      h4 Weekly Activities
+      .counts-item
+        label Jobs
+        span {{income.jobs}}
+      .counts-item
+        label Quotes
+        span {{income.quotes}}
+    .users
+      h4 Users
+      .user(ng-repeat='user in staff')
+        img(gravatar-src='user.local.email')
+        | {{user.displayName || user.local.email}}
+  calendar

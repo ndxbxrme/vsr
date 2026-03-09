@@ -1,0 +1,23 @@
+{
+  "name": "ndx-rest",
+  "description": "rest client for ndx-framework apps",
+  "main": "build/index.js",
+  "authors": [
+    "ndxbxrme"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "rest"
+  ],
+  "homepage": "https://github.com/ndxbxrme/ndx-rest-client",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "objtrans": "*"
+  }
+}

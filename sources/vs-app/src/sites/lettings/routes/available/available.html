@@ -1,0 +1,75 @@
+
+<div class="available container-xl">
+  <div class="row align-items-center">
+    <div class="col-sm-8">
+      <h1><i class="fa-duotone fa-light fa-square-plus"></i> Available Rental Properties</h1>
+    </div>
+    <div class="col-sm-4 search">
+      <input type="text" ng-model="search" placeholder="Search Cases" ng-change="page=1"/>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="row">
+      <div class="col-sm-6">
+        <div class="sort">Order By<br>
+          <a class="order-item" href="" ng-click="sort=&quot;-$case.item.DateInstructed&quot;;page=1" ng-class="{selected:sort===&quot;-DateInstructed&quot;}">First Listed</a>
+          <a class="order-item" href="" ng-click="sort=&quot;-$case.item.Viewings.length&quot;;page=1" ng-class="{selected:sort===&quot;-Viewings&quot;}">Viewings</a>
+          <a class="order-item" href="" ng-click="sort=&quot;-$case.item.Price.PriceValue&quot;;page=1" ng-class="{selected:sort===&quot;-PriceValue&quot;}">Asking Price</a>
+        </div>
+      </div>
+      <div class="col-sm-6 d-flex align-items-end justify-content-md-end mb-3">
+        <span class="show me-3">Show<br>
+        <a ui-sref="lettings_coming-soon" class="order-item">Coming Soon</a></span>
+        <div class="showing">Showing {{totalProps = properties.items.length - nodeleted}} case{{totalProps!==1?'s':''}}</div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="properties-list" ng-show="filterData.length &gt; 0">
+    <div class="property-card" ng-repeat="property in filterData =(properties.items | filter:{&quot;deleted&quot;:false} | filter:{&quot;search&quot;:search} | filter:{&quot;milestoneStatus&quot;:filter}  | orderBy:sort) | limitTo:limit:limit*(page-1)">
+      <div class="property-main row g-5">
+        <div class="property-image col-md-3">
+          <img class="image" src="{{property.$case.item.Images[0].Url}}&width=500"/>
+        </div>
+
+        <div class="property-info col-md-6">
+          <div class="property-meta">
+            <div class="property-address"><strong>Address:</strong> {{property.$case.item.override.address || property.displayAddress}}</div>
+            <div class="rental-price"><strong>Rent:</strong> {{property.$case.item.Price.PriceValue | currency : "£" : 0}} {{property.$case.item.Price.PriceType.DisplayName}}</div>
+            <div class="property-landlord"><strong>Landlord:</strong> {{property.$case.item.LandlordName || 'Not assigned'}}</div>
+          </div>
+
+          <div class="property-viewing">
+            <p class="title">{{property.$case.item.SpecialArrangements[0].SpecialArrangementType.Name}}</p>
+            <p>{{property.$case.item.SpecialArrangements[0].Text}}</p>
+            <p class="title">{{property.$case.item.SpecialArrangements[1].SpecialArrangementType.Name}}</p>
+            <p>{{property.$case.item.SpecialArrangements[1].Text}}</p>
+            <p class="title">{{property.$case.item.SpecialArrangements[2].SpecialArrangementType.Name}}</p>
+            <p>{{property.$case.item.SpecialArrangements[2].Text}}</p>
+          </div>
+        </div>
+        
+        <div class="property-stats-actions col-md-3">
+          <div class="property-stats">
+            <div class="stat-item">
+              <span class="instructed"><i class="fa-duotone fa-light fa-calendar-circle-user"></i> <strong>Instructed on:</strong> {{property.$case.item.DateInstructed | date:'dd/MM/yy'}}</span><br>
+              <span class="time-ago">({{property.$case.item.DateInstructed | timeAgo}})</span>
+            </div>
+            <div class="stat-item">
+              <span class="viewings-count"><i class="fa-duotone fa-light fa-eye"></i> <strong>Viewings:</strong> <strong class="orange">{{property.$case.item.Viewings.length}}</strong></span>
+            </div>
+          </div>
+
+          <div class="property-actions">
+            <a class="button" ui-sref="lettings_case({roleId:property.RoleId})">View Case</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <pagination class="pagination-sm pagination" total="filterData.length" ng-model="page" page-size="limit" page-change="pageChange" show-first-last="true"></pagination>
+  <div class="nothing-to-show" ng-show="filterData.length===0">
+    <h3>Nothing to show</h3>
+  </div>
+</div>

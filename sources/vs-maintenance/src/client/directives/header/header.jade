@@ -1,0 +1,12 @@
+.header-dir(ng-show='auth.getUser()')
+  .container 
+    .branding
+      a.logo(href="/")
+        img.logo(src="public/img/VitalSpaceLogo-2016.png")
+    menu.main-menu.mobile-hide(ng-show='auth.getUser()')
+    .user.mobile-hide
+      a(ui-sref='profile') {{auth.getUser().displayName || auth.getUser().local.email}} 
+      a(href='/api/logout', target='_self') 
+        img.logo(src="public/img/icons/logout.svg")
+    button#click-me.lines-button.x2.desktop-hide(type='button', role='button', aria-label='Toggle Navigation', ng-show='auth.getUser()', ng-click='toggle(); hide(); $event.stopPropagation()')
+      span.lines

@@ -1,0 +1,13 @@
+include ../../mixins/form.jade
+.modal.issue-book.small
+  h1 {{ m('modal-issue-book-title') }}
+  +form({name:'forms.myForm'})
+    +input({name:'jobnumber', errors:{required:true}})
+    .controls
+      label  
+      button.button-green(type='submit', value='Book')
+        i.fal.fa-ballot-check
+        | Book
+      button.button-grey(type='button', ng-click='cancel()') 
+        i.fal.fa-times
+        | Cancel

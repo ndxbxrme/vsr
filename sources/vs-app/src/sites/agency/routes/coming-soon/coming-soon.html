@@ -1,0 +1,154 @@
+
+
+<div class="client-management-list coming-soon">
+  <div class="container-xl">
+    <div class="row align-items-center">
+      <div class="col-md-7">
+        <h1><i class="fa-duotone fa-light fa-calendar-clock"></i> Instructions Coming Soon</h1>
+      </div>
+      <div class="col-md-5 search-row d-flex align-items-center gap-2">
+        <input type="text" ng-model="search" placeholder="Search Instructions" ng-change="page=1"/>
+      </div>
+    </div>
+
+    <div class="col-12 text-md-end mb-2">
+      <div class="button-row">
+        <a href="https://vitalspace.co.uk/new-instruction-staff/" target="_blank" class="button">Client Onboarding <i class="fa-light fa-plus"></i></a>
+        <button ui-sref="agency_new-instruction" class="button button-alt">New Instruction <i class="fa-light fa-plus"></i></button>
+      </div>
+    </div>
+
+
+    <div class="row g-3 snapshot-row">
+      <div class="col-md-6 col-lg-4">
+        <div class="snapshot">
+          <div class="snapshot-item">
+            <div class="snapshot-label">Total Fees</div>
+            <div class="snapshot-value">{{getTotalFees() | currency:'£':0}}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="snapshot">
+          <div class="snapshot-item">
+            <div class="snapshot-label">Total Instructions</div>
+            <div class="snapshot-value">{{getTotalInstructions()}}</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-4">
+        <div class="snapshot">
+          <div class="snapshot-item">
+            <div class="snapshot-label">Next Photos On</div>
+            <div class="snapshot-value">{{getNextPhotosDate() | date:'dd/MM/yy'}}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="row align-items-end">
+        <div class="col-lg-6">
+          <div class="sort">Order By:<br>
+            <a href="" ng-click="sort='dateOfPhotos';page=1" ng-class="{selected:sort==='dateOfPhotos'}" class="order-item">Date of Photos</a>
+            <a href="" ng-click="sort='goLiveDate';page=1" ng-class="{selected:sort==='goLiveDate'}" class="order-item">Go Live Date</a>
+            <a href="" ng-click="sort='insertedOn';page=1" ng-class="{selected:sort==='insertedOn'}" class="order-item">Date Instructed</a>
+          </div>
+        </div>
+        <div class="col-lg-6 text-lg-end">
+          <div class="showing">Showing {{filterData.length}} of {{totalProps = instructions.items.length - nodeleted}} instruction{{totalProps!==1?'s':''}}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="properties-list" ng-show="filterData.length &gt; 0">
+      <div class="property-card" ng-repeat="item in filterData =(instructions.items | filter:{SearchField:search} | orderBy:sort) | limitTo:limit:limit*(page-1)">
+        <div class="property-main row g-5">
+          
+          <div class="property-info col-lg-6">
+            <div class="property-meta">
+              <div class="property-address"><strong>Address:</strong> {{item.address}}</div>
+              <span class="fees"><strong>Vendor:</strong> {{item.vendorsName}}</span>
+              <span class="fees"><strong>Asking Price:</strong> {{item.askingPrice | currency:'£':0}}</span>
+              <span class="fees"><strong>Fees:</strong> {{item.fee | currency:'£':feeDP(item.fee)}}</span>
+            </div>
+          </div>
+          
+          <div class="property-stats-actions col-lg-3 col-12">
+            <div class="valuer-label"><i class="fa-duotone fa-light fa-user"></i> Valuer</div>
+            <div class="valuer">
+              <div>
+                <img gravatar-src="item.user.email" gravatar-size="48" class="user-avatar" />
+              </div>
+              <div>
+                <div class="display-name">{{item.user.displayName}}</div>
+                <div class="user-email"><a href="mailto:{{item.user.email}}">{{item.user.email}}</a></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="property-stats-actions col-lg-3 col-12">
+            <div class="property-stats">
+              <div class="stat-item">
+                <span class="instructed"><i class="fa-duotone fa-light fa-calendar-circle-user"></i> <strong>Instructed:</strong> {{item.insertedOn | date:'dd/MM/yy'}}</span>
+              </div>
+            </div>
+
+            <div class="property-actions">
+              <button ng-click="save(item)" class="button">Save</button>
+              <button ng-click="completeInstruction(item)" class="button button-alt">Completed</button>
+            </div>
+          </div>
+          
+          <div class="property-viewing">
+            <div class="row">
+              <div class="d-flex flex-wrap align-items-center gap-3">
+                <div class="d-flex align-items-center gap-2">
+                  <input id="whatsApp{{item._id}}" type="checkbox" ng-model="item.whatsApp">
+                  <label for="whatsApp{{item._id}}">Whatsapp</label>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <input id="termsSent{{item._id}}" type="checkbox" ng-model="item.termsSent">
+                  <label for="termsSent{{item._id}}">Terms Sent</label>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <input id="termsReceived{{item._id}}" type="checkbox" ng-model="item.termsReceived">
+                  <label for="termsReceived{{item._id}}">Terms Received</label>
+                </div>
+              </div>
+            </div>
+          </div>  
+
+          <div class="property-viewing coming-soon-inputs">
+            <div class="row">  
+              <div class="d-flex flex-wrap align-items-center gap-3 mt-3">
+                <div class="d-flex align-items-center gap-2">
+                  <label class="form-label mb-0">Go Live Date:</label>
+                  <input type="date" ng-model="item.goLiveDate">
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <label class="form-label mb-0">Date of Photos:</label>
+                  <input type="date" ng-model="item.dateOfPhotos">
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <label class="form-label mb-0">Photographer:</label>
+                  <select ng-model="item.photographer">
+                    <option value="">Assign...</option>
+                    <option value="Simon Thomas">Simon Thomas</option>
+                    <option value="Martin Gray">Martin Gray</option>
+                    <option value="Sona Media">Sona Media</option>
+                    <option value="Richard Antrobus">Richard Antrobus</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <pagination total="filterData.length" ng-model="page" page-size="limit" page-change="pageChange" show-first-last="true" class="pagination-sm pagination"></pagination>
+    <div ng-show="filterData.length===0" class="nothing-to-show">
+      <h3>Nothing to show</h3>
+    </div>
+  </div>
+</div>

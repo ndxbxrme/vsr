@@ -1,0 +1,6 @@
+.profile
+  .update-password
+    max-width 36em
+    .password-controls form
+      display flex
+      flex-direction column

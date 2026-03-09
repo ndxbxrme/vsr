@@ -1,0 +1,65 @@
+.feedback
+  .container
+    .row
+      .col-xs-12.title-row
+        h2 
+          i.fa-duotone.fa-light.fa-comment-smile
+          |  Feedback
+        a(href='/').medium.button.orange 
+          i.fa-light.fa-arrow-turn-left(aria-hidden='true')  
+          |  Dashboard
+      
+    div.prop-single(ng-repeat='property in getProperties()' ng-hide='!property.details.Address') 
+      h3(ng-hide='property.error || property.loading') {{property.Address.Number}} {{property.Address.Street }}, {{property.Address.Locality }}, {{property.Address.Town}}
+      h3(ng-show='property.error') Error fetching property details
+      h3(ng-show='property.loading') Fetching property details
+      p(ng-show='loading("viewings") && !property.viewings.length') Loading Feedback
+      p(ng-show='!loading("viewings") && !property.viewings.length') No Feedback
+      
+      div(ng-show='property.viewings.length')
+        .viewing.feedback-item(ng-repeat='viewing in property.viewings | filter:{EventStatus:{SystemName:"!Cancelled"}} | orderBy: sort' ng-class='{"has-feedback":viewing.Feedback.length||viewing.Notes.length}')
+          .viewing-header
+            .person
+              img(gravatar-src='viewing.MainContact.email')
+              span.main-contact {{viewing.MainContact.name}}
+            .person-position
+              p Position: 
+                span {{viewing.Grade.Name}}
+            .viewing-date
+              p Date: 
+                span {{viewing.StartDate | date:'mediumDate'}}
+            .viewing-time
+              p Time: 
+                span {{viewing.StartDate | date:'shortTime'}}
+          .viewing-details
+            .feedback-controls
+              .viewing-status
+                span(ng-show='viewing.Feedback.length') Has Feedback
+                span(ng-hide='viewing.Feedback.length') Awaiting feedback
+              .viewing-notes(ng-show='viewing.Notes.length || viewing.Feedback.length' ng-click='openFeedbackModal(viewing)' style='cursor: pointer;')
+                i.fa-light.fa-comment-lines
+                span(ng-show='viewing.Feedback.length') View Feedback
+                span(ng-hide='viewing.Feedback.length') View Notes
+            .viewing-accompanied
+              p Accompanied by
+              .person(ng-repeat='person in viewing.Negotiators')
+                img(gravatar-src='person.PrimaryEmail.Value')
+                span {{person.ContactName}}
+              .person(ng-repeat='person in viewing.AccompaniedBy')
+                img(gravatar-src='person.email')
+                span {{person.name}}
+      
+    .no-viewings(ng-show='!loading("properties") && !getProperties().length')
+      .row
+        .col-xs-12 
+          p You don't have any feedack yet
+        .col-md-6 
+          a(href="https://vitalspace.co.uk/offer-solicitor-quote/" target="_blank") 
+            img(src="public/img/need-solicitor.jpg" alt="Solicitor Quote")
+            span.title Need a solicitor?
+            span Receive a quote from our recommended solicitor
+        .col-md-6 
+          a(href="https://vitalspace.co.uk/arrange-a-survey/" target="_blank") 
+            img(src="public/img/property-survey.jpg" alt="Arrange a Survey")
+            span.title Arrange a survey
+            span Arrange a property inspection with a RICS Surveyor

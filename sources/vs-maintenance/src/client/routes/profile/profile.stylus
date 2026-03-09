@@ -1,0 +1,28 @@
+@import '../../variables'
+.profile-page
+  h1
+    padding 1.02rem
+  form
+    display flex
+    flex-wrap wrap
+    input[type='text'], input[type='email']
+      vs-input()
+      width 100%
+    input[type='submit']
+      vs-button()
+    .form-item
+      width 50%
+      padding 1.02rem
+      box-sizing border-box
+      @media screen and (max-width: 740px)
+        width 100%
+      label
+        opacity 0.8
+        margin-bottom 0.6rem
+        display block
+    .controls
+      width 100%
+      padding 1.02rem
+      box-sizing border-box
+      display flex
+      justify-content flex-end

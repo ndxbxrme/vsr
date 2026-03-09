@@ -1,0 +1,126 @@
+<div class="sms-dashboard-route">
+  <div class="container-xl">
+    <div class="row align-items-center mb-4 header-row">
+      <div class="col-sm-6">
+        <h1><i class="fa-duotone fa-light fa-paper-plane-top"></i> Send to list of numbers</h1>
+      </div>
+      <div class="col-sm-6 text-end">
+        <div class="schedule"><a class="button button-alt" ui-sref="sms_schedule">Schedule <i class="fa-duotone fa-light fa-calendar-clock"></i></a></div>
+      </div>
+    </div>
+    <div class="tab-container">
+      <ul class="nav nav-tabs tabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" ng-class="{active:stage==='to', disabled:!requirementsFulfilled('to')}" ng-click="requirementsFulfilled('to') && goToStage('to')" type="button" role="tab">To</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" ng-class="{active:stage==='details', disabled:!requirementsFulfilled('details')}" ng-click="requirementsFulfilled('details') && goToStage('details')" type="button" role="tab">Details</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" ng-class="{active:stage==='message', disabled:!requirementsFulfilled('message')}" ng-click="requirementsFulfilled('message') && goToStage('message')" type="button" role="tab">Message</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" ng-class="{active:stage==='confirm', disabled:!requirementsFulfilled('confirm')}" ng-click="requirementsFulfilled('confirm') && goToStage('confirm')" type="button" role="tab">Confirm</button>
+        </li>
+      </ul>
+      <div class="tab-body tab-content">
+        <div class="stage stage-to tab-pane fade" ng-class="{show: stage==='to', active: stage==='to'}" ng-show="stage==='to'">
+          <div class="list-box">
+            <h3>List of numbers</h3>
+            <select sumoselect="{placeholder:'SELECT', search:true}" ng-model="selectedList" name="selectedList" ng-disabled="disabled" ng-change="selectList()" required="required">
+              <option value="">New list</option>
+              <option ng-repeat="list in numberlists.items" value="{{list._id}}" ng-hide="list.hidden">{{ list.name }}</option>
+            </select>
+            <div class="item">
+              <label>List name</label>
+              <input type="text" ng-model="listName" />
+            </div>
+            <div class="item">
+              <label>Numbers (one number on each line)</label>
+              <textarea ng-model="numbers"></textarea>
+            </div>
+            <div class="controls">
+              <input class="button button-alt" type="button" ng-click="saveList()" value="Save list" />
+              <input class="button" type="button" ng-click="deleteList()" value="Delete list" />
+              <input class="button" type="button" ng-click="goToStage('details')"  ng-disabled="!requirementsFulfilled('to')" value="Next >>" />
+            </div>
+          </div>
+        </div>
+        <div class="stage stage-details tab-pane fade" ng-class="{show: stage==='details', active: stage==='details'}" ng-show="stage==='details'">
+          <div class="details-box">
+            <div class="item">
+              <label>When</label>
+              <input type="datetime-local" ng-model="when" />
+            </div>
+            <div class="item">
+              <label>Receive replies?</label>
+              <select sumoselect ng-model="receiveReplies" name="receiveReplies">
+                <option ng-repeat="item in yesno">{{item}}</option>
+              </select>
+              <label ng-show="receiveReplies==='Yes'">Reply email address</label>
+              <input type="text" ng-model="emailAddress" ng-show="receiveReplies==='Yes'" />
+            </div>
+            <div class="item">
+              <label>From</label>
+              <input type="text" ng-model="from" />
+            </div>
+            <div class="controls">
+              <input type="button" ng-click="goToStage('to')" value="<< Back" />
+              <input type="button" ng-click="goToStage('message')" value="Next >>" />
+            </div>
+          </div>
+        </div>
+        <div class="stage stage-message tab-pane fade" ng-class="{show: stage==='message', active: stage==='message'}" ng-show="stage==='message'">
+          <div class="message-box">
+            <label>Templates</label>
+            <select sumoselect="{placeholder:'Select a saved template message', search:true}" ng-model="selectedTemplate" name="selectedTemplate" ng-disabled="disabled" ng-change="selectTemplate()" required="required">
+              <option ng-repeat="template in smstemplates.items" value="{{template._id}}" ng-hide="template.hidden">{{ template.text }}</option>
+            </select>
+            <div class="item">
+              <label>Message</label>
+              <textarea ng-model="message"></textarea>
+            </div>
+            <div class="controls">
+              <input type="button" ng-click="goToStage('details')" value="<< Back" />
+              <input type="button" ng-click="goToStage('confirm')" value="Next >>" />
+            </div>
+          </div>
+        </div>
+        <div class="stage stage-confirm tab-pane fade" ng-class="{show: stage==='confirm', active: stage==='confirm'}" ng-show="stage==='confirm'">
+          <div class="confirm-box">
+            <div class="confirm-details">
+              <div class="item">
+                <label>To</label>
+                <div class="number-details">{{numbers}}</div>
+              </div>
+              <div class="item">
+                <label>Receive replies</label>
+                <div>{{receiveReplies}}</div>
+              </div>
+              <div class="item" ng-show="receiveReplies==='Yes'">
+                <label>Reply email address</label>
+                <div>{{emailAddress}}</div>
+              </div>
+              <div class="item">
+                <label>When</label>
+                <div>{{when | date:'dd/MM/yyyy hh:mm a'}}</div>
+              </div>
+              <div class="item">
+                <label>From</label>
+                <div>{{from}}</div>
+              </div>
+              <div class="item">
+                <label>Message</label>
+                <div>{{message}}</div>
+              </div>
+            </div>
+            <div class="controls">
+              <input type="button" ng-click="goToStage('message')" value="<< Back" />
+              <input type="button" ng-click="confirm()" value="Confirm" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

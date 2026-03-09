@@ -1,0 +1,62 @@
+
+
+<div class="client-management-list epc-management-list">
+  <div class="container-xl">
+    <div class="row align-items-center header-row">
+      <div class="col-md-6">
+        <h1><i class="fa-duotone fa-light fa-chart-simple"></i> EPC Management</h1>
+      </div>
+      <div class="col-md-6 search d-flex align-items-center justify-content-end">
+        <input type="text" ng-model="search" placeholder="Search Cases" ng-change="page=1"/>
+        <a class="button button-alt" href="https://docs.google.com/spreadsheets/d/1eoHBgDIEnpw-fN5UzbMiRsi7XstSw3BFOmFrDP07748/edit?usp=sharing" target="_blank">Google Sheets <i class="fa-duotone fa-light fa-file-spreadsheet"></i></a>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="row align-items-center">
+        <div class="col-md-6">
+        </div>
+        <div class="col-md-6 d-flex align-items-center justify-content-end">
+          <div class="showing">Showing {{filterData.length}} of {{totalProps = epcs.items.length - nodeleted}} case{{totalProps!==1?'s':''}}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="properties-list" ng-show="filterData.length > 0">
+      <div class="property-card" ng-repeat="epc in filterData =(epcs.items | filter:{&quot;SearchField&quot;:search} | orderBy:sort) | limitTo:limit:limit*(page-1)">
+        <div class="property-main row g-5">
+          <div class="property-image col-md-3">
+            <img src="{{epc.property.image}}&width=500" class="image" alt="{{epc.property.displayAddress}}"/>
+          </div>
+          
+          <div class="property-info col-md-6">
+            <div class="property-meta">
+              <div class="property-address"><strong>Address:</strong> {{epc.property.displayAddress}}</div>
+              <span class="vendor-name"><strong>Vendor:</strong> {{epc.property.vendorName}}</span>
+            </div>
+              
+            <div class="property-viewing">
+              <span class="ordered-date"><i class="fa-duotone fa-light fa-calendar-check"></i> <strong>Ordered:</strong> {{epc.instructionToMarket.epcOrderedDate | date:'dd/MM/yyyy'}}</span><br>
+              <span class="instructed-date" ng-show="epc.property.dateInstructed"><i class="fa-duotone fa-light fa-clock"></i> <strong>Instructed:</strong> {{epc.property.dateInstructed | date:'dd/MM/yyyy'}} ({{epc.property.dateInstructed | timeAgo}})</span>
+            </div>
+          </div>
+          
+          <div class="property-stats-actions col-md-3">
+            <div class="property-actions ">
+              <button type="button" class="button" ng-click="completedEPC(epc)">Completed <i class="fa-light fa-check"></i></button>
+              <button type="button" class="button button-alt" ng-click="deleteEPC(epc)">Delete <i class="fa-light fa-trash"></i></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="paging-dir">
+      <pagination total="filterData.length" ng-model="page" page-size="limit" page-change="pageChange" show-first-last="true" class="pagination-sm pagination"></pagination>
+    </div>
+    
+    <div ng-show="filterData.length===0" class="empty-table">
+      <h3>Nothing to show</h3>
+    </div>
+  </div>
+</div>

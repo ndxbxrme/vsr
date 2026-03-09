@@ -1,0 +1,104 @@
+.offer-details
+  .property-details
+    margin-bottom 1em
+    p.title
+      color vs-orange
+    .pdf-upload,
+    .jpg-upload
+      color vs-grey
+      font-size 1.2em
+      margin-bottom 1em
+      display block
+      span
+        font-size 1.6rem
+        font-weight 300
+      &:hover
+        color vs-orange
+  &.client-management-details .property-item.property-details 
+    align-items start
+  &.client-management-details .property-item.comments-box
+    margin-bottom 1em
+  &.client-management-details .property-summary .property 
+    h4
+      margin 0px 0px 20px 0px !important
+    p.financial-item,
+    p.date-instructed
+      font-weight 600
+      span
+        font-size 20px
+    .results
+      .result
+        width 100% !important
+    .summary-detail
+      display flex
+      flex-direction column
+      justify-content space-between
+      height 240px
+      .button
+        margin-bottom 0px
+  .tabbed-section
+    .item
+      display flex
+      flex-direction column
+      justify-content center
+      .title
+        font-weight 600
+        font-size 1.6rem
+        margin-bottom 5px
+  .comments-section
+    background white
+    border-radius 30px
+    border: 1px solid vs-lightgrey
+    margin-bottom 30px
+    padding 20px 30px
+    .title
+      font-weight 600
+      font-size 1.6rem
+      margin-bottom 10px
+  .offer-notes
+    border 1px solid #ccc
+    border-radius 3px
+    background #fff
+    margin-bottom 3em
+    padding 20px
+    overflow hidden
+    .date a
+      padding 0 0 0 15px
+  .preferences
+    .item
+      align-items center
+  .prefsIcon 
+    span 
+      font-size 2rem
+      font-weight 600
+      .fa-check
+        background-color #00a685
+        color #fff
+        line-height 1
+        width 40px
+        height 40px
+        display flex
+        align-items center
+        justify-content center
+        border-radius 50px
+      .fa-times
+        background-color rgb(166, 0, 0)
+        color #fff
+        line-height 1
+        width 40px
+        height 40px
+        display flex
+        align-items center
+        justify-content center
+        border-radius 50px
+
+@media print
+  input, button
+    display none!important
+@media screen and (max-width:768px)
+  .offer-details
+    &.client-management-details .property-summary .property 
+      .property-image
+        margin-bottom 15px
+      .summary-detail
+        height auto

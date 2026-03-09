@@ -1,0 +1,113 @@
+<div ng-show="auth.getUser()" class="dashboard-route route admin-windows maintenance-leads-dashboard">
+  <div class="container-xl">
+    <div class="row align-items-center mb-4 header-row">
+      <div class="col-xl-6">
+        <h1><i class="fa-duotone fa-light fa-picture-in-picture"></i> Windows Management</h1>
+      </div>
+      <div class="col-xl-6 text-xl-end d-flex align-items-center search-row">
+        <input type="text" class="form-control" ng-model="search" ng-change="searchWindows()" ng-keyup="searchWindows()" placeholder="Search windows..." />
+        <div class="button-row">
+          <button type="button" class="button" ng-click="printWindows()">Print Windows <i class="fa-light fa-duotone fa-print"></i></button>
+          <!-- <button type="button" class="button button-alt" ng-click="completeWindows()">{{currentWindowsCompleted ? 'Reset Windows' : 'Complete All'}} <i class="fa-light fa-duotone fa-check"></i></button> -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Search Results -->
+    <div class="row mb-4 search-results" ng-show="searchResults && searchResults.length">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0"><i class="fa-light fa-search"></i> Search Results</h5>
+          </div>
+          <div class="card-body p-0">
+            <div class="search-results-list">
+              <div ng-repeat="window in searchResults" ng-click="selectSearchResult(window.date)" class="search-result-item">
+                <div class="result-address">{{window.address}}</div>
+                <div class="result-details">
+                  <span class="result-type"><i class="fa-light fa-tag"></i> {{windowName(window.type)}}</span>
+                  <span class="result-completed" ng-show="window.completed"><i class="fa-light fa-check-circle"></i> {{window.completed | date:'dd/MM/yyyy'}}</span>
+                  <span class="result-completed text-muted" ng-show="!window.completed"><i class="fa-light fa-clock"></i> Pending</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Snapshot Boxes -->
+    <div class="row g-3 snapshot-row">
+      <div class="col-md-6 col-lg-3 col-6" ng-repeat="window in windows">
+        <div class="snapshot-box">
+          <div class="snapshot-label">{{window.name}}</div>
+          <div class="snapshot-value">{{window.items.length}}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabbed Layout -->
+    <div class="maintenance-tabs">
+      <ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item" role="presentation" ng-repeat="window in windows" ng-class="{first: $first}">
+          <button class="nav-link" ng-class="{active: $first}" id="{{window.type}}-tab" data-bs-toggle="tab" data-bs-target="#{{window.type}}" type="button" role="tab" aria-controls="{{window.type}}" aria-selected="{{$first}}">
+            {{window.name}} <span class="badge">{{window.items.length}}</span>
+          </button>
+        </li>
+      </ul>
+
+      <div class="tab-content">
+        <div class="tab-pane fade" ng-class="{'show active': $first}" id="{{window.type}}" role="tabpanel" aria-labelledby="{{window.type}}-tab" ng-repeat="window in windows">
+          <div class="issues-list">
+            <div ng-repeat="item in window.items" class="issue" ng-class="{completed: item.completed}">
+              <div class="details">
+                <a class="address" ui-sref="agency_client-management-details-roleid({roleid:item.RoleId})" ng-show="item.RoleId && (window.link==='clientmanagement')">{{item.address}}</a>
+                <a class="address" ui-sref="agency_case({roleId:item.RoleId})" ng-show="item.RoleId && (window.link==='conveyancing')">{{item.address}}</a>
+                <a class="address" ui-sref="lettings_case({roleId:item.RoleId})" ng-show="item.RoleId && (window.link==='lettings')">{{item.address}}</a>
+                <div class="address" ng-show="!item.RoleId || !window.link">{{item.address}}</div>
+              </div>
+              <div class="status">
+                <div class="completed" ng-show="item.completed">
+                  <div class="fad fa-thumbs-up"></div>
+                </div>
+                <div class="delete" ng-show="!item.completed" ng-click="deleteItem(item)">
+                  <div class="fad fa-trash"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div ng-show="!window.items.length" class="empty-table">No items for this window type</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Window Form -->
+    <div class="row">
+      <div class="col-12">
+        <div class="add-header d-flex justify-content-between align-items-center">
+          <h3 class="mb-0"><i class="fa-duotone fa-light fa-plus-circle"></i> Add New Window</h3>
+        </div>
+        <div class="card-body">
+          <form name="myForm" novalidate="novalidate" autocomplete="off" ng-submit="save()">
+            <div class="row g-3 align-items-end">
+              <div class="col-md-5">
+                <label><strong>Property Address</strong></label>
+                <input type="text" class="form-control" ng-model="newWindow.address" placeholder="Enter property address" required />
+              </div>
+              <div class="col-md-5">
+                <label><strong>Window Type</strong></label>
+                <select ng-model="newWindow.type" required>
+                  <option value="">Select type...</option>
+                  <option ng-repeat="window in windows" ng-value="window.type">{{window.name}}</option>
+                </select>
+              </div>
+              <div class="col-md-2 mb-3 d-flex align-items-end">
+                <button type="submit" class="button button-alt">Add Window <i class="fa-light fa-plus"></i></button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

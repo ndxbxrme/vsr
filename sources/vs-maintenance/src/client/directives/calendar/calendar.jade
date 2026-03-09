@@ -1,0 +1,38 @@
+.calendar-dir
+  .controls
+    a(href='', tap='prev()') &lt;&lt; Prev
+    a(href='', tap='goToToday()') Today
+    a(href='', tap='next()') Next &gt;&gt;
+  .carousel
+    .week(ng-repeat='week in weeks')
+      .day(ng-repeat='day in week.days', ng-class='{selected:isSelected(day.day)}')
+        .day-name 
+          .desktop {{day.day | date:'EEE, MMM d'}}
+          .mobile {{day.day | date:'EEE, MMM d'}}
+        .hours
+          .hour(ng-repeat='hour in day.hours', tap='openTask({date:hour}, $event)')
+            .legend 
+              .desktop {{hour | date:'ha'}}
+              .mobile {{hour | date:'ha'}}
+          task(ng-repeat='task in day.tasks | filter:$root.selectedUser | byStatus:filters', style='top:{{task.top}}rem; height:calc({{task.height}}rem + 1px)', ng-click='openTask(task, $event)', class='{{task.status}}')
+        .income {{income = calculateDailyIncome(day.day); ''}}
+          .desktop
+            .income-item
+              label Income
+              span {{income.amount | currency:'£'}}
+            .income-item
+              label Target
+              span {{income.target | currency:'£'}}
+            .income-item
+              label +/-
+              span.total(ng-class='{loss:income.profitloss<0}') {{income.profitloss | currency:'£'}}
+          .mobile
+            .income-item
+              label Income
+              span {{income.amount | currency:'£':0}}
+            .income-item
+              label Target
+              span {{income.target | currency:'£':0}}
+            .income-item
+              label +/-
+              span.total(ng-class='{loss:income.profitloss<0}') {{income.profitloss | currency:'£':0}}

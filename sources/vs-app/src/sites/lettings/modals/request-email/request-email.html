@@ -1,0 +1,26 @@
+
+<div class="modal request-email">
+  <h1>Request {{data.type}} Reference</h1>
+  <div class="flex-section">
+    <form name="forms.myform" novalidate="novalidate" ng-submit="submit()">
+      <div class="row">
+        <div class="form-item">
+          <div class="form-icon"><i class="fas fa-fw fa-user {{toNameClass}}"></i></div>
+          <input type="text" ng-model="data.toName" ng-required="true" placeholder="{{data.type}} Name"/>
+        </div>
+      </div>
+      <div class="form-item">
+        <div class="form-icon"><i class="fas fa-fw fa-envelope {{toMailClass}}"></i></div>
+        <input type="email" ng-model="data.toMail" ng-required="true" placeholder="{{data.type}} Email"/>
+      </div>
+      <div class="form-item">
+        <div class="form-icon"><i class="fas fa-fw fa-users {{refNameClass}}"></i></div>
+        <input type="text" ng-model="data.refName" ng-required="true" placeholder="Applicant Name"/>
+      </div>
+      <div class="controls">
+        <input type="submit" value="Send {{data.type}} Request"/>
+        <button type="button" ng-click="cancel()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>

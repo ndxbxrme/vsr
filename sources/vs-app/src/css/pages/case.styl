@@ -1,0 +1,386 @@
+.case
+  padding-top 30px
+  .header-row
+    display flex
+    justify-content space-between
+    align-items center
+    margin-bottom 20px
+    h1
+      font-size 2.4rem
+      font-weight 600
+      color vs-grey
+    nav
+      display flex
+      flex-direction row
+      a
+        margin-left 15px
+        font-size 1.4rem
+        color vs-orange
+        font-weight 600
+        
+        align-items center
+        i
+          color vs-grey
+          margin-right 0px
+        &:hover
+          color vs-grey
+  .property-summary
+    .property
+      background white
+      margin-bottom 45px
+      padding 30px
+      border-radius: 20px
+      p 
+        font-size 18px
+        line-height 1.5
+        padding 10px 0 10px 0
+      .property-image
+        width 100%
+        height 290px
+        border-radius 20px
+        overflow hidden
+        position relative
+        img 
+          width 100%
+          height 100%
+          object-fit cover
+        &.no-milestone
+          img
+            filter grayscale(100%)
+            opacity 0.8
+        .property-milestone
+          position absolute
+          top 20px
+          right 20px
+          text-align left
+          display flex
+          flex-direction row
+          align-items center
+          background white
+          padding 5px 5px 5px 5px
+          border-radius 40px
+          .icon
+            height 30px
+            width 30px
+            margin-bottom 0px
+            &:after
+              font-size 1.6rem
+          .milestone-title
+            font-size 1.4rem
+            font-weight 600
+            color vs-grey
+            margin-left 10px
+            margin-right 10px
+      .status
+        color white
+        background vs-orange
+        font-weight 600
+        padding 5px 15px
+        border-radius 20px
+        position absolute
+        top 10px
+        right 10px
+      h4
+        color vs-grey
+        font-weight 600
+        margin 10px 0px 20px 0px !important
+      p 
+        span 
+          font-weight 600
+        &.date-instructed,
+        &.financial-item
+          font-size 16px
+          font-weight 600
+          color vs-grey
+          span,
+          .value
+            color vs-orange
+            font-size 20px
+      .property-report
+        .results 
+          display flex
+          flex-wrap wrap
+          margin-bottom 15px
+          .result 
+            display flex
+            align-items center
+            width 50%
+            &.vendor-result,
+            &.purchaser-result
+              width 100%
+            p 
+              margin-bottom 0px
+              font-size 14px
+              span
+                font-size 18px
+                font-weight 700
+            i,svg
+              font-size 2rem
+              margin-right 10px
+              color vs-grey
+  .address
+    span.right
+      float right
+      font-size 2rem
+      font-weight 500
+      color vs-orange
+  .case-row
+    margin-bottom 30px
+    padding-bottom 30px
+    width: 100%
+    h2
+      display flex
+      align-items center
+      span
+        color white
+        background vs-orange
+        font-size 1.6rem
+        font-weight 600
+        margin-left 10px
+        border-radius 50%
+        display flex
+        justify-content center
+        align-items center
+        height 24px
+        width 24px
+  .docs-chain
+    .documents-section 
+      display flex
+      flex-direction column
+      justify-content space-between
+      height 100%
+    .flex-pipeline
+      display flex
+      flex-direction column
+      margin-top 10px
+      margin-bottom 50px
+      gap 0px
+      h2
+        margin-right 15px
+      .staff-selection
+        display flex
+        flex-direction row
+        align-items center
+        gap 20px
+        width 100%
+        background: vs-white
+        border-radius 30px
+        padding 15px 30px 5px 30px
+        label
+          font-size 1.8rem
+          font-weight 600
+          color vs-grey
+    .document-list
+      .document
+        display flex
+        align-items center
+        padding 10px
+        margin-bottom 10px
+        background white
+        border 1px solid vs-lightgrey
+        border-radius 30px
+        transition all 0.2s ease
+        &:hover
+          box-shadow 0 2px 8px rgba(0,0,0,0.1)
+        .document-icon-wrapper
+          flex-shrink 0
+          width 50px
+          height 40px
+          margin-right 10px
+          .document-link
+            display block
+            width 100%
+            height 100%
+            img
+              width 100%
+              height 100%
+              object-fit cover
+              border-radius 5px
+            .document-icon
+              width 100%
+              height 100%
+              display flex
+              align-items center
+              justify-content center
+              i
+                font-size 3rem
+                color vs-grey
+        .document-details
+          flex 1
+          min-width 0
+          .filename
+            font-size 16px
+            font-weight 600
+            color vs-grey
+            span
+              display block
+              white-space nowrap
+              overflow hidden
+              text-overflow ellipsis
+            input
+              width 100%
+              padding 5px 10px
+              border 1px solid vs-lightgrey
+              border-radius 5px
+              font-size 16px
+        .document-actions
+          display flex
+          gap 10px
+          flex-shrink 0
+          a
+            display flex
+            align-items center
+            justify-content center
+            width 35px
+            height 35px
+            border-radius 50%
+            transition all 0.2s ease
+            i
+              font-size 18px
+          .edit-icon, .save-icon
+            &:hover
+              background vs-body
+              i
+                color vs-orange
+          .delete-icon
+            &:hover
+              background #fee
+              i
+                color vs-red
+    .chain
+      position relative
+      display flex
+      flex-direction column
+      align-items center
+      padding 30px
+      background white
+      border-radius 30px
+      button.add-chain
+        margin 0px
+        z-index 10
+      .connector
+        text-align center
+        position relative
+        height 40px
+        &:after
+          color vs-silver
+          font: var(--fa-font-duotone);
+          font-weight 300
+          font-size 2rem
+          content '\e6bf'
+          position absolute
+          top 50%
+          left 50%
+          transform translate(-50%, -50%)
+          opacity 0.3
+      .chain-content
+        display flex
+        flex-direction row
+        align-items flex-start
+        justify-content space-between
+        text-align left
+        position relative
+        border-radius 30px
+        background vs-white
+        width 100%
+        padding 10px 20px 5px
+        .chain-text
+          text-align left
+          margin-right 20px
+        h3
+          text-align left
+          margin-bottom 5px
+      .current-property, .chain-property
+        chain-box()
+        img
+          max-width 160px
+  .contacts
+    flex-direction column !important
+    justify-content flex-start !important
+    .contact-details
+      flex-direction column
+      margin-bottom 15px
+    .card
+      position relative
+      border 1px solid vs-lightgrey
+      border-radius 30px
+      background vs-white !important
+      padding 20px 20px 10px 20px
+      min-height 170px
+      overflow hidden
+      div
+        margin-bottom 5px
+      .edit-btn
+        position absolute
+        top 10px
+        right 10px
+      .role
+        font-weight 600
+      .mail-link
+        display inline-block
+        width 100%
+        max-width 100%
+        white-space nowrap
+        overflow hidden
+        text-overflow ellipsis
+    .connector
+      height 3rem
+      border none
+      width 8rem
+      background url(./public/img/icons/commercial-chain.jpg)
+      background-size cover
+    .current-property, .chain-property
+      chain-box()
+      max-width 420px
+      display flex
+      color vs-grey
+      img
+        max-width 160px
+      .details
+        margin-left 1rem
+    .add-chain
+      z-index 10
+  .rental-terms
+    input[type=submit]
+      margin-bottom 1rem
+  &.lettings-case
+    .contacts .contact-details 
+      margin-left 0px
+    .tenant-details
+      padding 0px
+      .card
+        border none
+        margin-right 8px
+
+@media screen and (max-width:768px)
+ .case 
+    .header-row
+      flex-direction column
+      align-items flex-start
+      justify-content flex-start
+      gap 10px
+      nav 
+        gap 10px
+        a
+          margin-left 0px
+    .property-summary 
+        .property 
+          .property-report 
+            .results 
+              .result
+                width 100%
+                p
+                  span
+                    font-size 1.4rem
+                    line-height 1.5
+                    padding 5px 0px
+                i,svg
+                  font-size 1.6rem
+    .docs-chain
+      .flex-pipeline
+        .staff-selection
+          flex-direction column
+          align-items flex-start
+          gap 10px
+    .case-notes .case-note .header-row
+      flex-direction row

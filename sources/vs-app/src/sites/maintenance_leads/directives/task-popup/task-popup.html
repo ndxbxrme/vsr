@@ -1,0 +1,17 @@
+
+<div ng-show="!getHidden()" class="task-popup-dir">
+  <div class="popup">
+    <div class="details">
+      <div class="details-item">
+        <label>Task</label><span>{{getTask().title}}</span>
+      </div>
+      <div class="details-item">
+        <label>From</label><span>{{getTask().date | date:'shortTime'}} - {{getDateTo() | date:'shortTime'}}</span>
+      </div>
+    </div>
+    <div class="controls">
+      <button ng-click="edit(getTask())" class="edit">Edit</button>
+    </div>
+  </div>
+  <div class="pointer"></div>
+</div>

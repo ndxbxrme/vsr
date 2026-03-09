@@ -1,0 +1,275 @@
+.agreed-route, 
+.solicitors-route, 
+.contractors-route,
+.landlords-route
+  padding 30px 0px
+  .search
+    .button
+      flex-shrink 0
+      margin-left 10px
+  .months, .solicitors, .contractors, .landlords
+    --bs-gutter-y: 2rem;
+    --bs-gutter-x: 2rem;
+  .month, .solicitor, .contractor, .landlord
+    position relative
+    &.disabled
+      opacity 0.3
+    .inner
+      padding 20px
+      border-radius 30px
+      background vs-white
+      position relative
+  .month-name, .solicitors-name, .name
+    min-width 10rem
+    font-size 2rem
+    font-weight 600
+    margin-bottom 10px
+  .solicitors-name, .name
+    color vs-grey
+    height 46px
+  .target, .cases
+    display flex
+    align-items baseline
+    cursor pointer
+    label
+      margin-right 1.02rem
+      cursor pointer
+    .default
+      color vs-orange
+      font-size 2rem
+      font-weight 600
+  .button.small
+    margin 0px
+  .actual
+  .commission
+    font-size 2rem
+    font-weight 600
+    line-height 1
+  .actual
+    position absolute
+    top 20px
+    right 20px
+    width 40px
+    height 40px
+    border-radius 50%
+    color white
+    background vs-orange
+    display flex
+    align-items center
+    justify-content center
+  .actual.unloaded
+    opacity 0.5
+.properties
+  padding 20px
+  border-radius 30px
+  border 1px solid vs-white
+  background white
+  position absolute
+  top 100%
+  left 10px
+  z-index 1
+  width 100%
+  h5
+    margin-bottom 10px
+    color vs-orange
+  .property
+    border-bottom 1px solid vs-lightsilver
+    .editor, .default
+      font-size 1.1rem
+      position relative
+      .p, .v 
+        color vs-orange
+        font-weight 900
+        position absolute
+        right 60px
+        bottom 0px
+      .p
+        right 80px
+      &.delisted
+        .address, .fees
+          font-weight 900
+        .number:after
+          content '✔'
+          position absolute
+          top 0.4rem
+          color vs-green
+      .controls
+        a
+          padding 0 0 0 5px
+      &:hover
+        color vs-orange
+      .number
+        position relative
+      .date
+        white-space nowrap
+    .editor
+      margin-bottom 10px
+// Properties Modal Styles
+.properties-modal
+  .modal-header
+    align-items flex-start
+    padding 20px !important
+    h2 
+      margin-bottom 5px
+    .snapshot
+      margin 0px
+      height auto
+  .properties-list
+    max-height 60vh
+    overflow-y auto
+    padding 20px
+    .property-card
+      background white
+      border-radius 15px
+      padding 10px
+      margin-bottom 5px
+      border 1px solid vs-lightgrey
+      transition all 0.3s ease
+      &:hover
+        border-color vs-orange
+      &.delisted
+        .default .property-header .property-number 
+          background vs-grey
+        .property-controls
+          color white
+          border-color vs-orange !important
+          background vs-orange
+          a i
+            color white
+      &.editing
+        border-color vs-orange
+      .editor
+        .button-group
+          display flex
+          gap 10px
+          margin-top 15px
+          .button
+            margin 0
+        label
+          color vs-grey
+          font-weight 600
+          margin-bottom 5px
+          display block
+        input[type="text"]
+          width 100%
+          padding 10px
+          border 1px solid vs-lightgrey
+          border-radius 8px
+      .default
+        position relative
+      .property-header
+        display flex
+        align-items center
+        justify-content space-between
+        gap 15px
+        .property-link
+          display flex
+          align-items center
+          gap 10px
+        .property-number
+          background vs-grey
+          color white
+          width 20px
+          height 20px
+          border-radius 50%
+          display flex
+          align-items center
+          justify-content center
+          font-weight 700
+          font-size 1.1rem
+          flex-shrink 0
+        .property-address
+          flex 1
+          font-size 1.6rem
+          font-weight 600
+          color vs-grey
+        .property-badges
+          display flex
+          gap 8px
+          .badge-p, .badge-v
+            background vs-grey
+            color white
+            width 28px
+            height 28px
+            border-radius 50%
+            display flex
+            align-items center
+            justify-content center
+            font-weight 700
+            font-size 1.4rem
+        .property-controls
+          display flex
+          gap 10px
+          border 1px solid vs-lightgrey
+          border-radius 30px
+          padding 5px 10px
+          a
+            color vs-grey
+            font-size 1.4rem
+            transition color 0.2s
+            &:hover
+              color vs-orange
+      .property-date
+        color vs-lightgrey
+        position absolute 
+        left 35px
+        bottom -12px
+        i
+          margin-right 5px
+      .property-commission
+        color vs-orange
+        font-weight 700
+        display inline-block
+        margin-left 10px
+.solicitors-route
+  padding-bottom 30px
+  .cases
+    padding-top: 0px
+    span
+      font-weight 600
+      width 30px
+      height 30px
+      border-radius 50%
+      color white
+      background vs-orange
+      display flex
+      align-items center
+      justify-content center
+.contractors-route,
+.landlords-route
+  .no-issues
+    text-align right
+    .number
+      color: vs-orange
+      font-size 3rem
+      line-height 3.2rem
+  .issues
+    .issue
+      color vs-grey
+      border-bottom 1px solid vs-lightsilver
+      padding 5px 0px
+      &:hover
+        color vs-orange
+      &:last-of-type
+        border none
+      .title
+        font-size 1.2rem
+@media screen and (max-width:768px)
+  .agreed-route, 
+  .solicitors-route, 
+  .contractors-route,
+  .landlords-route
+    .months, .solicitors, .contractors, .landlords
+      .month, .solicitor, .contractor, .landlord
+        .inner
+          .actual,
+          .commission
+            font-size 2rem
+@media screen and (max-width: 576px)
+  .agreed-route, 
+  .solicitors-route, 
+  .contractors-route,
+  .landlords-route
+    .months, .solicitors, .contractors, .landlords
+      .month, .solicitor, .contractor, .landlord
+        width 100%

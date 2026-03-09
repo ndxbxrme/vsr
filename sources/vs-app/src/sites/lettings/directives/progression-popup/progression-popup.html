@@ -1,0 +1,187 @@
+
+<div class="progression-popup lettings-progression-popup" ng-hide="getHidden()" ng-click="$event.stopPropagation()">
+  <div class="popup">
+    <div class="content">
+      <h4>{{getTitle()}}</h4>
+      <div class="start" ng-show="isStart() &amp;&amp; !getCompleted()">
+        <button ng-click="setCompleted()">Start</button>
+      </div>
+      <div class="progressing" ng-show="getProgressing() &amp;&amp; !getCompleted() &amp;&amp; !isStart()">
+        <div class="default" ng-hide="addingNote()">
+          <div class="dates">
+            <div class="date"> 
+              <label>Proposed Task Duration: </label><strong>{{getEstDays()}}{{getData().afterTitle}}</strong>
+            </div>
+            <div class="date"> 
+              <label>Estimated End Date: </label><strong>{{getDate() | date:'mediumDate'}}{{getDate()?'':'Progression not started'}}</strong>
+            </div>
+          </div>
+          <div class="no-notes" ng-show="getNotes().length"> <span>{{getNotes().length}} </span>{{getNotes().length===1?'Note':'Notes'}}</div>
+          <button ng-click="addNote()">Add Note</button>
+          <button class="est-date" ng-click="setDate()" ng-show="auth.checkRoles(['superadmin','admin'])">Change completion date</button>
+          <button class="advance-progression" ng-click="setDate()" ng-hide="auth.checkRoles(['superadmin','admin'])">Advance milestone</button>
+          <button class="complete" ng-click="setCompleted()">Mark as Completed</button>
+        </div>
+        <div class="note-add" ng-show="addingNote()">
+          <code-mirror ng-model="note" options="{mode:&quot;markdown&quot;}"></code-mirror>
+          <button ng-click="doAddNote()">OK</button>
+          <button ng-click="cancelAddNote()">Cancel</button>
+        </div>
+      </div>
+      <div class="completed" ng-show="getCompleted()">
+        <div class="dates">
+          <div class="date">
+            <label>Completed: </label><strong>{{getCompletedTime() | date:'mediumDate'}}, {{getCompletedTime() | date:'shortTime'}}</strong>
+          </div>
+        </div>
+      </div>
+      <div class="awaiting" ng-show="!getCompleted() &amp;&amp; !getProgressing() &amp;&amp; !isStart()">
+        <div class="dates">
+          <div class="date"> 
+            <label>Proposed Task Duration: </label><strong>{{getEstDays()}}{{getData().afterTitle}}</strong>
+          </div>
+          <div class="date"> 
+            <label>Estimated End Date: </label><strong>{{getDate() | date:'mediumDate'}}{{getDate()?'':'Related milestone not reached'}}</strong>
+          </div>
+        </div>
+        <button class="est-date" ng-click="setDate()">Change milestone completion date</button>
+        <button class="start" ng-click="setProgressing()" ng-show="getDate()">Start milestone</button>
+      </div>
+    </div>
+    <div class="editor">
+      <div class="title">
+        <label>Title</label>
+        <input type="text" ng-model="getData().title"/>
+      </div>
+      <div class="est-days">
+        <label>Est no days</label>
+        <input class="num" type="number" ng-model="getData().estDays"/><span>&nbsp;days after </span>
+        <select ng-model="getData().estAfter">
+          <option value="">this milestone</option>
+          <optgroup ng-repeat="progression in getProgressions()" label="{{progression.name}}, {{progression.side}}">
+            <option ng-repeat="milestone in getMilestones(progression)" value="{{milestone._id}}">{{milestone.title}}</option>
+          </optgroup>
+        </select>
+        <select ng-model="getData().estType">
+          <option value="">started</option>
+          <option value="complete">completed</option>
+        </select>
+      </div>
+      <div class="tabs" ng-click="reset()">
+        <div class="tab" ng-click="editorState=&quot;icon&quot;" ng-class="{selected:editorState===&quot;icon&quot;}">
+          <h4>Icon</h4>
+          <div class="milestone">
+            <div class="icon {{ getData().icon || &quot;house&quot;}}"></div>
+          </div>
+        </div>
+        <div class="tab" ng-click="editorState=&quot;actions&quot;" ng-class="{selected:editorState===&quot;actions&quot;}">
+          <h4>Actions</h4>
+          <h5>{{getData().actions.length}}</h5>
+        </div>
+        <div class="tab" ng-click="editorState=&quot;todos&quot;" ng-class="{selected:editorState===&quot;todos&quot;}">
+          <h4>Todos</h4>
+          <h5>{{getData().todos.length}}</h5>
+        </div>
+      </div>
+      <div class="icons" ng-show="editorState===&quot;icon&quot;">
+        <div class="milestone" ng-repeat="icon in icons" ng-click="getData().icon = icon">
+          <div class="icon {{icon}}" ng-class="{selected:getData().icon===icon}"></div>
+        </div>
+      </div>
+      <div class="actions" ng-show="editorState===&quot;actions&quot;">
+        <table ng-show="getData().actions.length">
+          <thead>
+            <tr>
+              <th class="shrink">On</th>
+              <th class="shrink">Type</th>
+              <th>Name</th>
+              <th class="shrink"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr ng-repeat="action in getData().actions" ng-click="editAction(action);$event.stopPropagation()">
+              <td>{{action.on}}</td>
+              <td>{{action.type}}</td>
+              <td>{{action.name}}</td>
+              <td><a class="delete" href="" ng-click="getData().actions.remove(action)">Delete</a></td>
+            </tr>
+          </tbody>
+        </table>
+        <form name="actionForm" ng-show="editingAction" ng-submit="addAction(action)"><span>On</span>
+          <select ng-model="action.on">
+            <option>Start</option>
+            <option>Complete</option>
+            <option>Overdue</option>
+          </select><span>Type</span>
+          <select ng-model="action.type">
+            <option>Trigger</option>
+            <option>Email</option>
+            <option>Sms</option>
+          </select>
+          <div class="trigger" ng-show="action.type===&quot;Trigger&quot;">
+            <h5>Trigger</h5>
+            <div class="trigger-opts">
+              <div class="trigger-opt">
+                <label>Milestone</label>
+                <select ng-model="action.milestone">
+                  <option value="">this milestone</option>
+                  <optgroup ng-repeat="progression in getProgressions()" label="{{progression.name}}, {{progression.side}}">
+                    <option ng-repeat="milestone in getMilestones(progression)" value="{{milestone._id}}">{{milestone.title}}</option>
+                  </optgroup>
+                </select>
+              </div>
+              <div class="trigger-opt">
+                <label>Action</label>
+                <select ng-model="action.triggerAction">
+                  <option value="">Start milestone</option>
+                  <option value="complete">Complete milestone</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div ng-show="action.type===&quot;Email&quot;">
+            <h5>Email</h5>
+            <label class="large">Send to</label>
+            <multi-check ng-model="action.to">
+              <multi-check-item ng-repeat="contact in contactOptions" value="{{contact.id}}">{{contact.name}}</multi-check-item>
+            </multi-check>
+            <label class="large">Specific User</label>
+            <select ng-model="action.specificUser">
+              <option ng-repeat="user in myusers = (emailUsers.items | filter:&quot;!cors&quot;)" value="{{user.lettingsId}}">{{user.displayName}}</option>
+            </select>
+            <label class="large">Template</label>
+            <select ng-model="action.template">
+              <option ng-repeat="template in emailTemplates.items" value="{{template._id}}">{{template.name}}</option>
+            </select>
+          </div>
+          <div class="sms" ng-show="action.type===&quot;Sms&quot;">
+            <h5>Sms</h5>
+            <label class="large">Send to</label>
+            <multi-check ng-model="action.to">
+              <multi-check-item ng-repeat="contact in contactOptions" value="{{contact.id}}">{{contact.name}}</multi-check-item>
+            </multi-check>
+            <label class="large">Template</label>
+            <select ng-model="action.template">
+              <option ng-repeat="template in smsTemplates.items" value="{{template._id}}">{{template.name}}</option>
+            </select>
+          </div>
+          <div class="div">
+            <input type="submit" value="Save"/>
+            <button type="button" ng-click="cancelAction()">Cancel</button>
+          </div>
+        </form>
+        <button ng-click="editingAction=true" ng-hide="editingAction">Add Action</button>
+      </div>
+      <div class="todos" ng-show="editorState===&quot;todos&quot;">
+        <div class="todo" ng-repeat="todo in getData().todos">{{todo.text}}
+          <div class="controls"><a href="" ng-click="getData().todos.moveUp(todo)"><i class="fa fa-arrow-circle-o-up" aria-hidden="true"></i></a><a href="" ng-click="getData().todos.moveDown(todo)"><i class="fa fa-arrow-circle-o-down" aria-hidden="true"></i></a><a href="" ng-click="getData().todos.remove(todo)"><i class="fa fa-times-circle-o" aria-hidden="true"></i></a></div>
+        </div>
+        <form ng-submit="getData().todos.push({text:todo});todo=&quot;&quot;">
+          <input type="text" ng-model="todo"/>
+          <input type="submit" value="Add todo"/>
+        </form>
+      </div>
+    </div><a class="close" href="" ng-click="hide()">X</a>
+  </div>
+  <div class="pointer"></div>
+</div>

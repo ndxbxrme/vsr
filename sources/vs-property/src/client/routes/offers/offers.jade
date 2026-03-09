@@ -1,0 +1,53 @@
+.offers
+  .container
+    .row
+      .col-xs-12.title-row
+        h2 
+          i.fa-duotone.fa-light.fa-envelope-open-dollar
+          |  Offers
+        a(href='/').medium.button.orange 
+          i.fa-light.fa-arrow-turn-left(aria-hidden='true')  
+          |  Dashboard
+    
+    .prop-single
+      p(ng-show='loading("offers") && !getOffers().length') Loading offers
+      
+      div(ng-show='getOffers().length')
+        .viewing.offer-item(ng-repeat='offer in getOffers() | orderBy:sort' ng-class='{"has-notes":offer.Notes.length}')
+          .viewing-header
+            .person
+              span.main-contact {{offer.ApplicantGroup.PrimaryMember.ContactName}}
+              p Property: 
+                span {{offer.Property.Address.Number}} {{offer.Property.Address.Street}}, {{offer.Property.Address.Locality}}, {{offer.Property.Address.Town}}
+            .person-position
+              p Position: 
+                span {{offer.ApplicantGroup.Grade.Name}}
+            .offer-datetime
+              p Date: 
+                span {{offer.DateTime | date:'mediumDate'}} at {{offer.DateTime | date:'shortTime'}}
+          .viewing-details
+            .offer-controls
+              .viewing-status(ng-class='{"accepted": offer.Response.ResponseType.Name === "Accepted"}')
+                {{offer.Response.ResponseType.Name}}
+              .viewing-notes(ng-show='offer.Notes.length' ng-click='openOfferModal(offer)' style='cursor: pointer;')
+                i.fa-light.fa-comment-lines
+                span View Notes
+            .offer-amount
+              p Amount: 
+                span.amount {{offer.Value | currency:'£':0}}
+            
+            
+      .no-viewings(ng-show='!loading("offers") && !getOffers().length') 
+        .row
+          .col-xs-12 
+            p You don't have any offers yet
+          .col-md-6 
+            a(href="https://vitalspace.co.uk/offer-solicitor-quote/" target="_blank") 
+              img(src="public/img/need-solicitor.jpg" alt="Solicitor Quote")
+              span.title Need a solicitor?
+              span Receive a quote from our recommended solicitor
+          .col-md-6 
+            a(href="https://vitalspace.co.uk/arrange-a-survey/" target="_blank") 
+              img(src="public/img/property-survey.jpg" alt="Arrange a Survey")
+              span.title Arrange a survey
+              span Arrange a property inspection with a RICS Surveyor

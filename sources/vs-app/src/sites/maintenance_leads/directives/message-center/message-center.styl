@@ -1,0 +1,131 @@
+.message-center-heading
+  display flex
+  justify-content space-between
+  .button
+    i
+      margin-left 8px
+.message-center
+  .CodeMirror
+    border 1px solid #ccc
+    padding .5em
+  input[type=text], 
+  select, 
+  textarea
+    background white
+  
+  .attachments, .messages .message-holder
+    img
+      width 4em
+      height 4em
+      object-fit cover
+  .messages
+    .message-filters
+      display flex
+      justify-content space-between
+      margin-bottom 1em
+      padding 0.5em
+      border-radius 3px
+      .order-item
+        display inline-flex
+        align-items center
+        position relative
+        color vs-grey
+        background white
+        font-weight 600
+        margin 0px 5px 10px 0px
+        padding 5px 15px
+        border 1px solid vs-lightgrey
+        border-radius 30px
+        &:hover
+          color vs-orange
+        &.sorting
+          background vs-orange
+          color white
+          border: 1px solid vs-orange
+    .message
+      display flex
+      padding 20px
+      margin 0px 40px 10px 0px
+      border 1px solid vs-lightgrey
+      border-radius 30px
+      &.in
+        margin-left 1em
+        margin-right 0
+      .message-entity
+        display flex
+        justify-content center
+        align-items center
+        border-radius 50%
+        width 2em
+        height 2em
+        background vs-orange
+        color white
+        font-size 1em
+        margin-right 1em
+        &.Landlord
+          background #9025f1
+        &.Tenant
+          background #25b9f1
+        &.Contractor
+          background #f1e125
+      .message-subject
+        display flex
+        justify-content space-between
+        .subject
+          font-weight bold
+      .message-holder
+        flex 1
+      .message-content
+        background vs-body
+        padding 1em
+        margin-top .6em
+        border-radius 0px 0px 0px 30px
+        max-height 200px
+        overflow-y scroll
+      .message-details
+        display flex
+        justify-content space-between
+        position relative
+      .message-date
+        opacity 0.5
+      .message-body
+        white-space pre-wrap
+      .button-alt
+        margin-top 10px
+        i
+          margin-left 8px
+  .document-list
+    display flex
+    flex-wrap wrap
+    .document-link
+      display flex
+      align-items center
+      flex-direction column
+      margin .3em
+      padding .2em
+      .filename
+        font-size .8em
+        margin-top .3em
+      &.attached
+        background lightblue
+
+@media (max-width: 768px)
+  .message-center
+    .messages
+      .message-filters
+        flex-direction column
+        align-items flex-start
+      .message
+        flex-direction column
+        align-items flex-start
+        margin 0 0 1em 0
+        &.in
+          margin-left 0
+          margin-right 0
+        .message-holder
+          width 100%
+        .message-subject
+          flex-direction column
+          align-items flex-start
+        .message-entity
+          margin-bottom 1em

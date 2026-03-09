@@ -1,0 +1,242 @@
+include ../../mixins/form.jade
+.issue-route.route(ng-show='fetched')
+  .add-edit(ng-if='!issue.item._id || editing')
+    h1(ng-show='!editing') {{ m('issue-heading-add') }}
+    h1(ng-show='editing') {{ m('issue-heading-edit') }}
+    +form({data:'issue'})
+      .form-section
+        .form-label {{ m('issue-label-source') }}
+        .form-controls
+          +select({name:'source', list:'sources', nolabel:true, errors:{required:true}})
+      .form-section
+        .form-label {{ m('issue-label-tenant') }}
+        .form-controls
+          .third
+            +input({name:'tenantTitle', errors:{required:true}})
+          .third
+            +input({name:'tenantFirstName', errors:{required:true}})
+          .third
+            +input({name:'tenantLastName', errors:{required:true}})
+          +input({name:'tenantPhone', errors:{required:true}})
+          +input({name:'tenantEmail', type:'email', errors:{required:true,email:true}})
+      .form-section
+        .form-label {{ m('issue-label-landlord') }}
+        .form-controls
+          +select({name:'landlordId', list:'landlords.items', nolabel:true})
+      .form-section
+        .form-label {{ m('issue-label-address') }}
+        .form-controls
+          +input({name:'address1', errors:{required:true}})
+          +input({name:'address2'})
+          +input({name:'postcode', errors:{required:true}})
+      .form-section
+        .form-label {{ m('issue-label-title') }}
+        .form-controls
+          +input({name:'title', nolabel:true, errors:{required:true}})
+      .form-section
+        .form-label {{ m('issue-label-detail') }}
+        .form-controls
+          +textarea({name:'details'})
+      .form-section
+        .form-label
+        .form-controls
+          +controls()
+  .issue-details(ng-if='issue.item._id && !editing')
+    .space-between.issue-header
+      .left
+        h1 {{ m('issue-heading-issue') }}
+        h2 {{ issue.item.address }} 
+          span {{ issue.item.date | date:medium }}
+      //- .right
+      //-   button(type='button', ng-click='messageCenter=!messageCenter') {{ messageCenter? m('issue-messageCenterHide-label') : m('issue-messageCenterShow-label',{newMessages:issue.item.newMessages}) }}
+      //-   .cfpJobNumber(ng-show='issue.item.cfpJobNumber')
+      //-     .label {{ m('issue-heading-cfp') }} -
+      //-     .number {{ issue.item.cfpJobNumber }} hello
+    
+    
+    +form({data:'issue'}).form-controls
+      // This should always be visible so I have removed this (ng-show='issue.item.statusName==="Reported" || issue.item.statusName==="Completed"'). Possibly need to show but disable edit when completed.
+      .control-group
+        .status-checkboxes
+          .status-checkbox
+            input#sc-booked(type='checkbox', ng-model='issue.item.status.booked', ng-change='issue.save()')
+            label(for='sc-booked') Booked
+              i.fad.fa-file-medical
+          .status-checkbox
+            input#sc-completed(type='checkbox', ng-model='issue.item.status.completed', ng-change='issue.save()')
+            label(for='sc-completed') Job Completed
+              i.fad.fa-file-check
+          .status-checkbox
+            input#sc-invoiced(type='checkbox', ng-model='issue.item.status.invoiced', ng-change='issue.save()')
+            label(for='sc-invoiced') Invoice Received
+                i.fad.fa-thumbs-up
+        .quotes.right
+          .quote
+            label Contractor Quote
+            input(type='text', ng-model='issue.item.quoteContractor', placeholder='Contractor Quote')
+          .quote
+            label VitalSpace Quote
+            input(type='text', ng-model='issue.item.quoteVitalSpace',placeholder='VitalSpace Quote')
+          .quote-save
+            button.button-alt(type='button', ng-click='issue.save()') Save
+      .form-section
+        .form-label.half
+          .source
+            .source-icon(class='{{issue.item.source}}') {{ issue.item.source }}
+      .form-section
+        .form-label 
+          strong {{ m('issue-heading-tenant-contact') }}
+          p {{ issue.item.tenantFirstName }} {{ issue.item.tenantLastName }}
+          a(href='mailto:{{issue.item.tenantEmail}}') {{ issue.item.tenantEmail }}
+          p {{ issue.item.tenantPhone }}
+        .form-controls.space-between
+          .left
+            .title
+              strong {{ m('issue-heading-issue-title') }}
+              span &nbsp;- {{ issue.item.title }}
+            .details
+              strong {{ m('issue-heading-fault-detail') }}
+              span &nbsp;- {{ issue.item.details }}
+          .right
+            .edit-icons
+              span.orange View/Edit
+              .pdf
+                a(href='/api/fixflo/pdf/{{issue.item.fixfloId}}', target='_blank')
+                  i.fad.fa-file-pdf
+              span(ng-click='$parent.showLightbox(issue.item.media)')
+                i.fad.fa-camera-retro(ng-show='issue.item.media.length')
+              span(ng-click='$parent.editing=true', ng-hide='editing', ng-class='{disabled:issue.item.statusName==="Completed"}')
+                i.fad.fa-edit
+      .form-section
+        .form-label {{ m('issue-heading-landlord') }}
+        .form-controls
+          +select({name:'landlordId', list:'landlords.items', change:'issue.save()', nolabel:true})
+      .form-section
+        .form-label {{ m('issue-heading-action-taken') }}
+        .form-controls
+          .third
+            +select({name:'repliedToTenant', list:'yesno', disabled:'issue.item.statusName==="Completed"', change:'issue.save()', errors:{required:true}}) 
+          .third
+            +select({name:'landlordInformed', list:'yesno', disabled:'issue.item.statusName==="Completed"', change:'issue.save()',errors:{required:true}})
+          .third
+            +select({name:'contractorArranged', list:'yesno', disabled:'issue.item.statusName==="Completed"', change:'issue.save()',errors:{required:true}})
+      .form-section(ng-show='issue.item.statusName!=="Completed"')
+        .form-label {{ m('issue-heading-contractor-assigned') }}
+        .form-controls
+          .two-thirds
+            +select({name:'booked', list:'contractors.items', model:'tasks.items[0].contractor', disabled:'true'})
+          .third.delete-book
+            button.button-alt(type='button', ng-click='deleteIssue(issue)') 
+              i.fal.fa-trash-alt
+              | {{ m('forms-delete') }}
+            //button.button-green(type='submit', value='{{ m("forms-book") }}', ng-hide='issue.item.contractor || issue.item.statusName==="Completed"')
+              i.fal.fa-ballot-check
+              | Book
+      .form-section
+        .form-label {{ m('issue-heading-diary') }}
+        .form-controls.diary-controls
+          button.button-grey(type='button', ui-sref='diary({_id:issue.item._id})')
+            i.fal.fa-calendar
+            | {{ m('issue-diary-label') }}
+          input.task-time(type='text', value='{{tasks.items[0].date | date:"HH:mm"}}', disabled, ng-hide='issue.item.statusName==="Reported"')
+          input.task-date(type='text', value='{{tasks.items[0].date | date:"dd/MM/yyyy"}}', disabled, ng-hide='issue.item.statusName==="Reported"')
+      //.form-section(ng-show='issue.item.cfpJobNumber && issue.item.statusName==="Booked" && tasks.total')
+        .form-label {{ m('issue-heading-chase') }}
+        .form-controls
+          .buttons
+            button.button-alt(type='button', ng-click='chaseContractor("email", tasks.items[0])') 
+              i.fal.fa-at
+              | {{ m('issue-label-email') }}
+            button.button-grey(type='button', ng-click='chaseContractor("sms", tasks.items[0])') 
+              i.fal.fa-sms
+              | {{ m('issue-label-sms') }}
+      //.form-section(ng-show='issue.item.cfpJobNumber && issue.item.statusName==="Booked" && tasks.total')
+        .form-label {{ m('issue-heading-inform') }}
+        .form-controls
+          .buttons
+            button.button-alt(type='button', ng-click='informTenant("email", tasks.items[0])') 
+              i.fal.fa-at
+              | {{ m('issue-label-email-tenant') }}
+            button.button-grey(type='button', ng-click='informTenant("sms", tasks.items[0])') 
+              i.fal.fa-sms
+              | {{ m('issue-label-sms-tenant') }}
+      .form-section(ng-show='issue.item.cfpJobNumber && issue.item.statusName==="Booked" && tasks.total')
+        .form-label {{ m('issue-heading-chase-invoice') }}
+        .form-controls
+          .buttons
+            button.button-alt(type='button', ng-click='chaseInvoice("email", tasks.items[0])') 
+              i.fal.fa-at
+              | {{ m('issue-label-email-invoice') }}
+            button.button-grey(type='button', ng-click='chaseInvoice("sms", tasks.items[0])') 
+              i.fal.fa-sms
+              | {{ m('issue-label-sms-invoice') }}
+      //.form-section(ng-show='issue.item.cfpJobNumber && issue.item.statusName==="Booked"') Removed cfp part so the complete butotn shows
+      .form-section(ng-show='issue.item.statusName==="Booked"')
+        .form-label {{ m('issue-heading-complete') }}
+        .form-controls
+          .buttons
+            button.button-green(type='button', ng-click='completeIssue(issue)') 
+              i.fal.fa-check
+              | {{ m('issue-label-complete') }}
+    //.tasks(ng-show='tasks.total')
+      h2 Tasks
+      .task(ng-repeat='task in tasks.items')
+        .date 
+          span {{task.date| date:medium}}
+        .contractor {{task.contractorName}}
+        .status(ng-class='task.status')
+          .booked 
+            .fad.fa-file-medical
+          .completed
+            .fad.fa-file-check
+          .invoiced
+            .fad.fa-thumbs-up
+    h2 Documents
+      sup(ng-show='issue.item.documents.length') {{issue.item.documents.length}}
+    button.view-documents(ng-click='showDocuments = !showDocuments') {{showDocuments?'Hide':'View'}} Documents
+    .documents(ng-show='showDocuments')
+      .drop-box(ngf-drop='uploadFiles($files)', ngf-drag-over-class="'dragover'", ngf-multiple='true')
+        h3 Drop files here to upload
+        button.file-upload(type='file', ngf-select='uploadFiles($file, $invalidFiles)') Or click here to choose
+      .document-list(ng-show='issue.item.documents.length')
+        .document(ng-repeat='document in issue.item.documents')
+          a.document-link(ng-href='{{makeDownloadUrl(document)}}', target='_self')
+            img(ng-src='{{makeDownloadUrl(document)}}', ng-if='document.basetype==="image"')
+            .document-icon(ng-hide='document.basetype==="image"', class='{{document.basetype}}')
+              img.logo(src="public/img/icons/vs-document.png")
+          .filename 
+            label Name: 
+            span(ng-show='!document.editing') &nbsp;{{document.name || document.originalFilename}}
+            input(type='text', ng-model='document.name', ng-show='document.editing', placeholder='Name')
+          .by 
+            label Created by: 
+            | {{document.user.local.email}}
+          .on 
+            label Created on: 
+            | {{document.date | date:'mediumDate'}}
+          .controls(ng-show='auth.checkRoles(["superadmin", "admin"])')
+            a.edit(href='', ng-click='document.editing=!document.editing', ng-show='!document.editing') Edit
+            a.save(href='', ng-click='saveDocument(document)', ng-show='document.editing') Save
+            a.delete(href='', ng-click='deleteDocument(document)') Delete
+    .notes-and-messages
+      .case-notes
+        h2.orange {{ m('issue-heading-notes') }}
+        .case-note(ng-repeat='note in notesData = ( issue.item.notes | orderBy:"-date" ) | limitTo:notesLimit:notesLimit*(notesPage-1)')
+          .date {{note.date | date:medium}} | 
+            img(gravatar-src='note.user.local.email')  
+            span {{note.user.displayName || note.user.local.email}}
+            a.delete(href='', ng-click='deleteNote(note)', ng-show='auth.checkRoles(["admin", "superadmin"])') {{ m('forms-delete') }}
+            a.edit(href='', ng-click='editNote(note)', ng-show='auth.checkRoles(["admin","superadmin"])') {{ m('forms-edit') }}
+          .note 
+            .details
+              span(ng-show='note.side') - {{note.side}}
+              .note-body(ng-bind-html='note.text | markdown:true')
+        pagination.pagination-sm.pagination(total='notesData.length', ng-model='notesPage', page-size='notesLimit')
+        .add-note
+          code-mirror(ng-model='$parent.note.text', options='{mode:markdown, lineWrapping:true}')
+          button(type='button', ng-click='addNote()') 
+            .fal.fa-plus
+            | {{note.date?'Update':'Add'}} Note
+      message-center(ng-if='issue.item && tasks.items')
+    
+        

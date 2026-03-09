@@ -1,0 +1,54 @@
+
+
+<div class="client-management-list lettings-coming-soon coming-soon">
+  <div class="container-xl">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <h1><i class="fa-duotone fa-light fa-briefcase-arrow-right"></i> Instructions Coming Soon</h1>
+      </div>
+      <div class="col-md-4 search">
+        <input type="text" ng-model="search" placeholder="Search Cases" ng-change="page=1"/>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="row align-items-center">
+        <div class="col-md-6">
+          <div class="sort">Order By:<br><a href="" ng-click="sort=&quot;-modifiedAt&quot;;page=1" ng-class="{selected:sort===&quot;-modifiedAt&quot;}" class="order-item">Issued</a></div>
+        </div>
+        <div class="col-md-6 d-flex align-items-center justify-content-end mb-3">
+          <div class="showing">Showing {{filterData.length}} of {{totalProps = marketing.items.length - nodeleted}} case{{totalProps!==1?'s':''}}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="properties-list" ng-show="filterData.length &gt; 0">
+      <div class="property-card" ng-repeat="item in filterData =(marketing.items | filter:{&quot;SearchField&quot;:search} | orderBy:sort) | limitTo:limit:limit*(page-1)">
+        <div class="property-main row g-5">
+          <div class="property-info col-md-9">
+            <div class="stat-item user-info">
+              <img gravatar-src="item.user.local.email" gravatar-size="60" class="user-avatar" />
+              <div class="user-details">
+                <div class="display-name">{{item.user.displayName}}</div>
+                <div class="user-email">{{item.user.local.email}}</div>
+              </div>
+            </div>
+            <div class="property-meta">
+              <div class="property-address"><strong>Address:</strong> {{item.displayAddress || item.address}}</div>
+              <div class="stat-item">
+                <span class="issued"><strong>Issued:</strong> {{(item.createdAt || item.modifiedAt) | date:'dd/MM/yyyy'}}</span>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-3 text-end">
+            <input class="button" type="button" ng-click="completedMarketing(item)" value="Completed" />
+          </div>
+        </div>
+      </div>
+    </div>
+    <pagination total="filterData.length" ng-model="page" page-size="limit" page-change="pageChange" show-first-last="true" class="pagination-sm pagination"></pagination>
+    <div ng-show="filterData.length===0" class="nothing-to-show">
+      <h3>Nothing to show</h3>
+    </div>
+  </div>
+</div>

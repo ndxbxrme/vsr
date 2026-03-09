@@ -1,0 +1,60 @@
+.coming-soon
+  padding-top 30px
+  
+  .controls
+    .order-item, .filter-item
+      display inline-flex
+      position relative
+      color vs-grey
+      background white
+      font-weight 600
+      margin 0px 5px 10px 0px
+      padding 5px 15px
+      border 1px solid vs-lightgrey
+      border-radius 30px
+      &:hover
+        color vs-orange
+      &.selected
+        background vs-orange
+        color white
+        border: 1px solid vs-orange
+    .showing
+      margin-bottom 10px
+  
+  .snapshot .snapshot-item
+    padding-bottom 30px
+      
+  .property-card
+    background white
+    border-radius 10px
+    border 1px solid vs-lightgrey
+    transition all 0.3s ease
+    margin-bottom 15px
+    &:hover
+      box-shadow 0 4px 12px rgba(0,0,0,0.1)
+      
+  .property-info 
+    padding 30px 40px 0px
+    border-right none
+    display flex
+    flex-direction row
+    justify-content flex-start
+    .user-info
+      display flex
+      align-items center
+      margin-right 30px
+      min-width: 250px
+      div
+        line-height 1.2
+    .property-address
+      font-size 1.8rem
+      font-weight 600
+      color vs-orange
+      margin-bottom 0px
+      strong
+        color vs-grey
+  &.lettings-coming-soon
+    .property-main
+      align-items center
+    .property-info
+      padding 30px

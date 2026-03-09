@@ -1,0 +1,84 @@
+<div class="modal add-lead-modal large">
+  <div class="modal-header">
+    <h2>{{ data.worksOrder ? 'Edit Works Order' : 'Create Works Order' }}</h2>
+    <a ng-click="cancel()" class="close-reveal-modal">&times;</a>
+  </div>
+
+  <div class="modal-body">
+    <form name="forms.worksOrderForm" novalidate="novalidate">
+      <div class="row">
+        <div class="col-sm-4">
+          <label>Date</label>
+          <input type="date" name="date" ng-model="worksOrder.date" required="required" />
+          <div class="error" ng-show="submitted && forms.worksOrderForm.date.$invalid">Please enter the date</div>
+        </div>
+        <div class="col-sm-4">
+          <label>Contractor</label>
+          <select sumoselect="{placeholder:'Contractor', search:true}" ng-model="worksOrder.contractor" name="contractor" required="required">
+            <option ng-repeat="contractor in contractors.items" value="{{contractor._id}}" ng-hide="contractor.hidden">{{ contractor.name }}</option>
+          </select>
+          <div class="error" ng-show="submitted && forms.worksOrderForm.contractor.$invalid">Please select a contractor</div>
+        </div>
+        <div class="col-sm-4">
+          <label>Priority</label>
+          <select name="priority" ng-model="worksOrder.priority" required="required">
+            <option value="Low">Low</option>
+            <option value="Medium">Medium</option>
+            <option value="High">High</option>
+          </select>
+          <div class="error" ng-show="submitted && forms.worksOrderForm.priority.$invalid">Please select a priority</div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-sm-12">
+          <label>Additional Notes</label>
+          <textarea name="notes" ng-model="worksOrder.notes"></textarea>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-sm-12">
+          <h3 class="orange">Address</h3>
+          <p ng-show="data.issue">{{data.issue.address}}</p>
+          <input type="text" ng-model="worksOrder.address" ng-hide="data.issue" placeholder="Address" />
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-sm-12">
+          <h3 class="orange">Tenant</h3>
+          <p ng-show="data.issue">{{ data.issue.tenantFirstName }} {{ data.issue.tenantLastName }}</p>
+          <input type="text" ng-model="worksOrder.tenant" ng-hide="data.issue" placeholder="Tenant name" />
+          <input type="text" ng-model="worksOrder.tenantPhone" ng-hide="data.issue" placeholder="Tenant phone" />
+          <input type="text" ng-model="worksOrder.tenantEmail" ng-hide="data.issue" placeholder="Tenant email" />
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-sm-12">
+          <div class="issue-details">
+            <h3 class="orange">Issue Details</h3>
+            <h4><strong>Issue Title</strong></h4>
+            <p ng-show="data.issue">{{ data.issue.title }}</p>
+            <input type="text" ng-model="worksOrder.issueTitle" ng-hide="data.issue" placeholder="Issue Title" />
+            <h4><strong>Fault Detail</strong></h4>
+            <p ng-show="data.issue">{{ data.issue.details }}</p>
+            <input type="text" ng-model="worksOrder.issueDetails" ng-hide="data.issue" placeholder="Issue Detail" />
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-sm-12">
+          <h3 class="orange">Issue Type</h3>
+          <select name="moveOutWorks" ng-model="worksOrder.moveOutWorks" required="required">
+            <option value="Tenancy Issue">Tenancy Issue</option>
+            <option value="Move Out Issue">Move Out Issue</option>
+          </select>
+          <div class="error" ng-show="submitted && forms.worksOrderForm.moveOutWorks.$invalid">Please select an issue type</div>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="modal-footer">
+    <button class="button button-alt" ng-click="cancel()">Cancel</button>
+    <button class="button" ng-click="submit()">{{ data.worksOrder ? 'Update Works Order' : 'Create Works Order' }}</button>
+  </div>
+</div>

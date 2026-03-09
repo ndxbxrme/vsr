@@ -1,0 +1,121 @@
+<div ng-show="auth.getUser()" class="dashboard-route route admin-boards maintenance-leads-dashboard">
+  <div class="container-xl">
+    <div class="row align-items-center mb-4 header-row">
+      <div class="col-xl-5">
+        <h1><i class="fa-duotone fa-light fa-sign-hanging"></i> Boards Management</h1>
+      </div>
+      <div class="col-xl-7 text-xl-end d-flex align-items-center search-row">
+        <input type="text" class="form-control" ng-model="search" ng-change="searchBoards()" ng-keyup="searchBoards()" placeholder="Search boards..." />
+        <div class="button-row">
+          <button type="button" class="button" ng-click="printBoards()">Print Boards <i class="fa-light fa-duotone fa-print"></i></button>
+          <button type="button" class="button button-alt" ng-click="completeBoards()">{{currentBoardsCompleted ? 'Reset Boards' : 'Complete Boards'}}</button>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <label class="mb-1"><strong>Board Date:</strong></label>
+        <input type="date" class="form-control board-date" ng-change="selectDate()" ng-model="selectedDate" />
+      </div>
+    </div>
+
+    <div class="row mb-4 search-results" ng-show="searchResults && searchResults.length">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0"><i class="fa-light fa-search"></i> Search Results</h5>
+          </div>
+          <div class="card-body p-0">
+            <div class="search-results-list">
+              <div ng-repeat="board in searchResults" ng-click="selectSearchResult(board.date)" class="search-result-item">
+                <div class="result-address">{{board.address}}</div>
+                <div class="result-details">
+                  <span class="result-date"><i class="fa-light fa-calendar"></i> {{board.date | date:'dd/MM/yyyy'}}</span>
+                  <span class="result-type"><i class="fa-light fa-tag"></i> {{boardName(board.type)}}</span>
+                  <span class="result-completed" ng-show="board.completed"><i class="fa-light fa-check-circle"></i> {{board.completed | date:'dd/MM/yyyy'}}</span>
+                  <span class="result-completed text-muted" ng-show="!board.completed"><i class="fa-light fa-clock"></i> Pending</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="row g-3 snapshot-row">
+      <div class="col-md-6 col-lg-3 col-6" ng-repeat="board in boards">
+        <div class="snapshot-box">
+          <div class="snapshot-label">{{board.name}}</div>
+          <div class="snapshot-value">{{board.items.length}}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="maintenance-tabs">
+      <ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item" role="presentation" ng-repeat="board in boards" ng-class="{first: $first}">
+          <button class="nav-link" ng-class="{active: $first}" id="{{board.type}}-tab" data-bs-toggle="tab" data-bs-target="#{{board.type}}" type="button" role="tab" aria-controls="{{board.type}}" aria-selected="{{$first}}">
+            {{board.name}} <span class="badge">{{board.items.length}}</span>
+          </button>
+        </li>
+      </ul>
+
+      <div class="tab-content">
+        <div class="tab-pane fade" ng-class="{'show active': $first}" id="{{board.type}}" role="tabpanel" aria-labelledby="{{board.type}}-tab" ng-repeat="board in boards">
+          <div class="issues-list">
+            <div ng-repeat="item in board.items" class="issue" ng-class="{completed: item.completed}">
+              <div class="details">
+                <a class="address" ui-sref="agency_client-management-details-roleid({roleid:item.RoleId})" ng-show="item.RoleId && (board.link==='clientmanagement')">{{item.address}}</a>
+                <a class="address" ui-sref="agency_case({roleId:item.RoleId})" ng-show="item.RoleId && (board.link==='conveyancing')">{{item.address}}</a>
+                <a class="address" ui-sref="lettings_case({roleId:item.RoleId})" ng-show="item.RoleId && (board.link==='lettings')">{{item.address}}</a>
+                <div class="address" ng-show="!item.RoleId || !board.link">{{item.address}}</div>
+              </div>
+              <div class="status">
+                <div class="completed" ng-show="item.completed">
+                  <div class="fad fa-thumbs-up"></div>
+                </div>
+                <div class="delete" ng-show="!item.completed" ng-click="deleteItem(item)">
+                  <div class="fad fa-trash"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div ng-show="!board.items.length" class="empty-table">No items for this board type</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-12">
+        <div class="add-header d-flex justify-content-between align-items-center">
+          <h3 class="mb-0"><i class="fa-duotone fa-light fa-plus-circle"></i> Add New Board</h3>
+        </div>
+        <div class="card-body">
+          <form name="myForm" novalidate="novalidate" autocomplete="off" ng-submit="save()">
+            <div class="row g-3 align-items-end">
+              <div class="col-md-4">
+                <label><strong>Property Address</strong></label>
+                <input type="text" class="form-control" ng-model="newBoard.address" placeholder="Enter property address" required />
+              </div>
+              <div class="col-md-3">
+                <label><strong>Board Date</strong></label>
+                <select ng-model="newBoard.date" required>
+                  <option value="">Select date...</option>
+                  <option ng-repeat="thursday in upcomingThursdays" ng-value="thursday">{{thursday | date:'dd/MM/yyyy'}}</option>
+                </select>
+              </div>
+              <div class="col-md-3">
+                <label><strong>Board Type</strong></label>
+                <select ng-model="newBoard.type" required>
+                  <option value="">Select type...</option>
+                  <option ng-repeat="board in boards" ng-value="board.type">{{board.name}}</option>
+                </select>
+              </div>
+              <div class="col-md-2 mb-3 d-flex align-items-end">
+                <button type="submit" class="button button-alt">Add Board <i class="fa-light fa-plus"></i></button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

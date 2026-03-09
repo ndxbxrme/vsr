@@ -1,0 +1,13 @@
+
+<div class="modal issue-delete small">
+  <h1>{{ mml('modal-issue-delete-title') }}</h1>
+  <h2>{{ mml('modal-issue-delete-text') }}</h2>
+  <form name="myForm" ng-submit="submit()">
+    <div class="controls">
+      <label> </label>
+      <button type="submit" value="OK" class="button-alt">OK <i class="fa-light fa-duotone fa-trash-alt"></i></button>
+      <button type="button" ng-click="cancel()" class="button-grey">Cancel <i class="fa-light fa-duotone fa-times"></i></button>
+    </div>
+  </form>
+  <!--a.close-reveal-modal(ng-click='cancel()') &times;-->
+</div>

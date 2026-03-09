@@ -1,0 +1,14 @@
+.invited-route
+  h1 you've been invited
+  form(name='inviteForm', ng-submit='acceptInvite()')
+    label Display Name
+    input(type='text', ng-model='newUser.displayName')
+    label Telephone Number
+    input(type='text', ng-model='newUser.telephone')
+    label Choose a password
+    input(type='password', ng-model='newUser.local.password')
+    label Repeat password
+    input(type='password', ng-model='repeatPassword')
+    label.error {{error}}
+    .controls
+      input(type='submit', value='OK')

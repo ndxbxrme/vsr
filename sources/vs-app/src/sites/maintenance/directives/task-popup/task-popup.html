@@ -1,0 +1,31 @@
+
+<div class="maintenance-task-popup-dir" ng-show="!getHidden()">
+  <div class="popup">
+    <div class="details">
+      <div class="details-item">
+        <label>Task</label><span>{{getTask().title.replace(', undefined', '')}}</span>
+      </div>
+      <div class="details-item">
+        <label>From</label><span>{{getTask().date | date:'shortTime'}} - {{getDateTo() | date:'shortTime'}}</span>
+      </div>
+      <div class="details-item" ng-show="getTask().cost">
+        <label>Cost</label><span>&pound;{{getTask().cost}}</span>
+      </div>
+      <div class="details-item">
+        <label>Created by</label><span><img gravatar-src="getTask().createdBy.local.email"/>{{getTask().createdBy.displayName}}</span>
+      </div>
+    </div>
+    <div class="controls">
+      <button class="edit" ng-click="edit(getTask())">Edit</button>
+      <div class="checkbox-item">
+        <label for="paid">Paid(&pound;)</label>
+        <input id="paid" type="checkbox" ng-model="getTask().paid" ng-change="save()"/>
+      </div>
+      <div class="checkbox-item">
+        <label for="completed">Completed</label>
+        <input id="completed" type="checkbox" ng-model="getTask().completed" ng-checked="getTask().status===&quot;completed&quot;" ng-change="complete()"/>
+      </div>
+    </div>
+  </div>
+  <div class="pointer"></div>
+</div>

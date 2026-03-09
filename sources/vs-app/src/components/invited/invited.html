@@ -1,0 +1,15 @@
+<div class="invited">
+  <h1>Invited</h1>
+  <form name="myform" ng-submit="submit()" ng-if="loaded && codeGood">
+    <label>Display name</label>
+    <input type="text" ng-model="user.item.displayName" />
+    <label>Telephone</label>
+    <input type="text" ng-model="user.item.telephone" />
+    <label>New password</label>
+    <input type="password" ng-model="password" />
+    <label>Repeat password</label>
+    <input type="password" ng-model="repeatPassword" />
+    <input type="submit" value="Submit" />
+  </form>
+  <div class="error" ng-if="loaded && !codeGood">Invalid code</div>
+</div>

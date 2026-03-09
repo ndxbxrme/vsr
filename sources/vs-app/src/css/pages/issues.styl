@@ -1,0 +1,236 @@
+.issues-route,
+.works-route,
+.historic-route
+  padding-top 30px
+  padding-bottom 60px
+  input[type="text"]
+    margin-right 5px
+
+  .button-row
+    flex-shrink 0
+  .add-lead-button,
+  .button-grey,
+  .button-alt
+    flex-shrink 0
+    margin 0px 5px 1rem 5px !important
+    i
+      margin-left 8px
+  .controls .row
+    align-items flex-end
+  .order-item
+    display inline-flex
+    align-items center
+    position relative
+    color vs-grey
+    background white
+    font-weight 600
+    margin 0px 5px 10px 0px
+    padding 5px 15px
+    border 1px solid vs-lightgrey
+    border-radius 30px
+    &:hover
+      color vs-orange
+    &.sorting
+      background vs-orange
+      color white
+      border: 1px solid vs-orange
+  .properties-list
+    .property-card
+      background white
+      border-radius 20px
+      padding 20px
+      margin-bottom 20px
+      transition all 0.3s ease
+      position relative
+      &:hover
+        box-shadow 0 6px 16px rgba(0,0,0,0.12)
+      .property-image
+        display flex
+        flex-direction column
+        align-items center
+        justify-content center
+        padding 20px 30px
+        gap 10px
+        .source-badge
+          width 120px
+          height 80px
+          display flex
+          align-items center
+          justify-content center
+          background vs-body
+          border-radius 10px
+          text-transform uppercase
+          font-weight 600
+          font-size 1.2rem
+          color vs-grey
+          padding 10px
+          background-repeat no-repeat
+          background-position center
+          &.walkin
+            background-image url(./public/img/icons/walkin.svg)
+            background-color vs-body
+            background-size contain
+            width 80px
+            height 80px
+            text-indent -9999px
+          &.telephone
+            background-image url(./public/img/icons/phone-office-duotone.svg)
+            background-color vs-body
+            background-size contain
+            width 80px
+            height 80px
+            text-indent -9999px
+          &.email
+            background-image url(./public/img/icons/email-duo.svg)
+            background-color vs-body
+            background-size contain
+            width 80px
+            height 80px
+            text-indent -9999px
+          &.fixflo
+            background-image url(./public/img/fixflo-logo.svg)
+            background-color white
+            background-size 100px 50px
+            width 100px
+            height 80px
+            text-indent -9999px
+          &.icn-house
+            background-image url(./public/img/vs_house.png)
+            background-size contain
+            text-indent -9999px
+          &.sorting.desc
+            background-image url(./public/img/icons/sort-amount-down-alt-light.svg)
+            background-size 25px
+          &.sorting
+            background-image url(./public/img/icons/sort-amount-up-alt-light.svg)
+            background-size 25px
+          &.pipeline-logo
+            max-height 30px
+            border-radius 5px
+            margin-right 10px
+      .property-meta
+        display flex
+        align-items center
+        justify-content space-between
+      .status-badge
+        display flex
+        gap 10px
+        margin-left 20px
+        > div
+          width 30px
+          height 30px
+          display flex
+          align-items center
+          justify-content center
+          border-radius 50%
+          background vs-lightgrey
+          color white
+          font-size 14px
+        &.booked
+          .booked
+            background vs-green
+        &.completed
+          .completed
+            background vs-orange
+        &.invoiced
+          .invoiced
+              background vs-grey
+      .media-badge
+        background white
+        color vs-grey
+        border 1px solid vs-lightgrey
+        display flex
+        align-items center
+        justify-content center
+        width 40px
+        height 40px
+        border-radius 30px
+        position absolute
+        top 20px
+        right 20px
+        cursor pointer
+        transition all 0.3s ease
+        &:hover
+          background vs-orange
+          color white
+      .messages-badge
+        width 40px
+        height 40px
+        display flex
+        align-items center
+        justify-content center
+        border-radius 50%
+        background vs-orange
+        color white
+        font-weight 600
+        font-size 1.4rem
+        position absolute
+        top 20px
+        right 65px
+      .property-info
+        .property-address
+          font-size 1.8rem
+          font-weight 600
+          color vs-orange
+          margin-bottom 10px
+          strong
+            color vs-grey
+          a
+            color vs-orange
+            text-decoration none
+            &:hover
+              text-decoration underline
+        .lead-details
+          background vs-body
+          padding 20px
+          border-radius 10px
+          margin-top 10px
+          .applicant-info
+            font-size 1.4rem
+            margin-bottom 8px
+            &:last-child
+              margin-bottom 0
+            i
+              margin-right 8px
+      
+      .property-stats-actions
+        display flex
+        flex-direction column
+        justify-content space-between
+        .property-vendor
+          margin-bottom 20px
+          .label
+            font-size 1.4rem
+            font-weight 600
+            margin-bottom 5px
+            i
+              margin-right 5px
+          .value
+            font-size 1.6rem
+            font-weight 600
+            color vs-grey
+ 
+  .empty-table
+    text-align center
+    padding 60px 0
+    color vs-silver
+    font-size 1.6rem
+    font-weight 600
+
+@media (max-width: 768px)
+  .issues-route,
+  .works-route,
+  .historic-route
+    .search-row
+      flex-direction column
+      align-items flex-start !important
+    .controls
+      margin-left 7px
+    .properties-list
+      .property-card
+        .property-meta
+          flex-direction column
+          align-items flex-start
+          padding-right 40px
+        .status-badge
+          margin-left 0px

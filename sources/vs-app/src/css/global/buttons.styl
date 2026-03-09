@@ -1,0 +1,118 @@
+@import 'variables'
+body
+  vs-button()
+    color vs-orange
+    background white
+    font-size 18px 
+    font-weight 600
+    margin-right 10px
+    padding 10px 20px
+    border 1px solid vs-lightgrey
+    display inline-flex
+    align-items center
+    margin-bottom 10px
+    text-align center
+    border-radius 30px
+    width auto
+    box-shadow none
+    transition all 0.4s ease-in-out
+    &:hover
+      background vs-grey
+      color white
+    &:disabled
+      opacity 0.4
+      &:hover
+        background white
+        color vs-orange
+  vs-button-alt()
+    color white
+    background vs-orange
+    font-size 18px 
+    font-weight 600
+    margin-right 10px
+    padding 10px 20px
+    border 1px solid vs-orange
+    display inline-flex
+    align-items center
+    margin-bottom 10px
+    text-align center
+    border-radius 30px
+    width auto
+    box-shadow none
+    transition all 0.4s ease-in-out
+    &:hover
+      background vs-grey
+      color white
+      border 1px solid vs-grey
+    &:disabled
+      opacity 0.4
+      &:hover
+        background white
+        color vs-orange
+  vs-button-green()
+    background #00A685
+    color white
+    font-size 18px 
+    font-weight 600
+    margin-right 10px
+    padding 10px 20px
+    display inline-flex
+    align-items center
+    margin-bottom 10px
+    text-align center
+    border-radius 30px
+    width auto
+    box-shadow none
+    transition all 0.4s ease-in-out
+    &:hover
+      background vs-grey
+  vs-button-grey()
+    color white
+    background vs-grey
+    font-size 18px 
+    font-weight 600
+    margin-right 10px
+    padding 10px 20px
+    display inline-flex
+    align-items center
+    margin-bottom 10px
+    text-align center
+    border-radius 30px
+    width auto
+    box-shadow none
+    transition all 0.4s ease-in-out
+    &:hover
+      background vs-orange
+  no-select()
+    -webkit-touch-callout none
+    -webkit-user-select none
+    -khtml-user-select none
+    -moz-user-select none
+    -ms-user-select none
+    user-select none
+
+  button, 
+  input[type=submit], 
+  input[type=button]
+  .button
+    flex-shrink 0
+    vs-button()
+    &.button-alt
+      vs-button-alt()
+    &.button-green
+      vs-button-green()
+    &.button-grey
+      vs-button-grey()
+    svg,
+    i
+      margin-left 8px
+    &.small
+      padding 5px 15px
+  .button.pipeline-home
+    background #da2a8c    
+@media screen and (max-width:768px)
+  body button, 
+  body input[type=submit], 
+  body input[type=button], 
+  body .button 
+    padding 12px 20px

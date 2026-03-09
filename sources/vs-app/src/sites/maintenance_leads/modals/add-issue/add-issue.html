@@ -1,0 +1,120 @@
+<div class="modal add-lead-modal large">
+  <div class="modal-header">
+    <h2>{{ data.issue ? 'Edit Issue' : 'Add New Issue' }}</h2>
+     <a ng-click="cancel()" class="close-reveal-modal">&times;</a>
+  </div>
+
+  <div class="modal-body">
+    <form name="forms.myForm" novalidate autocomplete="off">
+      
+      <div class="row form-row top-row">
+        <div class="col-sm-6">
+          <h3><strong>{{ mml('issue-label-source') }}</strong></h3>
+          <div class="form-controls">
+            <div ng-class="{warning: submitted && forms.myForm.source.$invalid}" class="form-item c-select source required no-label">
+              <div class="input-holder">
+                <select sumoselect="{placeholder:mml('issue-source-placeholder'), search:true}" ng-model="issue.item.source" name="source" required>
+                  <option ng-repeat="source in sources" value="{{source._id}}" ng-disabled="source.disabled" ng-hide="source.hidden">{{ source.name }}</option>
+                </select>
+              </div>
+              <p ng-show="submitted && forms.myForm.source.$error.required" class="error">{{ mml('issue-source-error-required') }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-sm-6">
+          <h3><strong>{{ mml('issue-label-landlord') }}</strong></h3>
+          <div class="form-controls">
+            <div ng-class="{warning: submitted && forms.myForm.landlordId.$invalid}" class="form-item c-select landlordId no-label">
+              <div class="input-holder">
+                <select sumoselect="{placeholder:mml('issue-landlordId-placeholder'), search:true}" ng-model="issue.item.landlordId" name="landlordId">
+                  <option ng-repeat="landlordId in landlords.items" value="{{landlordId._id}}" ng-disabled="landlordId.disabled" ng-hide="landlordId.hidden">{{ landlordId.name }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3><strong>{{ mml('issue-label-tenant') }}</strong></h3>
+      <div class="row form-row">
+        <div class="col-2">
+          <div ng-class="{warning: submitted && forms.myForm.tenantTitle.$invalid}" class="form-item c-input tenantTitle required">
+            <label class="label">{{ mml('issue-tenantTitle-label') }}</label>
+            <input type="text" name="tenantTitle" ng-model="issue.item.tenantTitle" placeholder="{{ mml('issue-tenantTitle-placeholder') }}" required/>
+            <p ng-show="submitted && forms.myForm.tenantTitle.$error.required" class="error">{{ mml('issue-tenantTitle-error-required') }}</p>
+          </div>
+        </div>
+        <div class="col-5">
+          <div ng-class="{warning: submitted && forms.myForm.tenantFirstName.$invalid}" class="form-item c-input tenantFirstName required">
+            <label class="label">{{ mml('issue-tenantFirstName-label') }}</label>
+            <input type="text" name="tenantFirstName" ng-model="issue.item.tenantFirstName" placeholder="{{ mml('issue-tenantFirstName-placeholder') }}" required/>
+            <p ng-show="submitted && forms.myForm.tenantFirstName.$error.required" class="error">{{ mml('issue-tenantFirstName-error-required') }}</p>
+          </div>
+        </div>
+        <div class="col-5">
+          <div ng-class="{warning: submitted && forms.myForm.tenantLastName.$invalid}" class="form-item c-input tenantLastName required">
+            <label class="label">{{ mml('issue-tenantLastName-label') }}</label>
+            <input type="text" name="tenantLastName" ng-model="issue.item.tenantLastName" placeholder="{{ mml('issue-tenantLastName-placeholder') }}" required/>
+            <p ng-show="submitted && forms.myForm.tenantLastName.$error.required" class="error">{{ mml('issue-tenantLastName-error-required') }}</p>
+          </div>
+        </div>
+        <div ng-class="{warning: submitted && forms.myForm.tenantPhone.$invalid}" class="col-sm-6 required">
+          <label class="label">{{ mml('issue-tenantPhone-label') }}</label>
+          <input type="text" name="tenantPhone" ng-model="issue.item.tenantPhone" placeholder="{{ mml('issue-tenantPhone-placeholder') }}" required/>
+          <p ng-show="submitted && forms.myForm.tenantPhone.$error.required" class="error">{{ mml('issue-tenantPhone-error-required') }}</p>
+        </div>
+        <div ng-class="{warning: submitted && forms.myForm.tenantEmail.$invalid}" class="col-sm-6 required">
+          <label class="label">{{ mml('issue-tenantEmail-label') }}</label>
+          <input type="email" name="tenantEmail" ng-model="issue.item.tenantEmail" placeholder="{{ mml('issue-tenantEmail-placeholder') }}" required email/>
+          <p ng-show="submitted && forms.myForm.tenantEmail.$error.required" class="error">{{ mml('issue-tenantEmail-error-required') }}</p>
+          <p ng-show="submitted && forms.myForm.tenantEmail.$error.email" class="error">{{ mml('issue-tenantEmail-error-email') }}</p>
+        </div>
+      </div>
+
+      <h3><strong>{{ mml('issue-label-address') }}</strong></h3>
+      <div class="row form-row">
+        <div ng-class="{warning: submitted && forms.myForm.address1.$invalid}" class="form-item c-input address1 required col-12">
+          <label class="label">{{ mml('issue-address1-label') }}</label>
+          <input type="text" name="address1" ng-model="issue.item.address1" placeholder="{{ mml('issue-address1-placeholder') }}" required/>
+          <p ng-show="submitted && forms.myForm.address1.$error.required" class="error">{{ mml('issue-address1-error-required') }}</p>
+        </div>
+        <div ng-class="{warning: submitted && forms.myForm.address2.$invalid}" class="form-item c-input address2 col-8">
+          <label class="label">{{ mml('issue-address2-label') }}</label>
+          <input type="text" name="address2" ng-model="issue.item.address2" placeholder="{{ mml('issue-address2-placeholder') }}"/>
+        </div>
+        <div ng-class="{warning: submitted && forms.myForm.postcode.$invalid}" class="form-item c-input postcode required col-4">
+          <label class="label">{{ mml('issue-postcode-label') }}</label>
+          <input type="text" name="postcode" ng-model="issue.item.postcode" placeholder="{{ mml('issue-postcode-placeholder') }}" required/>
+          <p ng-show="submitted && forms.myForm.postcode.$error.required" class="error">{{ mml('issue-postcode-error-required') }}</p>
+        </div>
+      </div>
+
+      <h3><strong>Issue Details</strong></h3>
+      <div class="form-section">
+        <div class="form-label">{{ mml('issue-label-title') }}</div>
+        <div class="form-controls">
+          <div ng-class="{warning: submitted && forms.myForm.title.$invalid}" class="form-item c-input title required no-label">
+            <input type="text" name="title" ng-model="issue.item.title" placeholder="{{ mml('issue-title-placeholder') }}" required/>
+            <p ng-show="submitted && forms.myForm.title.$error.required" class="error">{{ mml('issue-title-error-required') }}</p>
+          </div>
+        </div>
+      </div>
+      <div class="form-section">
+        <div class="form-label">{{ mml('issue-label-detail') }}</div>
+        <div class="form-controls">
+          <div ng-class="{warning: submitted && forms.myForm.details.$invalid}" class="form-item c-input details">
+            <label class="label">{{ mml('issue-details-label') }}</label>
+            <textarea name="details" ng-model="issue.item.details" placeholder="{{ mml('issue-details-placeholder') }}"></textarea>
+          </div>
+        </div>
+      </div>
+
+    </form>
+  </div>
+
+  <div class="modal-footer">
+    <button class="button button-alt" ng-click="cancel()">Cancel</button>
+    <button class="button" ng-click="save()">{{ data.issue ? 'Update Issue' : 'Create Issue' }}</button>
+  </div>
+</div>

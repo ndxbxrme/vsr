@@ -1,0 +1,66 @@
+{
+  "name": "vs-property",
+  "version": "0.7.24",
+  "description": "",
+  "main": "build/server/app.js",
+  "scripts": {
+    "test": "grunt test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ndxbxrme/vs-property.git"
+  },
+  "author": "ndxbxrme",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/ndxbxrme/vs-property/issues"
+  },
+  "homepage": "https://github.com/ndxbxrme/vs-property",
+  "devDependencies": {
+    "grunt": "^1.0.1",
+    "grunt-angular-templates": "^1.1.0",
+    "grunt-cli": "^1.2.0",
+    "grunt-contrib-clean": "^1.0.0",
+    "grunt-contrib-coffee": "^1.0.0",
+    "grunt-contrib-copy": "^1.0.0",
+    "grunt-contrib-jade": "^1.0.0",
+    "grunt-contrib-stylus": "^1.2.0",
+    "grunt-contrib-watch": "^1.0.0",
+    "grunt-curl": "^2.2.0",
+    "grunt-express-server": "^0.5.3",
+    "grunt-file-append": "0.0.7",
+    "grunt-filerev": "^2.3.1",
+    "grunt-injector": "^1.1.0",
+    "grunt-keepalive": "^1.0.0",
+    "grunt-ndx-script-inject": "0.0.7",
+    "grunt-ndxmin": "0.0.5",
+    "grunt-ngmin": "0.0.3",
+    "grunt-usemin": "^3.1.1",
+    "grunt-wiredep": "^3.0.1",
+    "load-grunt-tasks": "^3.5.2"
+  },
+  "dependencies": {
+    "async": "2.1.4",
+    "grunt": "1.0.1",
+    "ndx-auth": "^0.1.11",
+    "ndx-connect": "0.0.6",
+    "ndx-cors": "0.0.10",
+    "ndx-database-backup": "^0.1.0",
+    "ndx-file-upload": "^0.1.9",
+    "ndx-keep-awake": "0.0.5",
+    "ndx-passport": "git+https://github.com/ndxbxrme/ndx-passport-property.git",
+    "ndx-passport-facebook": "^0.2.12",
+    "ndx-passport-github": "^0.2.13",
+    "ndx-passport-twitter": "^0.2.11",
+    "ndx-permissions": "^0.3.2",
+    "ndx-profiler": "^0.1.2",
+    "ndx-rest": "^0.5.0",
+    "ndx-server": "^0.13.2",
+    "ndx-socket": "0.0.8",
+    "ndx-static-routes": "0.0.13",
+    "ndx-superadmin": "^0.1.4",
+    "ndx-user-roles": "^0.4.0",
+    "objtrans": "*",
+    "superagent": "3.3.2"
+  }
+}

@@ -1,0 +1,97 @@
+
+<div class="agreed-route">
+
+  <div class="container-xl">
+    <div class="row align-items-center">
+      <div class="col-sm-6">
+        <h1>Monthly Sales Agreed</h1>
+      </div>
+      <div class="col-sm-2">
+        
+        <select ng-model="filterMode" ng-change="updateProperties()">
+          <option value="0">Show All</option>
+          <option value="1">VITALSPACE</option>
+          <option value="2">HOME</option>
+        </select>
+      </div>
+      <div class="col-sm-4 search">
+        <input type="text" ng-model="search" placeholder="Search..."/>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-sm-12">
+        <div class="years" style="display: flex">
+          <a href="" ng-click="setDateRange(year)" ng-repeat="year in years" ng-class="{selected:year===currentYear}">{{year}}</a>
+        </div>
+      </div>
+    </div>
+    
+    <div class="months">
+      <div class="month col-lg-4 col-sm-6" ng-repeat="month in months | filter:search | orderBy:&quot;date&quot;" ng-class="{disabled:month.date &gt; now}">
+        <div class="inner">
+
+          <div class="month-name">{{month.month}} </div>
+          <div class="target" ng-click="auth.checkRoles(['admin', 'superadmin']) &amp;&amp; (month.editing = !month.editing)" title="{{auth.checkRoles(['admin', 'superadmin']) ? 'Edit target' : ''}}">
+            <label>Target </label>
+            <div class="editor" ng-show="month.editing">
+              <input type="text" ng-model="month.target.value" ng-click="$event.stopPropagation()" ng-blur="saveTarget(month)"/>
+            </div>
+            <div class="default" ng-hide="month.editing">{{month.target.value}}</div>
+          </div>
+          <div class="actual">{{month.properties.length}}</div>
+
+          <hr/>
+          <div class="row">
+            <div class="commission col-6" ng-bind-html="month.commission | currency:'£' | currencyFormat"></div>
+
+            <div class="col-6 text-end">
+              <a class="small button" ng-click="open(month)"> <span ng-hide="month.open">View List</span><span ng-show="month.open">Close List</span></a>
+            </div>
+          </div>
+          
+          </div>
+          
+          <div class="properties" ng-show="month.open">
+            <div class="row">
+              <div class="col">
+                <h5>Address</h5>
+              </div>
+              <div class="col text-end">
+                <h5>Date</h5>
+              </div>
+            </div>
+            <div class="property" ng-repeat="property in month.properties"> 
+              <div class="editor" ng-show="property.$editing">
+                <div class="row">
+                  <div class="address col-8">
+                    <input type="text" ng-model="property.$override.address"/>
+                  </div>
+                  <div class="fees col-4">
+                    <input type="text" ng-model="property.$override.commission"/>
+                  </div>
+                </div>
+                <input class="small button save" type="button" ng-click="save(property)" value="Save"/>
+                <input class="small button cancel" type="button" ng-click="cancel(property)" value="Cancel"/>
+              </div>
+              <div class="default" ng-class="{delisted:property.delisted}">
+                <div class="row">
+                  <div class="number col-1">{{$index + 1}}</div>
+                  <div class="address col-8">{{property.address}}</div>
+                  <div class="controls col-3 text-end" ng-show="auth.checkRoles(['admin', 'superadmin'])">
+                    <a href="" ng-click="edit(property)"><i class="fa-light fa-pen-to-square"></i></a>
+                    <a href="" ng-click="delete(property)"><i class="fa-light fa-trash-can"></i></a>
+                  </div>
+                </div>
+                <div class="row">
+                  <div class="date col">{{property.date | date:'mediumDate'}}</div>
+                  <div class="fees col text-end" ng-bind-html="property.commission | currency:'£' | currencyFormat"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <hr class="white">
+    </div>
+  </div>
+</div>

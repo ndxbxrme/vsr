@@ -1,0 +1,37 @@
+@import '../../variables'
+menu
+  margin 0
+  padding 0
+  ul
+    list-style-type none
+    margin 0
+    padding 0
+    display flex
+  &.main-menu
+    a
+      color white
+      padding 1rem
+      text-decoration none
+    @media screen and (max-width: 819px)
+      display none
+  &.mobile-menu
+    position fixed
+    top 72px
+    right 0
+    width 180px
+    ul
+      flex-direction column
+    a
+      font-size 1.6rem
+      color vs-orange
+      box-sizing border-box
+      padding 1rem
+      display block
+      border-bottom 1px solid vs-orange
+      text-decoration none
+      &:hover
+        background mix(#fff, vs-orange, 80)
+.mobile
+  .mobile-menu
+    overflow-Y scroll
+    height calc(100vh - 71px)

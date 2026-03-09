@@ -1,0 +1,71 @@
+    <section class="property-menu" ng-show='!Properties.isSearchPage()'>
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4 col-sm-4 col-xs-12">
+                    <h1>{{ Properties.current().Address.Street }}, {{ Properties.current().Address.Locality }}</h1>
+                    <p class="quali">{{property.details.Price.PriceQualifierType.DisplayName}}</p>
+                    <h3 class="orange">{{ Properties.current().Price.PriceValue | currency:"£":0 }}
+                      <a ng-if="Properties.current().RoleType.SystemName == 'Letting'" href="#fee-pop" fancybox="" id="inline" class="fancybox feesapply"><span>fees apply</span></a>
+                    </h3>
+
+                      <!-- Fees Modal -->
+                        <div style="display:none" class="fancybox-hidden">
+                            <div id="fee-pop" style="width:540px;height:400px;">
+                                <div style="padding:0 20px;">
+                                <h2>Tenant Fees</h2>
+
+                                <p><strong>Pre Tenancy. All fees stated are inclusive of VAT (calculated at 20%)</strong></p>
+                                <ul>
+                                    <li><i class="fa fa-home orange"></i> Single Application Fee - <span class="orange">£150</span></li>
+<!--
+                                    <li><i class="fa fa-home orange"></i> Joint Application Fee - <span class="orange">£250</span></li>
+                                    <li><i class="fa fa-home orange"></i> Application fee for 3 + people - <span class="orange">£325</span></li>
+-->
+                                </ul>
+
+                                    <p>Please be aware that the application fee is <strong>NON REFUNDABLE</strong></p>
+
+                                    <p>VitalSpace requires One Month’s Rent PLUS £100 as deposit. This payable before the tenancy commences. This amount is refundable at the end of the tenancy, subject to a satisfactory inspection.</p>
+                                    <ul>
+                                       <li><i class="fa fa-home orange"></i> Contract Renewal fee - <span class="orange">£36</span></li>
+                                   </ul>
+                               </div>
+                            </div>
+                        </div>
+                    </div>
+                <div class="col-md-8 col-sm-8 col-xs-12">
+                  <ul class="prop-nav right">
+                    <li ng-class="{active: $state.includes('overview')}"><a ui-sref="overview(getPropertyUrlData())" data-toggle="tooltip" title="Overview">
+                        <span class="fa-stack fa-lg">
+                            <i class="fa fa-circle fa-stack-2x"></i>
+                            <i class="fa fa-file-text-o fa-stack-1x fa-inverse"></i>
+                        </span>
+                        <br>
+                        <span>Overview</span></a></li>
+                    <li ui-sref-active="active"><a href="" ui-sref="photos(getPropertyUrlData())" data-toggle="tooltip" title="Photos">
+                        <span class="fa-stack fa-lg">
+                            <i class="fa fa-circle fa-stack-2x"></i>
+                            <i class="fa fa-file-image-o fa-stack-1x fa-inverse"></i>
+                        </span>
+                        <br>
+                        <span>Photos</span></a></li>
+                    <li ng-show="hasDocument('Floorplan')" ui-sref-active="active"><a href="" ui-sref="layout(getPropertyUrlData())" data-toggle="tooltip" title="Floorplan">
+                        <span class="fa-stack fa-lg">
+                            <i class="fa fa-circle fa-stack-2x"></i>
+                            <i class="fa fa-object-group fa-stack-1x fa-inverse"></i>
+                        </span>
+                        <br>
+                        <span>Floorplan</span></a></li>
+                    <li ng-show="hasDocument('Brochure')" class="brochure-menu" ui-sref-active="active" style=""><a href="" ui-sref="brochure(getPropertyUrlData())" data-toggle="tooltip" title="Brochure">
+                        <span class="fa-stack fa-lg">
+                            <i class="fa fa-circle fa-stack-2x"></i>
+                            <i class="fa fa-file-pdf-o fa-stack-1x fa-inverse"></i>
+                        </span>
+                        <br>
+                        <span>Brochure</span></a></li>
+                  </ul>
+             </div>
+        </div>
+
+      </div>
+    </section>

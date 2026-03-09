@@ -1,0 +1,30 @@
+
+<div class="contractor-route route">
+  <div class="container-xl">
+    <h1>{{ mml('contractor-heading') }}</h1>
+    <div class="row">
+      <div class="col-sm-6">
+        <form name="myForm" novalidate="novalidate" autocomplete="off" ng-submit="save('contractor')">
+          <div class="form-section">
+            <div ng-class="{warning: submitted &amp;&amp; myForm.name.$invalid}" class="form-item c-input">
+              <label class="label">{{ mml('contractor-name-label') }}</label>
+              <input type="text" name="name" ng-model="contractor.item.name" placeholder="{{ mml('contractor-name-placeholder') }}" title="{{ mml('contractor-name-label') }}" ng-disabled="disabled"/>
+            </div>
+            <div ng-class="{warning: submitted &amp;&amp; myForm.phone.$invalid}" class="form-item c-input">
+              <label class="label">{{ mml('contractor-phone-label') }}</label>
+              <input type="text" name="phone" ng-model="contractor.item.phone" placeholder="{{ mml('contractor-phone-placeholder') }}" title="{{ mml('contractor-phone-label') }}" ng-disabled="disabled"/>
+            </div>
+            <div ng-class="{warning: submitted &amp;&amp; myForm.email.$invalid}" class="form-item c-input">
+              <label class="label">{{ mml('contractor-email-label') }}</label>
+              <input type="email" name="email" ng-model="contractor.item.email" placeholder="{{ mml('contractor-email-placeholder') }}" title="{{ mml('contractor-email-label') }}" ng-disabled="disabled"/>
+            </div>
+          </div>
+          <div class="controls">
+            <input type="submit" value="{{ mml('forms-submit') }}" ng-disabled="disabled || myForm.$pristine" class="button button-alt"/>
+            <button type="button" ng-click="auth.goToLast(&quot;defaultLast&quot;)" class="button cancel">{{ mml('forms-cancel') }}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

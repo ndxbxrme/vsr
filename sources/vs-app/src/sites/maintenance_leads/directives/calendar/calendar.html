@@ -1,0 +1,23 @@
+
+<div class="calendar-dir">
+  <div class="controls"><a href="" tap="prev()">&lt;&lt; Prev</a><a href="" tap="goToToday()">Today</a><a href="" tap="next()">Next &gt;&gt;</a></div>
+  <div class="carousel">
+    <div ng-repeat="week in weeks" class="week">
+      <div ng-repeat="day in week.days" ng-class="{selected:isSelected(day.day)}" class="day">
+        <div class="day-name"> 
+          <div class="desktop">{{day.day | date:'EEE, MMM d'}}</div>
+          <div class="mobile">{{day.day | date:'EEE, MMM d'}}</div>
+        </div>
+        <div class="hours">
+          <div ng-repeat="hour in day.hours" ng-click="openTask({date:hour}, $event)" class="hour">
+            <div class="legend"> 
+              <div class="desktop">{{hour | date:'ha'}}</div>
+              <div class="mobile">{{hour | date:'ha'}}</div>
+            </div>
+          </div>
+          <task ng-repeat="task in day.tasks | filter:$root.selectedMLUser | byStatus:filters" style="top:{{task.top + (task.offset * .3)}}rem; height:calc({{task.height}}rem + 1px)" ng-click="openTask(task, $event)" class="{{task.status}} {{task.currentIssue?&quot;current&quot;:&quot;&quot;}}"></task>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,168 @@
+@import '../../variables'
+.dashboard-route
+  display flex
+  .toolbar
+    background vs-grey
+    color white
+    display flex
+    flex-direction column
+    width 260px
+    min-width 260px
+    max-width 260px
+    flex-wrap wrap
+    padding-bottom .5rem
+    .dates
+      .date-swiper-holder
+        position relative
+        display block
+        .day-names
+          color inherit
+          margin-top 1.6rem
+        .month
+          background #394a58
+        .controls
+          display none
+        .month-holder
+          height 2rem
+          position relative
+        .month-name
+          position absolute
+          top 0
+          left 0
+          width 100%
+          display block
+          pointer-events none
+        .is-selected
+          .date
+            background vs-orange
+    h4
+      margin 20px 0 10px 0
+      padding-bottom 10px
+      border-bottom 1px solid rgba(50,50,50,0.5)
+      font-weight 700
+      font-size 1.6rem
+    .today, .income, .counts, .users, .filters
+      padding 0rem 1rem .5rem 1rem
+      .mobile
+        display none
+    .today
+      padding-top 1rem
+      background darken(vs-grey, 15)
+      box-sizing border-box
+    .income-item, .counts-item
+      display flex
+      justify-content space-between
+      margin .5rem 0
+      .total
+        padding 4px 8px
+        margin-right -8px
+        border-radius 10px
+        background #035c03
+        &.loss
+          background red
+        
+    .user-select
+      display flex
+      align-items center
+      background darken(vs-grey, 15)
+      .select2-container
+        border none
+        .select2-arrow
+          display none
+        .select2-choice
+          background none
+          background-image none
+          border none
+          box-shadow none
+          padding 0.5rem
+          color white
+        .select2-chosen
+          padding 0 0 0 0.5rem
+    .filters
+      .filter
+        width 100px
+        height 30px
+        background #333
+        margin 10px 0 0 0
+        border-radius 50px
+        position relative
+        span
+          position absolute
+          left 110px
+          top 7px
+        &:before
+          content ''
+          position absolute
+          top 15px
+          left 14px
+          height 2px
+          width 70px
+          background #111
+        label
+          display block
+          width 18px
+          height 18px
+          border-radius 50%
+          transition: all .5s ease
+          cursor pointer
+          position absolute
+          top 6px
+          z-index 1
+          left 12px
+          background #ddd
+      input[type=checkbox]
+        vertical-align middle
+        visibility hidden
+        &:checked + label
+          left 70px
+          background #26ca28
+      #filterConfirmed span
+        color vs-green
+      #filterQuote span
+        color vs-orange
+    .users
+      .user
+        padding-bottom 5px
+        img
+          vertical-align middle
+          border-radius 50%
+.select2-highlighted
+  background vs-grey!important
+@media screen and (max-width:819px)
+  .dashboard-state
+    .holder
+      &:before
+        display none
+  .dashboard-route
+    flex-direction column
+    .toolbar
+      min-width 100%
+      max-width 100%
+      flex-direction row
+      flex-wrap wrap
+      padding-bottom 0
+      .dates, .users
+        display none
+      .today, .user-select
+        width 50%
+      .filters, .income, .counts
+        flex auto
+        .desktop
+          display none
+        .mobile
+          display block
+      .filters
+        width 100%
+        h4 
+          margin-bottom 20px
+        .filter
+          white-space nowrap
+          width 97px
+          display inline-block
+          span
+            left 3px
+            top -18px
+.select2-chosen
+  img
+    vertical-align middle
+    border-radius 50% 

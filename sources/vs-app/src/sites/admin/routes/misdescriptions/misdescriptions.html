@@ -1,0 +1,76 @@
+
+
+<div class="client-management-list misdescriptions-list">
+  <div class="container-xl">
+    <div class="row align-items-center">
+      <div class="col-md-6">
+        <h1><i class="fa-duotone fa-light fa-file-certificate"></i> Property Misdescriptions Management</h1>
+      </div>
+      <div class="col-md-6 search d-flex align-items-center justify-content-end">
+        <input type="text" ng-model="search" placeholder="Search Cases" ng-change="page=1"/>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="row align-items-center">
+        <div class="col-md-6">
+          <div class="sort">Order By: <a href="" ng-click="sort=&quot;-DateInstructed&quot;;page=1" ng-class="{selected:sort===&quot;-DateInstructed&quot;}" class="order-item">First Listed</a><a href="" ng-click="sort=&quot;-viewings.length&quot;;page=1" ng-class="{selected:sort===&quot;-viewings.length&quot;}" class="order-item">Viewings</a><a href="" ng-click="sort=&quot;-Price.PriceValue&quot;;page=1" ng-class="{selected:sort===&quot;-Price.PriceValue&quot;}" class="order-item">Asking Price</a></div>
+        </div>
+        <div class="col-md-6 text-end">
+          <div class="showing">Showing {{filterData.length}} of {{totalProps = properties.items.length - nodeleted}} case{{totalProps!==1?'s':''}}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="properties-list" ng-show="filterData.length > 0">
+      <div class="property-card" ng-repeat="property in filterData =(properties.items | filter:{&quot;SearchField&quot;:search} | orderBy:sort) | limitTo:limit:limit*(page-1)">
+        <div class="property-main row g-5">
+          <div class="property-image col-md-3" ng-class="{&quot;has-request animated pulse infinite&quot;:hasRequest(property)}">
+            <img src="{{property.Images[0].Url}}&width=500" class="image" alt="{{property.displayAddress}}"/>
+          </div>
+          
+          <div class="property-info col-md-6">
+            <div class="property-meta">
+              <div class="property-address"><strong>Address:</strong> {{property.displayAddress}}</div>
+              <span class="purchase-price"><strong>Price:</strong> {{property.Price.PriceValue | currency : "£" : 0}}</span>
+              <span class="fees"><strong>Fees:</strong> {{property | getFees | currency : "£" : 0}}</span>
+            </div>
+            <div class="property-actions">
+              <a class="button" href="mailto:{{property.vendor.Members[0].Person.PrimaryEmail.Value}}?subject=Subject - Outstanding Property Misdescriptions Form&body=Dear {{property.vendor.Members[0].Person.ContactName}}%0D%0A%0D%0AI do hope you are well.%0D%0A%0D%0AI am sorry to trouble you, but we have conducted an internal review on your property file and notice that you have not completed and returned our Property Misdescriptions Act sign off form.%0D%0A%0D%0ACould you kindly visit the below web link to sign off your marketing material%0D%0A%0D%0Ahttps://vitalspace.co.uk/property-misdescriptions-act/%0D%0A%0D%0AThanking you in advance.%0D%0A%0D%0ARegards%0D%0A%0D%0A">Chase <i class="fa-light fa-duotone fa-envelope"></i></a>
+              <button type="button" class="button button-alt" ng-click="received(property)">Received <i class="fa-light fa-check"></i></button>
+            </div>
+          </div>
+          
+          <div class="property-stats-actions col-md-3">
+            <div class="property-vendor">
+              <div class="label">
+                <i class="fa-duotone fa-light fa-sign-hanging"></i>
+                Vendor
+              </div>
+              <div class="value">
+                {{property.vendor.Name}}
+              </div>
+            </div>
+            <div class="property-stats">
+              <div class="stat-item">
+                <span class="instructed ng-binding"><i class="fa-duotone fa-light fa-calendar-circle-user"></i> <strong>Instructed on:</strong> {{property.DateInstructed | date:'dd/MM/yyyy'}}</span><br>
+                <span class="time-ago ng-binding">({{property.DateInstructed | timeAgo}})</span>
+              </div>
+              <div class="stat-item">
+                <span class="viewings-count"><i class="fa-duotone fa-light fa-eye"></i> <strong>Viewings:</strong> <strong class="orange ng-binding">{{property.viewings.TotalCount}}</strong></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="paging-dir">
+      <pagination total="filterData.length" ng-model="page" page-size="limit" page-change="pageChange" show-first-last="true" class="pagination-sm pagination"></pagination>
+    </div>
+    
+    <div ng-show="filterData.length===0" class="empty-table">
+      <h3>Nothing to show</h3>
+    </div>
+  </div>
+</div>

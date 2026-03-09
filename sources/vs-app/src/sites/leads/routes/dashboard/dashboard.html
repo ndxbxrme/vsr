@@ -1,0 +1,80 @@
+
+<div class="leads-dashboard-route">
+  <div class="container-xl">
+    <div class="row align-items-center mt-5">
+      <div class="col-md-8">
+        <h1>Leads <strong class="orange">Dashboard</strong></h1>
+      </div>
+      <div class="col-md-4 text-md-end">
+        <button class="button button-alt orange-button add-lead-button" ng-click="openAddLeadModal()">Add Lead <i class="fa fa-plus"></i></button>
+      </div>
+    </div>
+    
+    <!-- Selling Leads -->
+    <h3><i class="fa-light fa-duotone fa-handshake"></i> {{ mla('dashboard-table-selling-heading') }}</h3>
+    <div class="snapshot">
+      <div class="snapshot-item">
+        <div class="snapshot-label">{{ mla('dashboard-table-selling-today') }}</div>
+        <div class="snapshot-value">{{ sellingToday.total }}</div>
+      </div>
+      <div class="snapshot-item">
+        <div class="snapshot-label">{{ mla('dashboard-table-selling-outstanding') }}</div>
+        <div class="snapshot-value">{{ sellingOutstanding.total }}</div>
+      </div>
+      <div class="snapshot-item">
+        <div class="snapshot-label">{{ mla('dashboard-table-selling-total') }}</div>
+        <div class="snapshot-value">{{ sellingToday.total + sellingOutstanding.total }}</div>
+      </div>
+      <div class="action-item">
+        <a class="button button-alt" ui-sref="leads_selling" ng-class="{selected:state('leads_selling')}" ng-show="auth.isAuthorized('leads_selling')">
+          View Selling Leads
+        </a>
+      </div>
+    </div>
+
+    <!-- Letting Leads -->
+    <h3><i class="fa-light fa-duotone fa-house-person-return"></i> {{ mla('dashboard-table-letting-heading') }}</h3>
+    <div class="snapshot">
+      <div class="snapshot-item">
+        <div class="snapshot-label">{{ mla('dashboard-table-letting-today') }}</div>
+        <div class="snapshot-value">{{ lettingToday.total }}</div>
+      </div>
+      <div class="snapshot-item">
+        <div class="snapshot-label">{{ mla('dashboard-table-letting-outstanding') }}</div>
+        <div class="snapshot-value">{{ lettingOutstanding.total }}</div>
+      </div>
+      <div class="snapshot-item">
+        <div class="snapshot-label">{{ mla('dashboard-table-letting-total') }}</div>
+        <div class="snapshot-value">{{ lettingToday.total + lettingOutstanding.total }}</div>
+      </div>
+      <div class="action-item">
+        <a class="button button-alt" ui-sref="leads_letting" ng-class="{selected:state('leads_letting')}" ng-show="auth.isAuthorized('leads_letting')">
+          View Letting Leads
+        </a>
+      </div>
+    </div>
+
+    <!-- Valuation Leads -->
+    <h3><i class="fa-duotone fa-light fa-clipboard-list-check"></i> {{ mla('dashboard-table-valuation-heading') }}</h3>
+    <div class="snapshot">
+      <div class="snapshot-item">
+        <div class="snapshot-label">{{ mla('dashboard-table-valuation-today') }}</div>
+        <div class="snapshot-value">{{ valuationToday.total }}</div>
+      </div>
+      <div class="snapshot-item">
+        <div class="snapshot-label">{{ mla('dashboard-table-valuation-outstanding') }}</div>
+        <div class="snapshot-value">{{ valuationOutstanding.total }}</div>
+      </div>
+      <div class="snapshot-item">
+        <div class="snapshot-label">{{ mla('dashboard-table-valuation-total') }}</div>
+        <div class="snapshot-value">{{ valuationToday.total + valuationOutstanding.total }}</div>
+      </div>
+      <div class="action-item">
+        <a class="button button-alt" ui-sref="leads_valuation" ng-class="{selected:state('leads_valuation')}" ng-show="auth.isAuthorized('leads_valuation')">
+          View Valuation Leads
+        </a>
+      </div>
+    </div>
+    
+  </div>
+</div>

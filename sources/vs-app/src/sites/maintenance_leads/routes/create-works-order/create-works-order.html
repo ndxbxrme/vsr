@@ -1,0 +1,290 @@
+<div class="marketing create-works-order">
+  <div class="container-xl">
+    <h1>Create Works Order</h1>
+    <div class="row">
+      <div class="col-sm-8">
+        <div class="form-holder">
+          <form name="worksOrderForm" novalidate="novalidate" ng-submit="submit()" ng-hide="worksOrderCreated">
+            <div class="row">
+              <div class="col-sm-4">
+                <label>Date</label>
+                <input type="date" name="date" ng-model="worksOrder.date" required="required" />
+                <div class="error" ng-show="submitted &amp;&amp; worksOrderForm.date.$invalid">Please enter the date</div>
+              </div>
+              <div class="col-sm-4">
+                <label>Contractor</label>
+                <select sumoselect="{placeholder:'Contractor', search:true}" ng-model="worksOrder.contractor" name="contractor" required="required">
+                  <option ng-repeat="contractor in contractors.items" value="{{contractor._id}}" ng-hide="contractor.hidden">{{ contractor.name }}</option>
+                </select>
+                <div class="error" ng-show="submitted &amp;&amp; worksOrderForm.contractor.$invalid">Please select a contractor</div>
+              </div>
+              <div class="col-sm-4">
+                <label>Priority</label>
+                <select name="terms" ng-model="worksOrder.priority" required="required">
+                  <option selected="selected">Low</option>
+                  <option>Medium</option>
+                  <option>High</option>
+                </select>
+                <div class="error" ng-show="submitted &amp;&amp; worksOrderForm.priority.$invalid">Please select a priority</div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-sm-12">
+                <label>Additional Notes</label>
+                <textarea name="notes" ng-model="worksOrder.notes"></textarea>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-sm-12">
+                <h2 class="orange">Address</h2>
+                <p ng-show="issue.item._id">{{issue.item.address}}</p>
+                <input type="text" ng-model="worksOrder.address" ng-hide="issue.item._id" placeholder="Address" />
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-sm-12">
+                <h2 class="orange">Tenant</h2>
+                <p ng-show="issue.item._id">{{ issue.item.tenantFirstName }} {{ issue.item.tenantLastName }}</p>
+                <input type="text" ng-model="worksOrder.tenant" ng-hide="issue.item._id" placeholder="Tenant name" />
+                <input type="text" ng-model="worksOrder.tenantPhone" ng-hide="issue.item._id" placeholder="Tenant phone" />
+                <input type="text" ng-model="worksOrder.tenantEmail" ng-hide="issue.item._id" placeholder="Tenant email" />
+
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-sm-12">
+                <div class="issue-details">
+                  <h2 class="orange">Issue Details</h2>
+                  <h3><strong>{{ mml('issue-heading-issue-title') }}</strong></h3>
+                  <p ng-show="issue.item._id">{{ issue.item.title }}</p>
+                  <input type="text" ng-model="worksOrder.issueTitle" ng-hide="issue.item._id" placeholder="Issue Title" />
+                  <h3><strong>{{ mml('issue-heading-fault-detail') }}</strong></h3>
+                  <p ng-show="issue.item._id">{{ issue.item.details }}</p>
+                  <input type="text" ng-model="worksOrder.issueDetails" ng-hide="issue.item._id" placeholder="Issue Detail" />
+                </div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col-sm-12">
+                <h2 class="orange">Issue Type</h2>
+                <select name="moveOutWorks" ng-model="worksOrder.moveOutWorks" required="required">
+                  <option selected="selected">Tenancy Issue</option>
+                  <option>Move Out Issue</option>
+                </select>
+                <div class="error" ng-show="submitted &amp;&amp; worksOrderForm.moveOutWorks.$invalid">Please select an issue type</div>
+              </div>
+            </div>
+            <div class="row">
+              <div class="controls">
+                <input type="submit" value="Submit" />
+                <button type="button" ng-click="cancel()">Cancel</button>
+              </div>
+            </div>
+          </form>
+          <!--<form name="marketingEmail" novalidate="novalidate" ng-submit="submit()" ng-hide="emailSent">
+
+            <div class="row">
+              <div class="col-12">
+                <label>Property Address</label>
+                <textarea name="address" ng-model="marketing.address"></textarea>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-sm-4">
+                <label>Available Date</label>
+                <input type="date" name="availableDate" ng-model="marketing.availableDate" required="required" />
+                <div class="error" ng-show="submitted &amp;&amp; marketingEmail.availableDate.$invalid">Please enter the
+                  available date</div>
+              </div>
+              <div class="col-sm-4">
+                <label>Tenancy End Date</label>
+                <input type="date" name="tendDate" ng-model="marketing.tendDate" required="required" />
+                <div class="error" ng-show="submitted &amp;&amp; marketingEmail.tendDate.$invalid">Please enter the
+                  tenancy end date</div>
+              </div>
+              <div class="col-sm-4">
+                <label>Property Status</label>
+                <select name="terms" ng-model="marketing.pStatus" required="required">
+                  <option value="Furnished" selected="selected">Furnished</option>
+                  <option value="Unfurnished">Unfurnished</option>
+                  <option value="Part-Furnished">Part-Furnished</option>
+                </select>
+                <div class="error" ng-show="submitted &amp;&amp; marketingEmail.pStatus.$invalid">Please select the
+                  property status</div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-sm-4">
+                <label>Requested Tenancy Length</label>
+                <select name="terms" ng-model="marketing.terms" required="required">
+                  <option value="6" selected="selected">6 Months</option>
+                  <option value="12">12 Months</option>
+                  <option value="24">24 Months</option>
+                </select>
+                <div class="error" ng-show="submitted &amp;&amp; marketingEmail.terms.$invalid">Please select the terms
+                </div>
+              </div>
+              <div class="col-sm-4">
+                <label>Historic Rental Amount</label>
+                <input type="text" name="historicRent" ng-model="marketing.historicRent" required="required" />
+                <div class="error" ng-show="submitted &amp;&amp; marketingEmail.historicRent.$invalid">Please enter the
+                  historic rent</div>
+              </div>
+              <div class="col-sm-4">
+                <label>New Rental Amount</label>
+                <input type="text" name="rent" ng-model="marketing.rent" required="required" />
+                <div class="error" ng-show="submitted &amp;&amp; marketingEmail.rent.$invalid">Please enter the rent
+                </div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-sm-6">
+                <label>Access Details</label>
+                <textarea name="access" ng-model="marketing.access"></textarea>
+              </div>
+              <div class="col-sm-6">
+                <label>Repairs/Cleaning Required (if known)</label>
+                <textarea name="repairs" ng-model="marketing.repairs"></textarea>
+              </div>
+            </div>
+
+            <div class="row align-items-end">
+              <div class="col-sm-4">
+                <label>Landlord Fees</label>
+                <select name="lfees" ng-model="marketing.lfees" required="required">
+                  <option value="Tenant Find" selected="selected">Tenant Find</option>
+                  <option value="Managed">Managed</option>
+                </select>
+                <div class="error" ng-show="submitted &amp;&amp; marketingEmail.lfees.$invalid">Please select the fees
+                  type</div>
+              </div>
+              <div class="feesbox col-sm-4" ng-if="marketing.lfees === &quot;Tenant Find&quot;">
+                <input type="text" name="tfamount" ng-model="marketing.tfamount" placeholder="£ tenant find" />
+              </div>
+              <div class="col-sm-4" ng-if="marketing.lfees === &quot;Managed&quot;">
+                <input type="text" name="mamount" ng-model="marketing.mamount" placeholder="£ managed" />
+              </div>
+              <div class="col-sm-4" ng-if="marketing.lfees === &quot;Managed&quot;">
+                <input type="text" name="ma" ng-model="marketing.ma" placeholder="% managed" />
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="col-sm-4 checkbox-holder">
+                <h3 class="orange">To Let Board</h3>
+                <label class="checkbox-label" for="boardyes">Yes
+                  <input id="letboardyes" type="radio" name="board" ng-model="marketing.board" value="Yes"
+                    required="required" />
+                </label>
+                <label class="checkbox-label" for="boardno">No
+                  <input id="letboardno" type="radio" name="board" ng-model="marketing.board" value="No"
+                    required="required" />
+                </label>
+
+                <div class="error" ng-show="submitted &amp;&amp; marketingEmail.board.$invalid">Please select an Let
+                  Board status</div>
+              </div>
+
+              <div class="col-sm-4 checkbox-holder">
+                <h3 class="orange">Window Card</h3>
+                <label class="checkbox-label" for="windowyes">Yes
+                  <input id="windowyes" type="radio" name="window" ng-model="marketing.windowcard" value="Yes"
+                    required="required" />
+                </label>
+                <label class="checkbox-label" for="windowno">No
+                  <input id="windowno" type="radio" name="window" ng-model="marketing.windowcard" value="No"
+                    required="required" />
+                </label>
+
+                <div class="error" ng-show="submitted &amp;&amp; marketingEmail.windowcard.$invalid">Please select an
+                  Window card status</div>
+              </div>
+
+              <div class="col-sm-4 checkbox-holder">
+                <h3 class="orange">Valid EPC Certificate</h3>
+                <label class="checkbox-label" for="epcyes">Yes
+                  <input id="epcyes" type="radio" name="epc" ng-model="marketing.epc" value="Yes" required="required" />
+                </label>
+                <label class="checkbox-label" for="epcno">No
+                  <input id="epcno" type="radio" name="epc" ng-model="marketing.epc" value="No" required="required" />
+                </label>
+
+                <div class="error" ng-show="submitted &amp;&amp; marketingEmail.epc.$invalid">Please select an EPC
+                  status</div>
+              </div>
+
+              <div class="col-sm-4 checkbox-holder">
+                <h3 class="orange">Valid Gas Certificate</h3>
+                <label class="checkbox-label" for="gasyes">Yes
+                  <input id="gasyes" type="radio" name="gas" ng-model="marketing.gas" value="Yes" required="required" />
+                </label>
+                <label class="checkbox-label" for="gasno">No
+                  <input id="gasno" type="radio" name="gas" ng-model="marketing.gas" value="No" required="required" />
+                </label>
+
+                <div class="error" ng-show="submitted &amp;&amp; marketingEmail.gas.$invalid">Please select an Gas Cert
+                  status</div>
+              </div>
+
+              <div class="col-sm-4 checkbox-holder">
+                <h3 class="orange">EICR</h3>
+                <label class="checkbox-label" for="eicryes">Yes
+                  <input id="eicryes" type="radio" name="eicr" ng-model="marketing.eicr" value="Yes"
+                    required="required" />
+                </label>
+                <label class="checkbox-label" for="eicrno">No
+                  <input id="eicrno" type="radio" name="eicr" ng-model="marketing.eicr" value="No"
+                    required="required" />
+                </label>
+
+                <div class="error" ng-show="submitted &amp;&amp; marketingEmail.eicr.$invalid">Please select an EICR
+                  status</div>
+              </div>
+
+              <div class="col-sm-4 checkbox-holder">
+                <h3 class="orange">Property added on SME</h3>
+                <label class="checkbox-label" for="cfpyes">Yes
+                  <input id="cfpyes" type="radio" name="cfp" ng-model="marketing.cfp" value="Yes" required="required" />
+                </label>
+                <label class="checkbox-label" for="cfpno">No
+                  <input id="cfpno" type="radio" name="cfp" ng-model="marketing.cfp" value="No" required="required" />
+                </label>
+
+                <div class="error" ng-show="submitted &amp;&amp; marketingEmail.cfp.$invalid">Please select an SME
+                  status</div>
+              </div>
+
+              <div class="col-sm-4 checkbox-holder">
+                <h3 class="orange">Ultimate Management</h3>
+                <label class="checkbox-label" for="umyes">Yes
+                  <input id="umyes" type="radio" name="um" ng-model="marketing.um" value="Yes" required="required" />
+                </label>
+                <label class="checkbox-label" for="umno">No
+                  <input id="umno" type="radio" name="um" ng-model="marketing.um" value="No" required="required" />
+                </label>
+
+                <div class="error" ng-show="submitted &amp;&amp; marketingEmail.um.$invalid">Please select an Ultimate
+                  Management status</div>
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="controls">
+                <input type="submit" value="Submit" />
+                <button type="button" ng-click="cancel()">Cancel</button>
+              </div>
+            </div>
+          </form>-->
+
+          <div class="success" ng-show="emailSent">
+            <h2>Form Submitted Successfully</h2>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,12 @@
+import './sites/main/app.js';
+import './sites/main/menu/menu.js';
+import './sites/main/dashboard/dashboard.js';
+import './sites/main/login/login.js';
+import './sites/main/users/users.js';
+import './sites/main/forgot/forgot.js';
+import './sites/main/profile/profile.js';
+import './sites/main/invited/invited.js';
+import './sites/main/setup/setup.js';
+import './sites/main/template/template.js';
+import './sites/main/breadcrumbs/breadcrumbs.js';
+import './sites/main/footer/footer.js';

@@ -1,0 +1,64 @@
+
+<div class="lettings-dashboard-route">
+  <div class="container-xl">
+    <h1><i class="fa-light fa-duotone fa-chart-pie"></i> Lettings <strong class="orange">Dashboard</strong></h1>
+    <h3><i class="fa-duotone fa-light fa-eye"></i> Overview of live cases</h3>
+    <div class="snapshot">
+      <div class="snapshot-item" ng-click="showInfo(&quot;count&quot;, {name: 'Available Properties'}, month)">
+        <div class="snapshot-label"><a href="/lettings/available">Available Properties <i class="fa-duotone fa-light fa-arrow-up-right-from-square"></i></a></div>
+        <div class="snapshot-value">{{available.total}}</div>
+      </div>
+      <div class="snapshot-item" ng-repeat="di in items = (dashboard.items | filter:{type:&quot;overview&quot;})" ng-click="showInfo(&quot;count&quot;, di, month)">
+        <div class="snapshot-label">{{di.name}}</div>
+        <div class="snapshot-value">{{count(di)}}</div>
+      </div>
+      <div class="snapshot-item">
+        <div class="snapshot-label">Total</div>
+        <div class="snapshot-value">{{available.total + total(items)}}</div>
+      </div>
+    </div>
+
+    <div class="row g-5 mt-4">    
+      <div class="col-12">
+        <h3><i class="fa-duotone fa-light fa-timeline-arrow"></i> Progression</h3>
+        <div class="controls mb-3">
+          <div class="sort">Order By<br><a class="order-item" href="" ng-click="sort='milestone.startTime'" ng-class="{selected:sort==='milestone.startTime'}">DOA</a><a class="order-item" href="" ng-click="sort='proposedMoving'" ng-class="{selected:sort==='proposedMoving'}">Move in date</a></div>
+        </div>
+        <div class="progressions" ng-show="properties.total">
+          <div class="progression-list">
+            <div class="progression-item" ng-repeat="property in properties.items | orderBy:sort">
+              <div class="property-header">
+                <div class="property-info">
+                  <a ui-sref="lettings_case({roleId:property.RoleId})" class="property-address">
+                    {{property.Address.Number}} {{property.Address.Street}}
+                  </a>
+                  <span class="service-level-badge" ng-class="{'tenant-find': property.ServiceLevel.Name==='Tenant Find', 'managed': property.ServiceLevel.Name!=='Tenant Find'}">
+                    {{property.ServiceLevel.Name==='Tenant Find' ? 'Tenant Find' : 'Managed'}}
+                  </span>
+                  <div class="progress-label">
+                    <strong>What's Next:</strong>
+                    <span ng-if="getCurrentMilestone(property)">{{getCurrentMilestone(property).title}}</span>
+                    <span ng-if="!getCurrentMilestone(property)">Complete</span>
+                  </div>
+                </div>
+                <div class="property-dates">
+                  <span class="date-item"><strong>DOA:</strong> {{property.milestone.startTime | date:'dd.MM.yy'}}</span>
+                  <span class="date-item"><strong>Move In:</strong> {{property.proposedMoving | date:'dd.MM.yy'}}</span>
+                </div>
+              </div>
+              <div class="progress-section">
+                <div class="progress-bar-wrapper" ng-init="totalMilestones = (property.progressions[0].milestones | flatten).length; completedMilestones = (property.progressions[0].milestones | flatten | filter:{completed:true}).length; progressPercent = (completedMilestones / totalMilestones * 100)">
+                  <div class="progress-bar">
+                    <div class="progress-fill" ng-style="{width: progressPercent + '%'}"></div>
+                  </div>
+                  <span class="progress-text">{{completedMilestones}} / {{totalMilestones}}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+</div>

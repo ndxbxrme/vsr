@@ -1,0 +1,20 @@
+<div class="login-dir" ng-hide="auth.loggedIn() || auth.loading()">
+  <div class="login-holder">
+    <div class="login-form">
+      <h2>Log in</h2>
+      <form name="loginForm" novalidate="novalidate" ng-submit="login()" ignore="true">
+        <div class="email">
+          <input type="email" name="email" required="required" ng-model="email" placeholder="Email address"/><span class="error" ng-show="submitted &amp;&amp; loginForm.email.$error.email">Please use a valid email address</span><span class="error" ng-show="submitted &amp;&amp; loginForm.email.$error.required">Please use a valid email address</span>
+        </div>
+        <div class="password">
+          <input type="password" name="password" required="required" ng-model="password" placeholder="Password"/><small class="error" ng-show="submitted &amp;&amp; loginForm.password.$error.required">A password is required</small>
+        </div>
+        <div class="controls">
+          <div class="error">{{message}}</div>
+          <input class="button" type="submit" value="Login"/>
+        </div>
+        <div class="forgot-pass"><a ui-sref="forgot">Forgot your password?</a></div>
+      </form>
+    </div>
+  </div>
+</div>

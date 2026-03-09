@@ -1,0 +1,39 @@
+
+<div class="template">
+  <h1>{{type==='email'?'Email':'Sms'}} template</h1>
+  <form name="myForm" ng-submit="save()">
+    <div class="row">
+      <section>
+        <label>Name</label>
+        <input type="text" ng-model="template.item.name"/>
+        <div class="subject" ng-show="type===&quot;email&quot;">
+          <label>Subject</label>
+          <input type="text" ng-model="template.item.subject"/>
+        </div>
+        <div class="from" ng-show="type===&quot;email&quot;">
+          <label>From</label>
+          <input type="text" ng-model="template.item.from"/>
+        </div>
+        <div>
+          <input type="submit" value="Save"/>
+          <button class="button" ng-click="cancel()">Cancel</button>
+        </div>
+      </section>
+      <section>
+        <label>Body</label>
+        <code-mirror ng-model="template.item.body" options="{mode:lang, lineWrapping:true}"></code-mirror><small ng-show="type==='sms'">{{template.item.body.length || 0}} / 130</small>
+      </section>
+    </div>
+    <div class="row">
+      <section class="email-preview" ng-if="type==='email'">
+        <div class="preview-title">Preview</div>
+        <template-render ng-model="template.item.subject" data="defaultData"></template-render>
+        <jade-render ng-model="template.item.body" data="defaultData"></jade-render>
+      </section>
+      <section class="sms-preview" ng-if="type==='sms'">
+        <div class="preview-title">Preview</div>
+        <template-render ng-model="template.item.body" data="defaultData"></template-render>
+      </section>
+    </div>
+  </form>
+</div>

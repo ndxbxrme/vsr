@@ -1,0 +1,9 @@
+@import '../../variables'
+.footer-dir
+  background vs-grey
+  border-top 1px solid vs-orange
+  color #fff
+  .row
+    display flex
+    justify-content space-between
+    flex-wrap wrap

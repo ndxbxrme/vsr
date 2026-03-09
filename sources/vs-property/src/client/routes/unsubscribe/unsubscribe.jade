@@ -1,0 +1,6 @@
+.unsubscribe
+  .subscribed(ng-show='!unsubbed')
+    p If you'd like to unsubscribe from these yearly reminders, please click the 'Unsubscribe' button below.
+    input(type='button', ng-click='unsub()', value='Unsubscribe')
+  .unsubscribed(ng-show='unsubbed')
+    p Thank you for choosing Vitalspace. We wish you all the best in your homeownership journey.

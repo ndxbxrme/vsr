@@ -1,0 +1,155 @@
+@import 'variables'
+
+html
+  font-size 62.5%
+  overflow-y scroll
+
+body
+  color vs-text
+  font-size 1.6rem
+  line-height 2.4rem
+  font-family proxima-nova, sans-serif
+  background vs-body
+  display: flex;
+  min-height: 100vh;
+  flex-direction: column;
+  &.login
+    background vs-grey
+  sub
+    bottom 0px
+.main-view
+  flex 1
+
+.orange
+  color vs-orange
+.grey
+  color vs-grey
+.error
+  color red
+  border 1px solid red
+  padding 0 5px
+  border-radius 5px
+
+chain-box()
+  width 100%
+  border 1px solid vs-lightgrey
+  border-radius 30px
+  padding 15px
+  background vs-white
+  display flex
+  align-items center
+  img
+    border-radius 20px
+    margin-right 20px
+  .address,
+  .price
+    font-size 1.8rem
+    font-weight 600
+    color vs-grey
+  .price
+    color vs-orange
+
+.drop-box
+  border 1px solis vs-grey
+  border-radius 30px
+  background vs-white
+  width 100%
+  text-align center
+  margin 0px 0 10px
+  padding 20px
+  &.dragover
+    h3
+      color vs-orange
+.document
+  border 1px solid vs-lightgrey
+  border-radius 3px
+  background white
+  padding 20px
+  margin 0px 0px 10px 0px
+  font-weight 600
+  label
+    font-weight 500
+  svg
+    font-size 5rem
+  .controls
+    margin-top 10px
+.container-xl
+  padding 0 30px
+
+.snapshot
+  margin-top 0px
+  margin-bottom 30px
+  .snapshot-item
+    background white
+    border-radius 20px
+    padding 20px 30px
+    transition: all .3s ease
+    cursor pointer
+    position relative
+    &:hover
+      box-shadow 0 4px 12px rgba(0,0,0,0.1)
+      transform translateY(-2px)
+    i
+      position absolute
+      top 10px
+      right 10px
+      font-size 1.4rem
+      color vs-grey
+    .snapshot-value
+      color vs-orange
+      font-size 4rem
+      font-weight 600
+      &.currency
+        text-align right
+    .snapshot-label
+      font-size 1.4rem
+      color vs-grey
+      margin-bottom 20px
+      a
+        cursor pointer
+        color vs-grey
+        text-decoration none
+        &:hover
+          color vs-orange
+
+[data-tooltip]
+  position relative
+  cursor pointer
+  &:hover::before,
+  &:hover::after
+    opacity 1
+    visibility visible
+  &::before
+    content attr(data-tooltip)
+    position absolute
+    top 50%
+    left 50%
+    transform translate(-50%, -50%)
+    padding 8px 12px
+    background rgba(0, 0, 0, 0.9)
+    color white
+    font-size 13px
+    line-height 1.4
+    border-radius 6px
+    white-space nowrap
+    opacity 0
+    visibility hidden
+    transition opacity 0.2s, visibility 0.2s
+    pointer-events none
+    z-index 10000
+  &::after
+    content ''
+    position absolute
+    bottom 0px
+    left 50%
+    transform translateX(-50%)
+    border 6px solid transparent
+    border-top-color rgba(0, 0, 0, 0.9)
+    opacity 0
+    visibility hidden
+    transition opacity 0.2s, visibility 0.2s
+    pointer-events none
+    z-index 10000
+@media screen and (max-width:576px)
+  .main-view
+    padding-top 90px

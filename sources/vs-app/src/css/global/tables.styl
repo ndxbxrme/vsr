@@ -1,0 +1,165 @@
+@import 'variables'
+body
+  .tr
+    display flex
+    .th, .td
+      flex 1
+      box-sizing border-box
+      label
+        display none
+    .th
+      padding 20px
+      background white
+      text-align center
+      font-size 2rem
+      font-weight 600
+      border-bottom 1px solid vs-lightgrey
+    .td
+      padding 14px
+      text-align center
+      font-size: 1.6rem
+      border-bottom 1px solid vs-lightgrey
+      background white
+      min-width 50px
+      &.clickable
+        font-weight 600
+        cursor pointer
+        &:hover
+          color vs-orange
+    &:last-of-type .td
+      border none
+
+  table.table
+    width 100%
+    border-spacing: 0
+    border-radius 3px
+    margin-bottom 30px
+    position relative
+    box-sizing border-box
+    overflow hidden
+    p
+      margin-bottom 0
+    &>:not(:first-child)
+      border none
+    thead
+      th
+        padding 20px
+        background-color vs-grey
+        text-align center
+        color white
+        font-size 2rem
+        font-weight 100
+        border-bottom 1px solid vs-lightgrey
+        vertical-align: middle
+    tbody
+      tr td
+        background: white
+    th, td
+      padding 15px
+      text-align left
+      border-bottom 1px solid vs-lightgrey
+      &.currency
+        text-align right
+  
+  // Leads Tables
+  .list-table
+    .squish
+      width 1%
+    td.num, th.num
+      text-align left
+        &.sorting
+          span
+            color vs-orange
+            &:before
+              opacity 0
+              transform translateY(.3rem)
+            &:after
+              opacity 1
+              border-bottom-color vs-orange
+              transform translateY(.3rem)
+        &.desc.sorting
+          span
+            &:before
+              opacity 1
+              border-top-color vs-orange
+              transform translateY(-.3rem)
+            &:after
+              opacity 0
+              transform translateY(-.3rem)
+
+  // Issues Tables
+  .issue-table
+    tbody
+      tr
+        td
+          padding 10px
+          &.date
+            text-align center
+              
+    tbody
+      tr
+        label
+          display none
+          
+    @media screen and (max-width: 47rem)
+      display block
+      .status, .date
+        text-align left
+      thead
+        th
+          display none
+      tbody
+        display block
+        tr
+          td
+            display table-row
+            width 100%
+            max-width 100%
+            &:last-of-type
+              border-right none!important
+            &.options
+              width 100%
+              text-align center
+              label
+                display none
+            label
+              display table-cell
+              width 14rem
+              font-size 1.28rem
+              color #9a9b9c
+            span
+              display table-cell
+              vertical-align top
+            a
+              display table-cell
+  // Historic Tables
+  .history-table
+    tbody
+      tr
+        td
+          &.status
+            .status-inner
+              display flex
+              justify-content center
+              align-items center
+              height 62px
+              div
+                opacity 0.2
+                font-size 1.4rem
+                margin-right 4px
+              &.booked .booked
+                opacity 1
+              &.completed .completed
+                opacity 1
+              &.invoiced .invoiced
+                opacity 1
+              svg
+                font-size 2rem
+                padding 0 5px
+        .address
+          position relative
+          padding-right 30px
+          svg
+            position absolute
+            right 10px
+            top 10px

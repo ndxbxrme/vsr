@@ -1,0 +1,18 @@
+.login-dir(ng-hide='auth.loggedIn() || auth.loading()')
+  .login-holder
+    h1 Please Log in
+    form(name='loginForm', novalidate, ng-submit='login()', ignore='true')
+      .login-item
+        i.fa.fa-envelope-o
+        input(type='email', name='email', required, ng-model='email', placeholder='Email address')
+        span.error(ng-show='submitted && loginForm.email.$error.email') Please use a valid email address
+        span.error(ng-show='submitted && loginForm.email.$error.required') Please use a valid email address
+      .login-item
+        i.fa.fa-lock
+        input(type='password', name='password', required, ng-model='password', placeholder='Password')
+        small.error(ng-show='submitted && loginForm.password.$error.required') A password is required
+      .login-item
+        .error {{message}}
+        input.button(type='submit', value='Login')
+      .forgot-pass
+        a(ui-sref='forgot') Forgot your password? :)

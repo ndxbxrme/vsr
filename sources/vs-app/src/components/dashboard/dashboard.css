@@ -1,0 +1,20 @@
+.main_dashboard-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.main_dashboard-page sites {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-gap: .5em;
+}
+.main_dashboard-page sites>div {
+  background: white;
+  padding: 1em;
+}
+.main_dashboard-page .progressions {
+  display: none;
+}
+.main_dashboard-page .maintenanceleads-dashboard {
+  overflow-y: scroll;
+}

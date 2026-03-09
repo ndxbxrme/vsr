@@ -1,0 +1,71 @@
+
+<div class="setup">
+  <div class="container-xl">
+    
+    <div class="row align-items-center">
+      <div class="col-sm-8">
+        <h1><i class="fa-duotone fa-light fa-gear"></i> Setup</h1>
+      </div>
+      <!-- <div class="col-sm-4 text-end cleanup">
+        <button class="cleanup" ui-sref="lettings_cleanup">Clean up</button>
+      </div> -->
+    </div>
+
+    <div class="progressions setup-row">
+      <h2><i class="fa-duotone fa-light fa-timeline-arrow"></i> Progressions</h2>
+      <progression ng-repeat="progression in progressions.items" data="progression"></progression>
+      <div class="progressions-controls">
+        <button class="button add-progression" ng-click="addProgression()">Add Progression</button>
+        <button class="button reset-progressions" ng-click="resetProgressions()" ng-show="auth.checkRoles('superadmin')">Reset Property Progressions</button>
+      </div>
+    </div>
+
+    <div class="row setup-row">
+      <div class="col-sm-6 email-templates">
+        <h2><i class="fa-duotone fa-light fa-at"></i> Email templates</h2>
+        <div class="email-template" ng-repeat="template in emailTemplates.items">
+          <a class="name" ui-sref="lettings_template({id:template._id,type:'email'})">{{template.name}}</a>
+          <div class="delete">
+            <a href="" ng-click="emailTemplates.delete(template)"><i class="fa-duotone fa-light fa-trash"></i></a>
+          </div>
+        </div>
+        <div>
+          <a class="button" ui-sref="lettings_template({id:'new',type:'email'})">Add email template</a>
+        </div>
+      </div>
+      <div class="col-sm-6 sms-templates">
+        <h2><i class="fa-duotone fa-light fa-comment-sms"></i> Sms templates</h2>
+        <div class="sms-template" ng-repeat="template in smsTemplates.items">
+          <a class="name" ui-sref="lettings_template({id:template._id,type:'sms'})">{{template.name}}</a>
+          <div class="delete">
+            <a href="" ng-click="smsTemplates.delete(template)"><i class="fa-duotone fa-light fa-trash"></i></a>
+          </div>
+        </div>
+        <div>
+          <a class="button" ui-sref="lettings_template({id:'new',type:'sms'})">Add sms template</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="dashboard-setup row setup-row">
+      <h2><i class="fa-duotone fa-light fa-grip"></i> Dashboard</h2>
+      <div class="row">
+        <div class="col-sm-6 overview">
+          <h3><i class="fa-duotone fa-light fa-eye"></i> Overview</h3>
+          <div class="dashboard-item" ng-repeat="item in dashboard.items | filter:{type:&quot;overview&quot;}">
+            <a class="name" ui-sref="lettings_dashboardItem({id:item._id,type:'overview'})">{{item.name}}</a>
+            <div class="controls" ng-show="auth.checkRoles([&quot;admin&quot;,&quot;superadmin&quot;])">
+              <a href="" ng-click="moveDIUp(item)"><i class="fa-duotone fa-light fa-up"></i></a>
+              <a href="" ng-click="moveDIDown(item)"><i class="fa-duotone fa-light fa-down"></i></a>
+              <a href="" ng-click="removeDI(item)"><i class="fa-duotone fa-light fa-trash"></i></a>
+            </div>
+          </div>
+          <div>
+            <a class="button" ui-sref="lettings_dashboardItem({id:'new',type:'overview'})">Add overview item</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>

@@ -1,0 +1,172 @@
+<div class="dashboard">
+  <div class="container-xl">
+    <h1><i class="fa-duotone fa-light fa-chart-line"></i> Conveyancing <strong class="orange">Dashboard</strong></h1>
+    <div class="row g-5">
+    
+      <div class="col-lg-4">
+        <h3><i class="fa-duotone fa-light fa-eye"></i> Overview of live cases</h3>
+        <div class="snapshot">
+          <div class="snapshot-item" ng-repeat="di in items = (dashboard.items | filter:{type:&quot;overview&quot;}) | limitTo:-1" ng-click="showInfo(&quot;count&quot;, di, month)">
+            <div class="snapshot-label">{{di.name}} <i class="fa-duotone fa-light fa-arrow-up-right-from-square"></i></div>
+            <div class="snapshot-value">{{count(di)}}</div>
+          </div>
+        </div>
+        <div class="overview">
+          <div class="thead">
+            <div class="tr">
+              <div class="th" colspan="2">Overview of live cases</div>
+            </div>
+          </div>
+          <div class="tbody">
+            <div class="tr head-two">
+              <div class="td">Status</div>
+              <div class="td">Sale Position</div>
+            </div>
+            <div class="tr" ng-repeat="di in items = (dashboard.items | filter:{type:&quot;overview&quot;})">
+              <div class="td">{{di.name}}</div>
+              <div class="td clickable" ng-click="showInfo(&quot;count&quot;, di, month)">{{count(di)}}</div>
+            </div>
+            <div class="tr total">
+              <div class="td">Total</div>
+              <div class="td">{{total(items)}}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    
+      <div class="col-lg-8 income-column">
+        <h3><i class="fa-duotone fa-light fa-circle-sterling"></i> Income</h3>
+        <div class="snapshot">
+          <div class="snapshot-item" ng-repeat="di in incomeItems = (dashboard.items | filter:{type:&quot;income&quot;}) | limitTo:2" ng-click="showInfo(&quot;income&quot;, di, allmonths)">
+            <div class="snapshot-label">{{di.name}} <i class="fa-duotone fa-light fa-arrow-up-right-from-square"></i></div>
+            <div class="snapshot-value" ng-bind-html="income(di, allmonths) | currencyFormat" ng-class="{currency:di.sumtype===&quot;Income&quot;}"></div>
+          </div>
+        </div>
+        <div class="income">
+          <div class="thead">
+            <div class="tr">
+              <div class="th" colspan="{{incomeItems.length + 1}}"> <i class="fa fa-gbp" aria-hidden="true"></i> Income</div>
+            </div>
+          </div>
+          <div class="tbody">
+            <div class="tr head-two">
+              <div class="td">Month</div>
+              <div class="td" ng-repeat="di in incomeItems = (dashboard.items | filter:{type:&quot;income&quot;})">{{di.name}}</div>
+            </div>
+            <div class="tr" ng-repeat="month in months">
+              <div class="td">{{month.name}}</div>
+              <div class="td clickable" ng-repeat="di in incomeItems" ng-click="showInfo(&quot;income&quot;, di, month)">
+                <div class="inner">
+                  <label>{{di.name}}</label><span ng-bind-html="income(di, month) | currencyFormat" ng-class="{currency:di.sumtype===&quot;Income&quot;}"></span>
+                </div>
+              </div>
+            </div>
+            <div class="tr total">
+              <div class="td">Total</div>
+              <div class="td clickable" ng-repeat="di in incomeItems" ng-click="showInfo(&quot;income&quot;, di, allmonths)"> 
+                <div class="inner">
+                  <label>{{di.name}}</label><span ng-bind-html="income(di, allmonths) | currencyFormat" ng-class="{currency:di.sumtype===&quot;Income&quot;}"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- #region HOME -->
+        <div ng-if="incomeItems.length && income(incomeItems[0], alltime, null, 'HOME') > 0">
+          <h3><i class="fa-duotone fa-light fa-circle-sterling"></i> Income</h3>
+          <div class="income">
+            <div class="tbody">
+              <div class="tr head-two">
+                <div class="td"><img src="public/img/home-logo.png" class="pipeline-logo" /></div>
+                <div class="td" ng-repeat="di in incomeItems = (dashboard.items | filter:{type:&quot;income&quot;})">{{di.name}}</div>
+              </div>
+              <div class="tr total">
+                <div class="td">Total</div>
+                <div class="td clickable" ng-repeat="di in incomeItems" ng-click="showInfo(&quot;income&quot;, di, alltime, 'HOME')"> 
+                  <div class="inner">
+                    <label>{{di.name}}</label><span ng-bind-html="income(di, alltime, null, 'HOME') | currencyFormat" ng-class="{currency:di.sumtype===&quot;Income&quot;}"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- #endregion -->
+
+        <div class="row unknown-row">
+          <div class="col-md-6" ng-show="unknownConsultantCount()">
+            <h3 class="boxed d-flex justify-content-between"><span><i class="fa-duotone fa-light fa-circle-question"></i> Unknown consultant</span> <span class="clickable" ng-click="showUnknownInfo('Consultant')">{{unknownConsultantCount()}}</span></h3>
+          </div>
+
+          <div class="col-md-6" ng-show="unknownSolicitorCount()">
+            <h3 class="boxed d-flex justify-content-between"><span><i class="fa-light fa-circle-question"></i> Unknown solicitor</span> <span class="clickable" ng-click="showUnknownInfo('Solicitor')">{{unknownSolicitorCount()}}</span></h3>
+
+          </div>
+        </div>
+      </div>
+
+      <div class="col-md-12">
+        <!-- #region Staff sold units -->
+        <!-- Consultant Pipeline -->
+        <div class="income pipeline" ng-if="consultants.items.length && dashboard.items.length">
+          <div class="thead">
+            <div class="tr">
+              <div class="th" colspan="{{consultants.items.length + 1}}">Consultant Pipeline</div>
+            </div>
+          </div>
+          <div class="tbody">
+            <div class="tr head-two">
+              <div class="td" ng-repeat="c in consultants.items"><img gravatar-src="c.local.email" gravatar-size="32" class="user-avatar" /> {{c.initials || c.displayName}}</div>
+              <div class="td td-end"><span></span><span>Total</span></div>
+            </div>
+            <div class="tr">
+              <div class="td clickable" ng-repeat="c in consultants.items" ng-click="showConsultantPipelineModal(c._id, c.initials || c.displayName)">
+                {{(consultantPipeline()[c._id] || 0)}}
+              </div>
+              <div class="td clickable" ng-click="showConsultantPipelineModal()">
+                {{sum(consultantPipeline()) }}
+              </div>
+            </div>
+            <div class="tr orange">
+              <div class="td clickable" ng-repeat="c in consultants.items" ng-click="showInstructedByPipelineModal(c._id, c.initials || c.displayName)">
+                {{(consultantInstructedBy()[c._id] || 0)}}
+              </div>
+              <div class="td clickable" ng-click="showInstructedByPipelineModal()">
+                {{sum(consultantInstructedBy()) }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Consultant Exchanged Units -->
+        <div class="income exchanged" ng-if="consultants.items.length && dashboard.items.length">
+          <div class="thead">
+            <div class="tr">
+              <div class="th" colspan="{{consultants.items.length + 2}}">Exchanged Units</div>
+            </div>
+          </div>
+          <div class="tbody">
+            <div class="tr head-two">
+              <div class="td td-end"><span></span><span>Month</span></div>
+              <div class="td" ng-repeat="c in consultants.items"><img gravatar-src="c.local.email" gravatar-size="32" class="user-avatar" /> {{c.initials || c.displayName}}</div>
+              <div class="td td-end"><span></span><span>Total</span></div>
+            </div>
+            <div class="tr" ng-repeat="month in months">
+              <div class="td">{{month.name}}</div>
+              <div class="td clickable" ng-repeat="c in consultants.items" ng-click="showConsultantExchangesModal(dashboardExchangeItem, month, c._id, c.initials || c.displayName)">
+                {{consultantExchanges(dashboardExchangeItem, month)[c._id] || 0}}
+              </div>
+              <div class="td clickable" ng-click="showInstructedByModal(dashboardExchangeItem, month)">
+                {{sum(consultantExchanges(dashboardExchangeItem, month))}}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- #endregion -->
+      </div>
+    
+    </div>
+
+  </div>
+</div>

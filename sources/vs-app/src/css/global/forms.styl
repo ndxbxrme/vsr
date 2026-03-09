@@ -1,0 +1,215 @@
+@import 'variables'
+body
+  .form-holder
+    border-radius 30px
+    background white
+    padding 40px
+  input[type=text], input[type=email], input[type=password], input[type=date], select, textarea, input[type=datetime-local], input[type=number]
+    border 1px solid vs-silver
+    border-radius 10px
+    background white
+    margin-bottom 1rem
+    padding 1.5rem
+    appearance none
+    width: 100%
+    font-size 1.6rem
+    line-height 1.5
+  select
+    background-image url('./public/img/icons/dropdown-arrow.svg')
+    background-position calc(100% - 10px) center
+    background-repeat no-repeat
+    background-size 10px
+    outline none
+  label 
+    font-weight 600
+    margin-bottom 5px
+  .form-row 
+    h3
+      font-weight 600
+      margin-top 15px
+      margin-bottom 5px
+
+  // Radio Button Groups (for forms)
+  .radio-row
+    display flex
+    gap 0
+    margin-bottom 20px
+    label
+      position relative
+      flex 1
+      display flex
+      align-items center
+      justify-content center
+      padding 12px 20px
+      border 1px solid vs-lightgrey
+      background white
+      color vs-grey
+      cursor pointer
+      transition all 0.3s ease
+      font-weight 600
+      margin 0
+      &:first-child
+        border-radius 10px 0 0 10px
+      &:last-child
+        border-radius 0 10px 10px 0
+      &:not(:first-child)
+        border-left none
+      &:hover
+        background vs-body
+        border-color vs-orange
+      input[type="radio"]
+        position absolute
+        opacity 0
+        width 0
+        height 0
+        margin 0
+        pointer-events none
+        &:checked
+          & ~ *
+            // placeholder for checked state
+      &:has(input[type="radio"]:checked)
+        background vs-orange
+        color white
+        border-color vs-orange
+        z-index 1
+        & + label
+          border-left-color vs-orange
+
+  // Checkbox / Radios
+  .checkbox-holder
+    margin-bottom 20px
+  .checkbox-label
+    margin-right 10px
+    display inline-flex
+    justify-content center
+    align-items center
+  
+  // Button Group for Radio Buttons
+  .button-group
+    display inline-flex
+    margin-bottom 10px
+    .button
+      position relative
+      display inline-flex
+      align-items center
+      justify-content center
+      padding 10px 20px
+      border 1px solid vs-lightgrey
+      background white
+      color vs-darkgrey
+      cursor pointer
+      transition all 0.3s ease
+      font-weight 500
+      &:first-child
+        border-radius 30px 0 0 30px
+      &:last-child
+        border-radius 0 30px 30px 0
+      &:hover
+        background vs-lightgrey
+      &.active
+        background vs-orange
+        color white
+        border-color vs-orange
+        & + .btn
+          border-left-color vs-orange
+      input[type="radio"]
+        position absolute
+        opacity 0
+        width 0
+        height 0
+        margin 0
+        pointer-events none
+body
+  input[type="radio"],
+  input[type="checkbox"]
+    position relative
+    cursor pointer
+    margin-right 5px
+    margin-left 5px
+    height 22px
+    width 22px
+    opacity 1
+    border 2px solid vs-grey
+    border-radius 11px
+    display inline-flex
+    justify-content center
+    align-items center
+    &:before
+      content ''
+      display block
+      margin-top 0px
+      width 13px
+      height 13px
+      background white
+      border-radius 15px
+      transition all 0.4s ease-in-out
+    &:focus:before
+      box-shadow 0 0 0 3px rgba(0, 0, 0, 0.12)
+    &:checked:before
+      border 8px solid vs-orange
+    &:disabled
+      color #b8b8b8
+      cursor auto
+      &:before
+        box-shadow none
+        background #ddd
+    &:checked:after
+      content ''
+    :checked + span
+      color vs-lightgrey
+
+  // Template Forms
+  .CodeMirror, .email-preview, .sms-preview
+    border-radius 30px
+    background vs-white
+    margin-bottom 20px
+    padding 20px
+    iframe
+      background white
+      border-radius 20px
+      width 100%
+      min-height 600px
+
+  .panel
+    .controls
+      width 100%
+      display flex
+      justify-content flex-end
+      .btn
+        margin-left 1rem
+    h2, h3, h4
+      width 100%
+      padding 1.6rem 1.02rem 0 1.02rem
+      margin 0
+    .row
+      h3
+        flex 1
+      
+  .SumoSelect
+    width 100%
+    margin-bottom 10px
+    .CaptionCont
+      border 1px solid vs-silver
+      border-radius 10px
+      font-size 1.6rem
+      background-color vs-brightwhite
+      .placeholder
+        color rgba(57,74,88,.618)!important
+        font-style normal!important
+        background none
+        opacity 1
+      label > i
+        background-image url('./public/img/icons/dropdown-arrow.svg')
+    &.open
+      .search-txt 
+        padding 10px 
+      > .optWrapper
+        top 45px
+        > .options li.opt
+          padding 2px 10px
+          text-indent 0px
+          &:before,
+          span
+            display none
+    .SelectBox
+      padding 10px

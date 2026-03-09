@@ -1,0 +1,77 @@
+
+<div class="agreed-route">
+  <div class="container-xl">
+    <div class="row align-items-center">
+      <div class="col-sm-7">
+        <h1><i class="fa-duotone fa-light fa-circle-sterling"></i> Monthly Lettings Agreed</h1>
+      </div>
+      <div class="col-sm-2">
+        <div class="years">
+          <select ng-model="currentYear" ng-options="year as year for year in years">
+          </select>
+        </div>
+      </div>
+      <div class="col-sm-3 search">
+        <input type="text" ng-model="search" placeholder="Search..."/>
+      </div>
+    </div>
+
+    <div class="snapshot mb-5" ng-show="getYearTotal()">
+      <div class="row g-5">
+        <div class="col-md-4">
+          <div class="snapshot-item">
+            <div class="snapshot-label">Lettings in {{currentYear}}</div>
+            <div class="snapshot-value">{{getTotalSold()}}</div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="snapshot-item">
+            <div class="snapshot-label">Fees in {{currentYear}}</div>
+            <div class="snapshot-value" ng-bind-html="(getTotalFees() | currency:'£' | currencyFormat)"></div>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="snapshot-item">
+            <div class="snapshot-label">Lettings Required to hit Target</div>
+            <div class="snapshot-value">{{getSalesRequiredToTarget()}}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="months row g-5">
+      <div class="month col-lg-4 col-sm-6" ng-repeat="month in months | filter:search | orderBy:&quot;date&quot; track by month.id || month.date" ng-class="{disabled:month.date &gt; now}">
+        <div class="inner">
+
+          <div class="month-name">{{::month.month}}</div>
+
+          <div class="target" ng-if="firstLoad" ng-click="auth.checkRoles(['admin', 'superadmin']) &amp;&amp; (month.editing = !month.editing)" title="{{auth.checkRoles(['admin', 'superadmin']) ? 'Edit target' : ''}}">
+            <label>Target </label>
+            <div class="editor" ng-if="month.editing">
+              <input type="text" ng-model="month.target.value" ng-click="$event.stopPropagation()" ng-blur="saveTarget(month)"/>
+            </div>
+            <div class="default" ng-if="!month.editing">{{month.target.value}}</div>
+          </div>
+
+          <div class="actual" ng-show="firstLoad">{{month.properties.length}}</div>
+          <div class="actual unloaded" ng-hide="firstLoad"><i class="fa-solid fa-circle-notch fa-spin"></i></div>
+
+          <div class="row align-items-center">
+            <div class="commission col-6"
+                ng-bind-html="(month.commission | currency:'£' | currencyFormat)"></div>
+
+            <div class="col-6 text-end">
+              <a class="small button"
+                ng-class="{disabled: loading}"
+                ng-click="open(month)">
+                <span ng-hide="month.open">View List</span>
+                <span ng-show="month.open">Close List</span>
+              </a>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

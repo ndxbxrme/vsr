@@ -1,0 +1,63 @@
+
+<div class="progression" ng-class="{editing:editing()}">
+
+  <div ng-hide="$parent.editor">
+    <div class="heading row">
+      <div class="col-md-10">
+        <h5>Case - {{progression.side}}'s side - {{progression.name}} - {{property.item.displayAddress}}</h5>
+      </div>
+      <div class="col-md-2 text-md-end">
+        <div class="controls" ng-show="auth.checkRoles([&quot;admin&quot;,&quot;superadmin&quot;])">
+          <a href="" ng-click="moveUp()"><i class="fa-duotone fa-light fa-up"></i></a>
+          <a href="" ng-click="moveDown()"><i class="fa-duotone fa-light fa-down"></i></a>
+          <a href="" ng-click="remove()"><i class="fa-duotone fa-light fa-trash"></i></a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div ng-show="$parent.editor">
+    <div class="heading row" ng-hide="editing()">
+      <div class="col-md-10">
+        <h5>{{progression.name}}, {{progression.side}}</h5>
+      </div>
+      <div class="col-md-2 text-md-end">
+        <span class="controls" ng-show="auth.checkRoles([&quot;admin&quot;,&quot;superadmin&quot;])">
+          <a href="" ng-click="moveUp()"><i class="fa-duotone fa-light fa-up"></i></a>
+          <a href="" ng-click="moveDown()"><i class="fa-duotone fa-light fa-down"></i></a>
+          <a href="" ng-click="remove()"><i class="fa-duotone fa-light fa-trash"></i></a>
+          <a href="" ng-click="edit();"><i class="fa-duotone fa-light fa-pen"></i></a>
+        </span>
+      </div>
+    </div>
+
+    <div class="heading row" ng-show="editing()">
+      <div class="inputs col-sm-6">
+        <label>
+          <input type="text" ng-model="progression.name" placeholder="Name"/>
+        </label>
+        <label class="checkbox-label" for="default{{$index}}"><span>Default</span>
+          <input type="checkbox" id="default{{$index}}" ng-model="progression.isdefault"/>
+        </label>
+      </div>
+      <div class="btn-group col-sm-6 text-end">
+        <input type="radio" name="side{{$index}}" id="side-buyer{{$index}}" ng-model="progression.side" value="Tenant"/>
+        <label for="side-buyer{{$index}}">Tenant</label>
+        <input type="radio" name="side{{$index}}" id="side-seller{{$index}}" ng-model="progression.side" value="Landlord"/>
+        <label for="side-seller{{$index}}">Landlord</label>
+      </div>
+    </div>
+  </div>
+  
+  <div class="milestones">
+    <canvas></canvas>
+    <div class="branch" ng-repeat="branch in progression.milestones">
+      <lettings-milestone ng-repeat="milestone in branch" data="milestone" disabled="{{$parent.$parent.$parent.editor &amp;&amp; !$parent.$parent.editing()}}"></lettings-milestone><a class="new-milestone" href="" ng-click="addMilestone(branch)" ng-class="{hidden:$first}">+</a>
+    </div>
+    <div class="branch new"><a class="new-milestone" href="" ng-click="addMilestone()">+</a></div>
+  </div>
+  <div class="save">
+    <button ng-click="saveProgression()">Save Progression</button>
+    <button ng-click="cancel()">Cancel</button>
+  </div>
+</div>

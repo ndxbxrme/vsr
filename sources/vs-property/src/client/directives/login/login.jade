@@ -1,0 +1,31 @@
+.login(ng-hide='getUser()')
+  .login-holder
+    .row
+      .col-lg-5.col-md-8.text-side
+        .login-form
+          img.logo(src='public/img/int/vitalspace-logo-darktext.svg')
+          h2
+            | Welcome to 
+            span.orange my
+            | Property
+          p.lead.orange At VitalSpace, our office never closes.
+          form(name='loginForm', novalidate, ng-submit='login()')
+            div
+              input(type='email', name='email', required, ng-model='email', placeholder='Email address')
+              span.error(ng-show='submitted && loginForm.email.$error.email') Please use a valid email address
+              span.error(ng-show='submitted && loginForm.email.$error.required') Please use a valid email address
+              br
+              input(type='password', name='password', required, ng-model='password', placeholder='Password')
+              small.error(ng-show='submitted && loginForm.password.$error.required') A password is required
+            div.login-buttons
+              .error {{message}}
+              .button-row
+                input.button.medium.orange(type='submit', value='Login')
+                input.button.medium.purple(type='button', ng-click='signup()', value='Sign Up')
+              .login-help
+                small.grey 
+                  | If you need help, registering or logging in, 
+                  a(href='mailto:urmston@vitalspace.co.uk?subject=Help me with myProperty Login..') click here
+                  |  to send us an email
+      .col-lg-7.col-md-4.image-side
+          img(src='public/img/login-bg.jpg')

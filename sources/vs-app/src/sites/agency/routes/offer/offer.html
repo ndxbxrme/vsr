@@ -1,0 +1,241 @@
+
+<div class="offer-details client-management-details">
+  <div class="container-xl">
+
+    <div class="header-row">
+      <div class="row justify-content-between align-items-end">
+        <div class="col-lg-5">
+          <h1><i class="fa-duotone fa-light fa-hand-holding-dollar"></i> Offer Received</h1>
+          <h2><i class="fa-duotone fa-light fa-circle-info"></i> At a Glance</h2>
+        </div>
+
+        <div class="contacts col-lg-7">
+          <div class="vendor">
+            <div class="contact-details">
+              <div class="card">
+                <div class="contact-name"><span>{{offer.item.applicant}}</span></div>
+                <div class="communication">
+                  <div class="contact-telephone" ng-if="offer.item.telephone"><span><i class="fa-duotone fa-light fa-mobile"></i> {{offer.item.telephone}}</span></div>
+                  <div class="contact-email" ng-if="offer.item.email"><span><a href="mailto:{{offer.item.email}}" class="mail-link"><i class="fa-duotone fa-light fa-at"></i> {{offer.item.email}}</a></span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="vendor" ng-if="offer.item.applicant2">
+            <div class="contact-details">
+              <div class="card">
+                <div class="contact-name"><span>{{offer.item.applicant2}}</span></div>
+                <div class="communication">
+                  <div class="contact-telephone" ng-if="offer.item.telephone2 || offer.item.telephone"><span><i class="fa-duotone fa-light fa-mobile"></i> {{offer.item.telephone2 || offer.item.telephone}}</span></div>
+                  <div class="contact-email" ng-if="offer.item.email2 || offer.item.email"><span><a href="mailto:{{offer.item.email2 || offer.item.email}}" class="mail-link"><i class="fa-duotone fa-light fa-at"></i> {{offer.item.email2 || offer.item.email}}</a></span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Property Summary Section -->
+    <div class="col-xs-12 property-summary">
+      <div class="property">
+        <div class="row">
+          <div class="col-md-5">
+            <h5 ng-show="property.loading" class="loading">Loading...</h5>
+            <div class="property-image">
+              <img ng-if="offer.item.image" ng-src="{{offer.item.image}}" onerror="this.onerror=null; if(this.dataset.fb1 && !this.dataset.tried1) { this.dataset.tried1='true'; this.src=this.dataset.fb1; } else if(this.dataset.fb2 && !this.dataset.tried2) { this.dataset.tried2='true'; this.src=this.dataset.fb2; }" data-fb1="{{offer.item.imageFallback1}}" data-fb2="{{offer.item.imageFallback2}}" alt="{{offer.item.address}}">
+              <span class="status" ng-hide="offer.item.actioned">Pending</span>
+              <span class="status" ng-show="offer.item.actioned" style="background: #00a651;">Actioned</span>
+            </div>
+          </div>
+
+          <div class="col-md-1"></div>
+
+          <div class="col-md-6">
+            <h4>{{formatAddress(offer.item.address)}}</h4>
+            <p class="date-instructed">Offer Received 
+              <span>{{offer.item.date | date:'mediumDate'}}</span>
+            </p>
+            <p class="financial-item" ng-if="offer.item.$case.data.Price">Asking Price
+              <span class="value">{{offer.item.$case.data.Price.PriceValue | currency : "£" : 0}}</span>
+            </p>
+            <p class="financial-item">Offer Amount
+              <span class="value">{{offer.item.offerAmount | currency : "£" : 0}}</span>
+            </p>
+            <p class="financial-item">Predicted Fee
+              <span class="value">{{offer.item.$case.data.Fees[0].Name}}</span>
+            </p>
+            
+            <div class="property-report">
+              <div class="results">
+                <div class="result">
+                  <i class="fa-duotone fa-light fa-coins"></i>
+                  <p>
+                    <span>{{offer.item.financialPosition}}</span>
+                    Financial Position
+                  </p>
+                </div>
+                <div class="result">
+                  <i class="fa-duotone fa-light fa-truck-moving"></i>
+                  <p>
+                    <span>{{offer.item.movingPosition}}</span>
+                    Moving Position
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="buttons">
+              <input type="button" class="button" ng-click="actionOffer(offer)" value="Mark as actioned" ng-hide="offer.item.actioned" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- End Property Summary Section -->
+
+    <!-- Offer Details Section -->
+    <div class="row case-row">
+      <div class="col">
+        <h2><i class="fa-duotone fa-light fa-file-lines"></i> Offer Details</h2>
+      </div>
+    </div>
+
+    <div class="tabbed-section">
+      <ul class="nav-pills">
+        <li ng-class="{active: activeTab === 'details'}" ng-click="activeTab='details'">
+          <i class="fa-duotone fa-light fa-circle-info"></i> Applicant Details
+        </li>
+        <li ng-class="{active: activeTab === 'documents'}" ng-click="activeTab='documents'">
+          <i class="fa-duotone fa-light fa-file-certificate"></i> Documents
+        </li>
+        <li ng-class="{active: activeTab === 'conveyancer'}" ng-click="activeTab='conveyancer'">
+          <i class="fa-duotone fa-light fa-scale-balanced"></i> Conveyancer
+        </li>
+      </ul>
+
+      <div class="tab-content">
+        <div class="tab-pane" ng-show="activeTab === 'details'">
+          <div class="row">
+            <div class="col-md-6 item">
+              <p class="title">Applicant's Address</p>
+              <p>{{formatAddress(offer.item.applicantAddress)}}</p>
+            </div>
+            <div class="col-md-6 item">
+              <p class="title">Applicant's Phone Number</p>
+              <p>{{offer.item.telephone}}</p>
+            </div>
+            <div class="col-md-6 item">
+              <p class="title">Applicant's Email</p>
+              <p><a href="mailto:{{offer.item.email}}">{{offer.item.email}}</a></p>
+            </div>
+            <div class="col-md-6 item">
+              <p class="title">Financial Position</p>
+              <p>{{offer.item.financialPosition}}</p>
+            </div>
+            <div class="col-md-6 item">
+              <p class="title">Moving Position</p>
+              <p>{{offer.item.movingPosition}}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane" ng-show="activeTab === 'documents'">
+          <div class="row">
+            <div class="col-md-6 item">
+              <p class="title">Proof of Identity</p>
+              <p ng-bind-html="getUpload('48')"></p>
+            </div>
+            <div class="col-md-6 item" ng-if="offer.item.applicant2">
+              <p class="title">Proof of Identity (2)</p>
+              <p ng-bind-html="getUpload('51')"></p>
+            </div>
+            <div class="col-md-6 item">
+              <p class="title">Mortgage Agreement</p>
+              <p ng-bind-html="getUpload('52')"></p>
+            </div>
+            <div class="col-md-6 item">
+              <p class="title">Deposit Funds</p>
+              <p ng-bind-html="getUpload('55')"></p>
+            </div>
+            <div class="col-md-6 item">
+              <p class="title">Additional Deposit Funds</p>
+              <p ng-bind-html="getUpload('58')"></p>
+            </div>
+            <div class="col-md-6 item">
+              <p class="title">Additional Deposit Funds</p>
+              <p ng-bind-html="getUpload('57')"></p>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane" ng-show="activeTab === 'conveyancer'">
+          <div class="row" ng-if="offer.item.conveyancerCompany || offer.item.conveyancerName">
+            <div class="col-md-6 item">
+              <p class="title">Conveyancer Company</p>
+              <p>{{offer.item.conveyancerCompany}}</p>
+            </div>
+            <div class="col-md-6 item">
+              <p class="title">Conveyancer Name</p>
+              <p>{{offer.item.conveyancerName}}</p>
+            </div>
+            <div class="col-md-6 item">
+              <p class="title">Address</p>
+              <p>{{offer.item.conveyancerAddress}}</p>
+            </div>
+            <div class="col-md-6 item">
+              <p class="title">Phone</p>
+              <p>{{offer.item.conveyancerPhone}}</p>
+            </div>
+            <div class="col-md-6 item">
+              <p class="title">Email</p>
+              <p><a href="mailto:{{offer.item.conveyancerEmail}}">{{offer.item.conveyancerEmail}}</a></p>
+            </div>
+          </div>
+          <div class="row" ng-if="!offer.item.conveyancerCompany && !offer.item.conveyancerName">
+            <div class="col-12 item">
+              <p>The applicant does not have a solicitor</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Additional Comments Section -->
+    <div class="additional-comments" ng-show="offer.item.comments">
+      <h2><i class="fa-duotone fa-light fa-comment"></i> Additional Comments</h2>
+      <div class="comments-section">
+        <div class="row">
+          <div class="col-12">
+            <p class="title">Additional Comments</p>
+            <div>{{offer.item.comments}}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notes Section -->
+    <div class="case-notes" id="notes">
+      <h2><i class="fa-duotone fa-light fa-message-lines"></i> Notes about this offer</h2>
+      <div class="case-note" ng-repeat="note in notesData = ( getNotes() | orderBy:&quot;-date&quot; ) | limitTo:notesLimit:notesLimit*(notesPage-1)">
+        <div class="header-row">
+          <div class="date"><img gravatar-src="note.user.local.email"/><span>{{note.user.displayName || note.user.local.email}}<br><span class="date">{{note.date | date:'mediumDate'}}, {{note.date | date:'shortTime'}}</span></span></div>
+          <div class="actions">
+            <a class="delete" href="" ng-click="deleteNote(note)" ng-show="auth.checkRoles([&quot;admin&quot;, &quot;superadmin&quot;]) &amp;&amp; !note.advanceTo"><i class="fa-light fa-duotone fa-trash"></i></a><a class="edit" href="" ng-click="editNote(note)" ng-show="auth.checkRoles([&quot;admin&quot;,&quot;superadmin&quot;]) &amp;&amp; !note.advanceTo"><i class="fa-light fa-duotone fa-pen"></i></a>
+          </div>
+        </div>
+        <div class="note"> 
+          <div class="details"><span ng-show="note.side">- {{note.side}}</span>
+            <div class="note-body" ng-bind-html="note.text | markdown:true"></div>
+          </div>
+        </div>
+      </div>
+      <pagination class="pagination-sm pagination" total="notesData.length" ng-model="notesPage" page-size="notesLimit"></pagination>
+      <div class="add-note">
+        <code-mirror ng-model="note.text" options="{mode:markdown, lineWrapping:true}"></code-mirror>
+        <button ng-click="addNote()">{{note.date?'Update':'Add'}} Note</button>
+      </div>
+    </div>
+
+  </div>
+</div>

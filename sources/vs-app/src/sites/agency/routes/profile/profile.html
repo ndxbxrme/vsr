@@ -1,0 +1,19 @@
+
+<div class="profile">
+  <div class="container-xl">
+    <h1>Profile</h1>
+    <div class="form-holder">
+      <form name="myForm" ng-submit="myForm.$valid &amp;&amp; profile.save()">
+        <label>Display name</label>
+        <input type="text" ng-model="profile.item.displayName"/>
+        <label>Telephone number</label>
+        <input type="text" ng-model="profile.item.telephone"/>
+        <label>Email address</label>
+        <input type="email" ng-model="profile.item.local.email"/>
+        <div>
+          <input type="submit" value=" Save "/>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

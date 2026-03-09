@@ -1,0 +1,88 @@
+
+<div class="lead-route">
+  <div class="container-xl">
+    <div class="row">
+      <div class="col-12">
+        <div class="lead">
+          <div class="header-row">
+            <div class="row align-items-end">
+              <div class="col-sm-6">
+                <h1><i class="fa-duotone fa-light fa-bars-progress"></i> <span class="orange">{{ lead.item.roleType }}</span> {{ mla('lead-heading') }}</h1>
+              </div>
+              <div class="col-sm-6 text-sm-end">
+                <button class="button button-alt add-lead-button" ng-click="openEditLeadModal()">Edit Lead <i class="fa-light fa-pen"></i></button>
+              </div>
+              <div class="col-6">
+                <h2>Address: <span>{{ lead.item.property.address || lead.item.user.address}}<span ng-if="lead.item.property.postcode || lead.item.user.postcode">, {{ lead.item.property.postcode || lead.item.user.postcode}}</span></span></h2>
+                <h2 ng-hide="lead.item.roleType === 'Valuation'">Price: <span class="orange">{{ lead.item.price | currency:'£'}}</span></h2>
+                <h2 class="date">Lead Date: <span>{{ lead.item.date | date:'mediumDate' }}</span></h2>
+              </div>
+              <div class="contacts col-6">
+                <div class="vendor">
+                  <div class="contact-details">
+                    <div class="card">
+                      
+                      <div class="contact-name"><span>{{ lead.item.applicant }}</span></div>
+                      <div class="communication">
+                        <div class="contact-telephone" ng-if="lead.item.user.phone_day"><span><i class="fa-duotone fa-light fa-mobile"></i> {{ lead.item.user.phone_day }}</span></div>
+                        <div class="contact-email" ng-if="lead.item.email"><span><a href="mailto:{{lead.item.email}}" class="mail-link"><i class="fa-duotone fa-light fa-at"></i> {{lead.item.email}}</a></span></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+   
+          <div class="lead-details-section">
+            <div class="row">
+              <div class="col-sm-4">
+                <div class="source {{lead.item.source}} {{lead.item.method}}"></div>
+              </div>
+              <div class="controls col-sm-8 text-sm-end">
+                <button type="button" ng-click="deleteLead()" ng-hide="lead.item.deleted || lead.item.booked" class="button">{{ mla('lead-delete-button') }}</button>
+                <button type="button" ng-click="bookLead()" ng-hide="lead.item.deleted || lead.item.booked" class="button button-grey">{{ mla('lead-booking-button') }}</button>
+                <button type="button" ng-click="restore()" ng-show="lead.item.deleted || lead.item.booked" class="button button-alt">{{ mla('lead-restore-button') }}</button>
+              </div>
+              <div class="col-12 details" ng-if="lead.item.comments">
+                <h3><i class="fa-duotone fa-light fa-message-lines"></i> {{ mla('lead-comments-heading') }}</h3>
+                <p>{{ lead.item.comments }}</p>
+              </div>
+            </div>
+            <div class="controls col-12">
+              <h3><i class="fa-duotone fa-light fa-at"></i> Email Applicant</h3>
+              <a href="mailto:{{ lead.item.email }}?subject=Property Enquiry - {{ lead.item.property.address || lead.item.user.address}}, {{ lead.item.property.postcode || lead.item.user.postcode}}&body=Dear {{ lead.item.applicant }}%0D%0A%0D%0AThank you for your recent rental enquiry to view {{ lead.item.property.address || lead.item.user.address}}, {{ lead.item.property.postcode || lead.item.user.postcode}}%0D%0A%0D%0APrior to us arranging a viewing appointment on your behalf, please could you kindly confirm the following:%0D%0A%0D%0AWho the property would be for?%0D%0AWhether all adults are in full time employment? If so, what do they do?%0D%0AAnnual household income?%0D%0AAny adverse credit or CCJs?%0D%0AAny children or pets?%0D%0ACurrent post code and house number?%0D%0APreferred contact number?%0D%0ADays/times you can view?%0D%0AWhen are you looking to move?%0D%0A%0D%0AMay I also suggest that you consider registering for property alerts via our website. Doing so will allow us to notify you of new listings 24 hours before they appear on Rightmove.%0D%0A%0D%0Ahttps://vitalspace.co.uk/register/%0D%0A%0D%0AThanking you again for your enquiry." ng-show="lead.item.roleType==='Letting'" class="lead-action button">Viewing Info</a>
+              <a href="mailto:{{ lead.item.email }}?subject=Property Enquiry - {{ lead.item.property.address || lead.item.user.address}}, {{ lead.item.property.postcode || lead.item.user.postcode}}&body=Dear {{ lead.item.applicant }}%0D%0A%0D%0AThank you for your recent rental enquiry to view {{ lead.item.property.address || lead.item.user.address}}, {{ lead.item.property.postcode || lead.item.user.postcode}}%0D%0A%0D%0AWe have experienced significant interest in this property and I am sorry to say that an application to rent has been already been accepted by our landlord.%0D%0A%0D%0AI would however suggest that we register your details on our database to allow us to keep you updated on similar properties that become available.%0D%0A%0D%0AThe information we request is below:%0D%0A%0D%0ANumber of adults -%0D%0AAre the adults in full time employment, if so please provide employment details -%0D%0AAnnual household income -%0D%0AAny adverse credit or CCJs -%0D%0AAny children or pets -%0D%0ACurrent post code and house number –%0D%0ANumber of bedrooms you require -%0D%0ABudget -%0D%0APreferred location -%0D%0AWhen are you looking to move -%0D%0A%0D%0APlease also feel free to visit our website – www.vitalspace.co.uk as properties are listed here 24 hours before they appear on Rightmove.%0D%0A%0D%0AThanking you again for your enquiry." ng-show="lead.item.roleType==='Letting'" class="lead-action button">Property Secured</a>
+              <a href="mailto:{{ lead.item.email }}?subject=Property Enquiry - {{ lead.item.property.address || lead.item.user.address}}, {{ lead.item.property.postcode || lead.item.user.postcode}}&body=Dear {{ lead.item.applicant }}%0D%0A%0D%0AThank you for your recent rental enquiry to view {{ lead.item.property.address || lead.item.user.address}}, {{ lead.item.property.postcode || lead.item.user.postcode}}%0D%0A%0D%0AWe have experienced significant interest in this property and am sorry to say we are unable to offer a viewing appointment at this time.%0D%0A%0D%0AHowever, please kindly provide the below information and we will notify you in the event an opportunity to view does arise.%0D%0A%0D%0AThe information we request is below:%0D%0A%0D%0ANumber of adults -%0D%0AAre the adults in full time employment, if so please provide employment details -%0D%0AAnnual household income -%0D%0AAny adverse credit or CCJs -%0D%0AAny children or pets -%0D%0ACurrent post code and house number –%0D%0ANumber of bedrooms you require -%0D%0ABudget -%0D%0APreferred location -%0D%0AWhen are you looking to move -%0D%0A%0D%0AMay I also suggest that you consider registering for property alert via our website. Doing so will allow us to notify you of new listings 24 hours prior to them appearing on Rightmove.%0D%0A%0D%0Ahttps://vitalspace.co.uk/register/%0D%0A%0D%0AThanking you again for your enquiry." ng-show="lead.item.roleType==='Letting'" class="lead-action button">Fully booked</a>
+              <a href="mailto:{{ lead.item.email }}?subject=Property Valuation - {{ lead.item.property.address || lead.item.user.address}}, {{ lead.item.property.postcode || lead.item.user.postcode}}&body=Dear {{ lead.item.applicant }}%0D%0A%0D%0AI do hope you are well.%0D%0A%0D%0AMany thanks for requesting a property valuation with VitalSpace.%0D%0A%0D%0AWe have tried contacting you in order to arrange a suitable time and date to carry out this appointment but have not had any success.%0D%0A%0D%0AWe would be very keen to value your property and would be grateful if you could kindly contact us to discuss your requirements.%0D%0A%0D%0APlease feel free to contact us on 0161 747 7807 if we can be of further assistance." ng-show="lead.item.roleType==='Valuation'" class="lead-action button">Unable to contact</a>
+              <a href="mailto:{{ lead.item.email }}?subject=Viewing Enquiry - {{ lead.item.property.address || lead.item.user.address}}, {{ lead.item.property.postcode || lead.item.user.postcode}}&body=Dear {{ lead.item.applicant }}%0D%0A%0D%0AI hope you are well.%0D%0A%0D%0AThank you for your recent enquiry to view {{ lead.item.property.address || lead.item.user.address}}, {{ lead.item.property.postcode || lead.item.user.postcode}}%0D%0A%0D%0AWe have tried contacting you in order to arrange a suitable time and date for you to view the property but have not had any success.%0D%0A%0D%0AIf you do still wish to view the property, please reply to this email and we will be more than happy to assist.%0D%0A%0D%0AMay I also suggest that you consider registering for property alert via our website. Doing so will allow us to notify you of new listings 24 hours prior to them appearing on Rightmove.%0D%0A%0D%0Ahttps://vitalspace.co.uk/register/" ng-show="lead.item.roleType==='Selling'" class="lead-action button">Chase lead</a>
+            </div>
+          </div>
+
+          <div class="case-notes">
+            <h2><i class="fa-duotone fa-light fa-message-lines"></i> {{ mla('lead-notes-heading') }}</h2>
+            <div ng-repeat="note in notesData = ( getNotes() | orderBy:&quot;-date&quot; ) | limitTo:notesLimit:notesLimit*(notesPage-1)" class="case-note">
+              <div class="header-row">
+                <div class="date"><img gravatar-src="note.user.local.email"/><span>{{note.user.displayName || note.user.local.email}}<br><span class="date">{{note.date | date:'mediumDate'}}, {{note.date | date:'shortTime'}}</span></span></div>
+                <div class="actions">
+                  <a class="delete" href="" ng-click="deleteNote(note)" ng-show="auth.checkRoles([&quot;admin&quot;, &quot;superadmin&quot;]) &amp;&amp; !note.advanceTo &amp;&amp; !lead.item.deleted"><i class="fa-duotone fa-light fa-trash"></i></a><a class="edit" href="" ng-click="editNote(note)" ng-show="auth.checkRoles([&quot;admin&quot;,&quot;superadmin&quot;]) &amp;&amp; !note.advanceTo &amp;&amp; !lead.item.deleted"><i class="fa-duotone fa-light fa-pen"></i></a>
+                </div>
+              </div>
+              <div class="note"> 
+                <div class="details"><span ng-show="note.side">- {{note.side}}</span>
+                  <div ng-bind-html="note.text | markdown:true" class="note-body"></div>
+                </div>
+              </div>
+            </div>
+            <pagination total="notesData.length" ng-model="notesPage" page-size="notesLimit" class="pagination-sm pagination"></pagination>
+            <div ng-hide="lead.item.deleted" class="add-note">
+              <h3>Add New Note</h3>
+              <code-mirror ng-model="note.text" options="{mode:markdown, lineWrapping:true}"></code-mirror>
+              <button class="button" ng-click="addNote()">{{note.date?'Update':'Add'}} Note</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>

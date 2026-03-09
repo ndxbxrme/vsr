@@ -1,0 +1,118 @@
+@import '../../variables'
+
+.milestone
+  width 60px
+  display flex
+  flex-direction column
+  align-items center
+  text-align center
+  text-transform uppercase
+  font-size 1rem
+  cursor pointer
+  .icon
+    height 40px
+    width 40px
+    background vs-lightgrey
+    border 1px solid vs-grey
+    border-radius 50%
+    margin-bottom 0.5rem
+    position relative
+    transition transform $transition $bounce
+    zoom 1
+    &:hover
+      transform scale(1.1)
+    &:before
+      position absolute
+      top 10px
+      left 10px
+      width 20px
+      height 20px
+      content ''
+      border-radius 50%
+    &:after
+      position absolute
+      top 0px
+      left 0px
+      width 40px
+      height 40px
+      content ''
+      background url('/public/img/icons/cathead.png')
+      background-size cover
+    &.house
+      &:after
+        background url('/public/img/icons/enquiries-raised.png')
+        background-size cover
+    &.epc
+      &:after
+        background url('/public/img/icons/epc.png')
+        background-size cover
+    &.instruction
+      &:after
+        background url('/public/img/icons/solicitor-instruction.png')
+        background-size cover
+    &.draft
+      &:after
+        background url('/public/img/icons/draft-contract.png')
+        background-size cover
+    &.fandf
+      &:after
+        background url('/public/img/icons/F&F-forms.png')
+        background-size cover
+    &.survey
+      &:after
+        background url('/public/img/icons/survey.png')
+        background-size cover
+    &.offer
+      &:after
+        background url('/public/img/icons/mortgage-offer.png')
+        background-size cover
+    &.raised
+      &:after
+        background url('/public/img/icons/enquiries-raised.png')
+        background-size cover
+    &.satisfied
+      &:after
+        background url('/public/img/icons/enquiries-satisfied.png')
+        background-size cover
+    &.applied
+      &:after
+        background url('/public/img/icons/searches-applied.png')
+        background-size cover
+    &.complete
+      &:after
+        background url('/public/img/icons/searches-complete.png')
+        background-size cover
+    &.report
+      &:after
+        background url('/public/img/icons/report-client.png')
+        background-size cover
+    &.exchange
+      &:after
+        background url('/public/img/icons/exchange.png')
+        background-size cover
+    &.invoice
+      &:after
+        background url('/public/img/icons/vs-invoice.png')
+        background-size cover
+    &.completion
+      &:after
+        background url('/public/img/icons/completion.png')
+        background-size cover
+  .title
+    min-height 3rem
+    line-height 1rem
+    background rgba(255,255,255,0.8)
+  &.progressing
+    .icon
+      background vs-amber
+  &.overdue
+    .icon
+      background vs-red
+  &.completed
+    .icon
+      background vs-green
+@media screen and (max-width:992px)
+  .milestone
+    width 50px
+    .title
+      font-size 0.8rem

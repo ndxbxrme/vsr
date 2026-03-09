@@ -1,0 +1,27 @@
+<div class="users">
+  <div class="container-xl">
+    <form name="newUserForm" ng-submit="makeNewUser(newUser.email, newUser.role)">
+      <input type="email" ng-model="newUser.email" />
+      <select ng-model="newUser.role">
+        <option ng-repeat="role in roles" value="{{role}}">{{role}}</option>
+      </select>
+      <input type="submit" value="Submit" />
+    </form>
+    <div class="user heading">
+      <div class="email">Email</div>
+      <div ng-repeat="site in sites" class="site">
+        <div class="site">
+          {{site.name}}
+        </div>
+      </div>
+    </div>
+    <div ng-repeat="user in myusers.items" class="user">
+      <div class="email">{{user.email}}</div>
+      <div ng-repeat="site in sites" class="site">
+        <select ng-model="user.local.sites[site.id].role" ng-change="updateRole(user, user.local.sites[site.id], site)">
+          <option ng-repeat="role in roles" value="{{role}}">{{role}}</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>

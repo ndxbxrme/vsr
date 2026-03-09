@@ -1,0 +1,263 @@
+.leads-route.client-management-list,
+.history-route.client-management-list
+  padding-top 30px
+  padding-bottom 60px
+  .add-lead-button
+    flex-shrink 0
+    margin-left 15px
+    i 
+      margin-left 8px
+  // Snapshot boxes
+  .snapshot
+    display flex
+    gap 20px
+    margin-bottom 30px
+    margin-top 20px
+    .snapshot-item
+      background white
+      border-radius 20px
+      padding 20px 30px
+      width 33.33%
+      cursor default
+      transition all 0.3s ease
+      &:hover
+        box-shadow 0 4px 12px rgba(0,0,0,0.1)
+      .snapshot-value
+        color vs-orange
+        font-size 4rem
+        font-weight 600
+      .snapshot-label
+        font-size 1.4rem
+        color vs-grey
+        font-weight 600
+        margin-bottom 20px
+  
+  .properties-list
+    .property-card
+      &.compact
+        margin-bottom 15px
+        .property-main
+          min-height auto
+        .property-image
+          padding 10px 15px
+        .property-info
+          padding 30px
+          padding-right 30px
+          position relative
+          .lead-status
+            position absolute
+            top 15px
+            right 30px
+            .status-badge
+              display inline-flex
+              align-items center
+              gap 6px
+              padding 6px 12px
+              border-radius 30px
+              font-size 1.2rem
+              font-weight 600
+              &.deleted
+                background #ffebee
+                color #c62828
+              &.booked
+                background #e8f5e9
+                color #2e7d32
+              i
+                font-size 1.4rem
+          .property-meta
+            min-height 50px
+            margin-bottom 5px
+            .property-address,
+            .price
+              font-size 1.5rem
+              margin-bottom 5px
+          .lead-details
+            background vs-body
+            padding 5px 10px
+            border-radius 10px
+            margin-top 5px
+            .applicant-info,
+            .date-info
+              font-size 1.2rem
+              margin-bottom 3px
+              display inline-block
+              margin-right 20px
+              i
+                font-size 1.3rem
+        .property-stats-actions
+          padding 30px 15px
+          .property-actions.button-row
+            display flex
+            flex-direction row
+            gap 8px
+            margin 0px
+            .button
+              font-size 1.6rem
+  
+  .properties-list
+    .property-card
+      .property-image
+        display flex
+        align-items center
+        justify-content center
+        padding 20px 30px
+        .source-badge
+          width 120px
+          height 80px
+          display block
+          &.rightmove
+            background url(./public/img/rm-logo.svg) center no-repeat
+            background-size 100px 30px
+            width 100px
+            height 30px
+          &.gravity
+            background url(./public/img/vitalspace-logo-leads.svg) center no-repeat
+            background-size 100px 30px
+            width 100px
+            height 30px
+          &.onthemarket
+            background url(./public/img/otm-logo.png) center no-repeat
+            background-size 120px 30px
+            width 120px
+            height 30px
+          &.local.telephone
+            background url(./public/img/icons/vs_icons.png) no-repeat
+            background-position -256px -168px
+            width 80px
+            height 80px
+            zoom .4
+          &.local.email
+            background url(./public/img/icons/vs_icons.png) no-repeat
+            background-position -172px -420px
+            width 80px
+            height 80px
+            zoom .4
+          &.local.walkin
+            background url(./public/img/icons/vs_icons.png) no-repeat
+            background-position -256px -336px
+            width 80px
+            height 80px
+            zoom .4
+      
+      .property-info
+        .property-address,
+        .price
+          font-size 1.8rem
+          font-weight 600
+          color vs-orange
+          margin-bottom 10px
+          strong
+            color vs-grey
+          a
+            color vs-orange
+            text-decoration none
+            &:hover
+              text-decoration underline
+        .price
+          display block
+        .lead-details
+          background vs-body
+          padding 20px
+          border-radius 10px
+          margin-top 10px
+          .applicant-info
+            font-size 1.4rem
+            margin-bottom 0
+      
+      .property-stats-actions
+        display flex
+        flex-direction column
+        justify-content space-between
+        .property-vendor
+          .label
+            font-size 1.4rem
+            font-weight 600
+            margin-bottom 5px
+          .value
+            font-size 1.6rem
+            font-weight 600
+            color vs-grey
+          .time-ago
+            font-size 1.2rem
+            color vs-silver
+        .property-stats
+          .stat-item
+            margin 15px 0
+            .source-label
+              font-size 1.4rem
+              .source-name
+                color vs-orange
+                text-transform capitalize
+  
+  .nothing-to-show
+    text-align center
+    padding 60px 0
+    color vs-silver
+    h3
+      font-weight 600
+@media screen and (max-width:1400px)
+  .history-route.client-management-list
+    .properties-list
+      .property-card.compact
+        .property-stats-actions
+          .property-actions.button-row
+            flex-direction column
+            align-items flex-start
+@media screen and (max-width:992px)
+  .history-route.client-management-list
+    .properties-list
+      .property-card.compact
+        .property-stats-actions
+          .property-actions.button-row
+            flex-direction row
+@media screen and (max-width:768px)
+  .history-route.client-management-list
+    .row.align-items-center
+      .text-end
+        flex-direction column
+        align-items flex-start !important
+        gap 10px
+        text-align left
+        input[type="text"]
+          width 100%
+        .add-lead-button
+          margin-left 0
+    .controls
+      .d-flex
+        flex-direction column
+        align-items flex-start
+        gap 0px
+        .show 
+          margin-left 0px
+    .properties-list
+      .property-card.compact
+        .property-main
+          flex-direction column
+        .property-image
+          padding 20px
+        .property-info
+          padding 30px
+          .lead-status
+            position absolute
+            top -45px
+            right 30px
+        .property-stats-actions
+          width calc(100% - 8px)
+          margin-left 4px
+          padding 15px 30px
+
+@media screen and (max-width:576px)
+  .history-route.client-management-list
+    .properties-list
+      .property-card.compact
+        .property-info
+          .property-meta
+            .property-address,
+            .price
+              font-size 1.4rem
+              margin-bottom 5px
+          .lead-details
+            padding 8px 10px
+            .applicant-info,
+            .date-info
+              font-size 1.2rem

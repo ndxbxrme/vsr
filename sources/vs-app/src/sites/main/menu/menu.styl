@@ -1,0 +1,198 @@
+.nav-icon 
+  display none
+  width 25px
+  height 30px
+  transform rotate(0deg)
+  transition .5s ease-in-out
+  cursor pointer
+  span
+    background vs-grey
+    display block
+    position absolute
+    height 2px
+    width 100%
+    opacity 1
+    left 0
+    transform rotate(0deg)
+    transition .25s ease-in-out
+    &:nth-child(1) 
+      top 10px
+    &:nth-child(2),
+    &:nth-child(3) 
+      top 18px
+    &:nth-child(4) 
+      top 26px
+	&.open 
+		span
+			&:nth-child(1) 
+				top 18px
+				width 0%
+				left 50%
+			&:nth-child(2) 
+				-webkit-transform rotate(45deg)
+				-moz-transform rotate(45deg)
+				-o-transform rotate(45deg)
+				transform rotate(45deg)
+			&:nth-child(3) 
+				-webkit-transform rotate(-45deg)
+				-moz-transform rotate(-45deg)
+				-o-transform rotate(-45deg)
+				transform rotate(-45deg)
+			&:nth-child(4) 
+				top 18px
+				width 0%
+				left 50%
+.menu-controls
+  display flex
+  flex-direction row
+  justify-content flex-end
+.menu-col
+  display flex
+  flex-direction row
+  align-items center
+  .vs-logo
+    max-width 220px
+    margin-right 30px
+.site-menu
+  height 80px
+  z-index 400
+  position fixed
+  top 0px
+  left 0px
+  background white
+  width 100%
+  height auto
+  border-bottom 1px solid #e0e0e0
+  sites
+    display flex
+    flex-direction row
+    flex-wrap wrap
+    &.site-settings
+      justify-content flex-end
+      site
+        > a
+          padding 0px 20px
+          text-align right
+          img 
+            border-radius 50%
+            width 40px
+            height 40px
+            margin-right 10px
+            border 1px solid #e0e0e0
+          &:hover
+            color #f15b25
+            background none
+          svg
+            padding 10px
+        pages
+          left auto
+          right 0
+          top 38px
+          a
+           text-align right 
+  pages
+    display none
+    background white
+  site
+    display flex
+    flex-direction column
+
+    position relative
+    justify-content center
+    a
+      color #303030
+      font-size: 1.8rem
+      font-weight 300
+      padding 30px 20px
+      text-transform capitalize
+      transition all 0.4s ease-in-out
+      text-align left
+      font-weight 600
+    a:hover, a:focus
+      color #f15b25
+    &:hover, &:focus
+      pages
+        display flex
+        flex-direction column
+        box-shadow 4px 4px 4px 0 rgba(0,0,0,.05)
+        width 250px
+        position absolute
+        top 80px
+        left 0
+        border-radius 20px
+        border 1px solid #e0e0e0
+        padding 10px 0px
+        a 
+          padding 10px 20px
+        a:hover, a:focus
+          color #f15b25
+          background rgba(0,0,0,0.05)
+    .favorites-site
+      font-size .8em
+      margin-right .5em
+.menu-profile
+  display flex
+  align-items center
+@media screen and (max-width:1200px)
+  .site-menu site a
+    padding 30px 13px
+@media screen and (max-width:992px)
+  .site-menu
+    padding 30px 0px
+    site a
+      text-align center
+  .nav-icon 
+    display block    
+  .slide-menu
+    background vs-white
+    pointer-events auto
+    width 400px
+    max-width 100%
+    height 100vh
+    transition right 0.7s ease 0s
+    position absolute
+    right -800px
+    top 106px
+    -webkit-backdrop-filter blur(2px)
+    padding 0px 0px 30px 0px
+    &.menushow 
+      display flex !important
+      right 0
+    sites
+      flex-direction: column
+      width 100%
+      a 
+        display block
+        font-size 2rem
+        text-align center
+        padding 16px 30px
+        font-weight normal
+        &.selected
+          color vs-orange
+          background vs-body
+      site 
+        justify-content flex-start
+        &:hover
+          pages
+            position relative
+            top 0px
+            left 5%
+            width 90%
+            justify-content center
+            align-items center
+            box-shadow none
+      pages 
+        display flex
+        display none
+        flex-direction column
+        flex-wrap wrap
+        a 
+          font-size 1.8rem
+          margin 0 auto
+          padding 10px 15px
+          display block
+          width 90%
+          text-align center
+          border-radius 10px
+          &:hover
+            background none

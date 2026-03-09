@@ -1,0 +1,10 @@
+ul.menu-dir
+  li(ng-class='{selected:state("dashboard")}')
+    a(href='/')
+      span Calendar
+  li(ng-class="{selected:state('setup')}", ng-show="auth.checkRoles(['admin', 'superadmin'])")
+    a(ui-sref='setup')
+      span Setup
+  li
+    a(href='/api/logout', target='_self') 
+      span Log out

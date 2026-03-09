@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="51px" height="52px" viewBox="0 0 51 52" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 61.2 (89653) - https://sketch.com -->
+    <title>Group</title>
+    <desc>Created with Sketch.</desc>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="vitalspace-logo-whitetext" fill-rule="nonzero">
+            <g id="Group" transform="translate(0.225281, 0.054775)">
+                <g id="white-shape" transform="translate(26.774438, 0.000000)" fill="#464E53">
+                    <polyline id="Fill-36" points="17.5991573 3.08707865 17.5991573 10.0994382 12.5089888 7.01235955 12.5089888 0 17.5991573 3.08707865"></polyline>
+                    <polyline id="Fill-38" points="0.0485955056 1.21966292 23.988764 15.3126404 23.988764 23.8657303 20.5070225 21.8567416 20.5070225 37.2 11.9483146 32.258427 11.9483146 18.2328652 0 11.3317416 0.0485955056 1.21966292"></polyline>
+                </g>
+                <polyline id="orange-shape" fill="#FFFFFF" points="12.0404494 18.2328654 12.0404494 33.6387643 18.7143258 37.4898879 25.3814607 41.3415733 32.0550562 37.4898879 36.8609551 34.7112362 45.4019663 39.664607 36.3320225 44.9030902 25.3814607 51.2252812 3.48174157 38.5808992 3.48174157 21.8567419 0 23.8657306 0 15.3126407 23.9401685 1.2196632 23.9893258 11.3317419 12.0404494 18.2328654"></polyline>
+            </g>
+        </g>
+    </g>
+</svg>

@@ -1,0 +1,31 @@
+
+<div class="diary-route route-full">
+  <div class="toolbar">
+    <div ng-show="issue.item._id" class="back"><a class="button" ui-sref="maintenance_leads_issue({_id:issue.item._id})"> 
+        <div class="fal fa-arrow-alt-left"></div>Back</a></div>
+    <div ng-show="issue.item._id" class="issue">
+      <div class="name"> 
+        <input id="onlyThisIssue" type="checkbox" ng-model="onlyThisIssue" ng-change="filterTasks()"/>
+        <label for="onlyThisIssue">{{issue.item.address}}</label>
+      </div>
+      <div class="title">{{issue.item.title}}</div>
+    </div>
+    <div class="moveOutWorksFilter">
+      <input id="showMoveOut" type="checkbox" ng-model="showMoveOut" ng-change="filterTasks()" />
+      <label for="showMoveOut">Move Out Works</label>
+    </div>
+    <div class="contractors">
+      <label>Contractors</label>
+      <div class="input-holder">
+        <select sumoselect="{placeholder:'All contractors', search:true}" ng-model="selectedContractors" name="contractors" ng-change="filterTasks()" multiple="multiple">
+          <option ng-repeat="contractor in contractors.items" value="{{contractor._id}}">{{ contractor.name }}</option>
+        </select>
+      </div>
+    </div>
+    <div class="dates">
+      <maintenance-leads-date-swiper config="{prefix:&quot;toolbar&quot;, modifier:1.5, show:true}"></maintenance-leads-date-swiper>
+    </div>
+  </div>
+  <calendar></calendar>
+  <task-popup></task-popup>
+</div>

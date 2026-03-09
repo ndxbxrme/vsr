@@ -1,0 +1,29 @@
+include ../../mixins/form.jade
+.template
+  h1 {{type==='email'?'Email':'Sms'}} template
+  +form({data:'template'})
+    .row
+      section
+        +input({name:'name', errors:{required:true}})
+        +input({name:'subject', if:'type==="email"', errors:{required:true}})
+        +input({name:'from', type:'email', if:'type==="email"', errors:{required:true, email:true}})
+        +select({name:'action', repeat:'action in emailActions.items', errors:{required:true}})
+        .form-item
+          label Send to
+          multi-check(ng-model='template.item.sendTo')
+            multi-check-item(ng-repeat='item in sendTo.items', value='{{item._id}}') {{item.name}}
+        div
+          input(type='submit', value='Save')
+          button.button(ng-click='cancel()') Cancel
+      section
+        label Body
+        code-mirror(ng-model='template.item.body', options='{mode:lang, lineWrapping:true}')
+        small(ng-show="type==='sms'") {{template.item.body.length || 0}} / 130
+    .row
+      section.email-preview(ng-if="type==='email'")
+        .preview-title Preview
+        template-render(ng-model='template.item.subject', data='defaultData')
+        jade-render(ng-model='template.item.body', data='defaultData')
+      section.sms-preview(ng-if="type==='sms'")
+        .preview-title Preview
+        template-render(ng-model='template.item.body', data='defaultData')

@@ -1,0 +1,84 @@
+
+<div class="historic-route route"> 
+  <div class="container-xl">
+    <div class="row align-items-center">
+      <div class="col-sm-8">
+        <h1><i class="fa-duotone fa-light fa-clock-rotate-left"></i> {{ mml('historic-heading') }}</h1>
+      </div>
+      <div class="col-sm-4 search">
+        <input type="text" ng-model="mysearch.$like" placeholder="Search Issues" ng-change="page=1"/>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="row">
+        <div class="col-sm-6">
+          <div class="sort">Order By:<br>
+            <a class="order-item" href="" ng-click="sort.set('date')" ng-class="sort.class('date')">Date</a>
+            <a class="order-item" href="" ng-click="sort.set('address')" ng-class="sort.class('address')">Address</a>
+            <a class="order-item" href="" ng-click="sort.set('tenant')" ng-class="sort.class('tenant')">Tenant</a>
+            <a class="order-item" href="" ng-click="sort.set('contractorName')" ng-class="sort.class('contractorName')">Contractor</a>
+            <a class="order-item" href="" ng-click="sort.set('status')" ng-class="sort.class('status')">Status</a>
+          </div>
+        </div>
+        <div class="col-sm-6 text-end">
+          <div class="showing">Showing {{historic.items.length}} of {{historic.total}} issue{{historic.total!==1?'s':''}}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="properties-list" ng-show="historic.items.length > 0">
+      <div class="property-card" ng-repeat="issue in historic.items">
+        <div class="property-main row g-5">
+          
+          <div class="property-info col-md-9">
+            <div class="property-meta">
+              <div class="property-address">
+                <strong>Address:</strong> 
+                <a ui-sref="maintenance_leads_issue({_id:issue._id})">
+                  {{ issue.address }}
+                </a>
+              </div>
+              <div class="status-badge" ng-class="issue.status">
+                <div class="booked"> 
+                  <div class="fad fa-file-medical"></div>
+                </div>
+                <div class="completed">
+                  <div class="fad fa-file-check"></div>
+                </div>
+                <div class="invoiced">
+                  <div class="fad fa-thumbs-up"></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="lead-details">
+              <p class="applicant-info"><i class="fa-duotone fa-light fa-user"></i> <strong>Tenant:</strong> {{issue.tenant}}</p>
+              <p class="applicant-info" ng-show="issue.contractorName"><i class="fa-duotone fa-light fa-helmet-safety"></i> <strong>Contractor:</strong> {{issue.contractorName}}</p>
+              <p class="applicant-info"><i class="fa-duotone fa-light fa-clipboard"></i> <strong>Title:</strong> {{issue.title}}</p>
+            </div>
+          </div>
+          
+          <div class="property-stats-actions col-md-3">
+            <div ng-show="issue.media.length" ng-click="showLightbox(issue.media)" class="media-badge"><i class="fad fa-camera-retro"></i></div>
+            <div class="property-vendor">
+              <div class="label"><i class="fa-duotone fa-light fa-calendar-check"></i> Date Reported</div>
+              <div class="value">{{issue.date | date:'dd/MM/yy HH:mm'}}</div>
+            </div>
+
+            <div class="property-actions">
+              <button ui-sref="maintenance_leads_issue({_id:issue._id})" class="button">View <i class="fa-light fa-duotone fa-eye"></i></button>
+              <button type="button" ng-click="restoreIssue(issue)" ng-show="issue.deleted || issue.statusName==='Completed'" class="button-grey">Restore <i class="fa-light fa-duotone fa-undo-alt"></i></button>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+    
+    <div ng-show="!historic.items.length" class="empty-table">{{ mml('historic-empty-table') }}</div>
+    
+    <pagination ng-model="historic.args.page" total="historic.total" page-size="historic.args.pageSize"></pagination>
+
+  </div>
+</div>

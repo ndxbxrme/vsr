@@ -1,0 +1,14 @@
+.profile-page
+  h1 Profile
+  form(name='myForm', ng-submit='myForm.$valid && profile.save()')
+    .form-item
+      label Display name
+      input(type='text', ng-model='profile.item.displayName')
+    .form-item
+      label Telephone number
+      input(type='text', ng-model='profile.item.telephone')
+    .form-item
+      label Email address
+      input(type='email', ng-model='profile.item.local.email')
+    .controls
+      input(type='submit', value=' Save ')

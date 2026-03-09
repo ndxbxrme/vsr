@@ -1,0 +1,64 @@
+@import '../../variables'
+.header-dir
+  background vs-orange
+  position fixed
+  width 100%
+  height 72px
+  z-index 22
+  top 0px
+  .container
+    height 100%
+    display flex
+    justify-content space-between
+    align-items center
+  .branding
+    flex 1
+    max-width 260px
+    img
+      width 195px
+  .user
+    flex 2
+    text-align right
+    a
+      color #fff
+      text-decoration none
+      img 
+        width 10px
+    @media screen and (max-width: 819px)
+      display none
+  #click-me
+    display inline-block
+    width 3rem
+    height 3rem
+    border none
+    background none
+    cursor pointer
+    outline none
+    margin-right 1rem
+    user-select none
+    .lines
+      display inline-block
+      width 3rem
+      height 0.37rem
+      background #f1f1f1
+      border-radius 0.28rem
+      position relative
+      &:before, &:after
+        display inline-block
+        width 3rem
+        height 0.37rem
+        background #f1f1f1
+        border-radius 0.28rem
+        position absolute
+        left 0
+        content ''
+        transform-origin 0.28rem center
+      &:before
+        top .8rem
+      &:after
+        top -.8rem
+    @media screen and (min-width: 820px)
+      display none
+.mobile #click-me
+  margin-right 0.5rem
+  

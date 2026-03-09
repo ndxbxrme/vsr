@@ -1,0 +1,197 @@
+.progression-popup
+  box-sizing border-box
+  position absolute
+  width 480px
+  max-width calc(100vw - 20px)
+  transition all $transition $bounce
+  z-index 30
+  .pointer
+    z-index -1
+    position absolute
+    top -0.5rem
+    left 20px
+    width 2rem
+    height 2rem
+    content ''
+    background white
+    transform rotate(45deg) translate3D(0,0,0)
+    transition left $transition $bounce
+  .popup
+    z-index 1
+    background #fff
+    padding 1rem 2rem
+    border-radius 30px
+    box-shadow 2px 2px 35px rgba(200,200,200,0.6)
+    button
+      vs-button()
+    .content
+      button.start, button.complete
+        background vs-orange
+        color white
+        &:hover
+          background vs-grey
+          color white
+      .CodeMirror
+        border 1px solid vs-lightgrey
+        border-radius 5px
+        background #f1f1f1
+        padding-left 10px
+        height 120px
+        margin-bottom 1rem
+  .close
+    position absolute
+    top 10px
+    right 10px
+    padding 0.6rem
+  h4
+    margin 0
+  .dates
+    margin-bottom 0.5rem
+    .date
+      display flex
+      align-items baseline
+      label
+        white-space nowrap
+        margin-right 1rem
+      strong
+        line-height 1.5rem
+  .editor
+    input[type=text]
+      width 320px
+      padding 10px
+      margin-bottom 10px
+      border-radius 3px
+      border 1px solid vs-lightgrey
+    h5
+      margin 0
+      font-size 3rem
+    label
+      display block
+      font-size: 1.8rem
+    .est-days
+      .num
+        width 5rem
+        padding 10px
+        margin-bottom 10px
+        border-radius 3px
+        border 1px solid vs-lightgrey
+      select
+        height 37px
+    .tabs
+      margin-top 1rem
+      display flex
+      justify-content space-between
+      .tab
+        flex 1
+        padding 10px
+        border 1px solid #ccc
+        cursor pointer
+        display flex
+        justify-content space-between
+        margin-right 5px
+        background vs-orange
+        color white
+        &:last-child
+          margin-right 0
+        &:hover
+          background darken(white, 10%)
+        &.selected
+          color white
+          background vs-grey
+    .icons, .actions, .todos
+      padding 20px
+      border 1px solid #ccc
+      border-top none
+      border-bottom-left-radius 3px
+      border-bottom-right-radius 3px
+      background #f1f1f1
+      input[type=submit]
+        padding 10px 15px
+        border none
+        border-radius 0.5rem
+        color white
+        background vs-orange
+        transition all 0.4s ease-in-out
+        &:hover
+          background vs-grey
+          color white
+    .todo
+      display flex
+      justify-content space-between
+      .controls a
+        i
+          font-size 1.8rem
+          margin-left 3px
+          color vs-orange
+    .icons
+      display flex
+      flex-wrap wrap
+      .icon.selected
+        background vs-green
+    .actions
+      table
+        width 100%
+      .trigger
+        .trigger-opts
+          display flex
+          .trigger-opt
+            flex 1
+      .trigger, .email, .sms
+        h5
+          font-size 2rem
+          color vs-orange
+        label
+          font-size 1.6rem
+          &.large
+            font-weight 600
+            margin-top 10px
+      button
+        color white
+        padding 10px 15px
+        background vs-orange
+        border none
+        border-radius 3px
+        &:hover
+          background vs-grey
+      select
+        height 37px
+        margin 0 10px 10px 0
+      input[type=submit]
+        padding 10px 15px
+        border 1px solid #ccc
+        border-radius 0.5rem
+        color vs-orange
+        background white
+        transition all 0.4s ease-in-out
+        &:hover
+          background vs-orange
+          color white
+      .cancel
+        vs-button()
+.multi-check ng-transclude
+  display flex
+  flex-flow row wrap
+  ng-transclude
+    display block
+  .check-item
+    flex-basis 50%
+    position relative
+    display flex
+    align-items center
+    label
+      cursor pointer
+    input[type='checkbox']
+      cursor pointer
+      margin-right 6px
+.agency_setup-page
+  .content
+    display none
+.agency_case-page
+  .editor
+    display none
+.lettings_setup-page
+  .content
+    display none
+.lettings_case-page
+  .editor
+    display none

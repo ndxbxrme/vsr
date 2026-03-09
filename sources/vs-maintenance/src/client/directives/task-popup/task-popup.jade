@@ -1,0 +1,26 @@
+.task-popup-dir(ng-show='!getHidden()')
+  .popup
+    .details
+      .details-item
+        label Task
+        span {{getTask().title}}
+      .details-item
+        label From
+        span {{getTask().date | date:'shortTime'}} - {{getDateTo() | date:'shortTime'}}
+      .details-item
+        label Cost
+        span &pound;{{getTask().cost}}
+      .details-item
+        label Created by
+        span
+          img(gravatar-src='getTask().createdBy.local.email')
+          | {{getTask().createdBy.displayName}}
+    .controls
+      button.edit(ng-click='edit(getTask())') Edit
+      .checkbox-item
+        label(for='paid') Paid(&pound;)
+        input#paid(type='checkbox', ng-model='getTask().paid', ng-change='save()')
+      .checkbox-item
+        label(for='completed') Completed
+        input#completed(type='checkbox', ng-model='getTask().completed', ng-checked='getTask().status==="completed"', ng-change='complete()')
+  .pointer

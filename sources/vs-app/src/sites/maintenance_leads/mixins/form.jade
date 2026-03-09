@@ -1,0 +1,178 @@
+- var formData = ''
+- var formName = ''
+
+mixin form(args)
+  - args = args || {}
+  - formName = args.name || 'myForm'
+  - formData = args.data || args.name
+  - var submit = args.submit || "save('" + formData + "')"
+  form(name=formName, novalidate, autocomplete='off', ng-submit=submit, ignore=args.ignore)&attributes(attributes)
+    block
+    
+mixin text(args)
+  - args.prefix = args.prefix || formData
+  .form-item(class=args.class, ng-if=args.if)
+    - if(!args.nolabel)
+      label.label {{ m('#{args.prefix}-#{args.name}-label') }}
+      p.text
+        block
+    
+mixin input(args)
+  - args.prefix = args.prefix || formData
+  - args.model = args.model || formData + '.item.' + args.name
+  - args.type = args.type || 'text'
+  - args.errors = args.errors || {}
+  - var myclass = args.name + ' ' + (args.errors.required?'required':'') + ' ' + (args.nolabel?'no-label':'') + ' ' + (args.icon?'has-icon':'')
+  .form-item.c-input(class=myclass, ng-class="{warning: submitted #{'&&'} #{formName}.#{args.name}.$invalid}", ng-if=args.if)
+    - if(!args.nolabel)
+      label.label {{ m('#{args.prefix}-#{args.name}-label') }}
+    - if(args.icon)
+      i.icon(class=args.icon)
+    input(type=args.type, name=args.name, ng-model=args.model, placeholder="{{ m('#{args.prefix}-#{args.name}-placeholder') }}", title="{{ m('#{args.prefix}-#{args.name}-label') }}", ng-disabled='disabled', tabindex=args.tab)&attributes(args.errors)&attributes(attributes)
+    block
+    each k, v in args.errors
+      - show = "submitted && " + formName + "." + args.name + ".$error." + v.replace(/^[a-z]+-/,'')
+      p.error(ng-show=show) {{ m('#{args.prefix}-#{args.name}-error-#{v}') }}    
+      
+mixin textarea(args)
+  - args.prefix = args.prefix || formData
+  - args.model = args.model || formData + '.item.' + args.name
+  - args.type = args.type || 'text'
+  - args.errors = args.errors || {}
+  - var myclass = args.name + ' ' + (args.errors.required?'required':'') + ' ' + (args.nolabel?'no-label':'') + ' ' + (args.icon?'has-icon':'')
+  .form-item.c-input(class=myclass, ng-class="{warning: submitted #{'&&'} #{formName}.#{args.name}.$invalid}", ng-if=args.if)
+    - if(!args.nolabel)
+      label.label {{ m('#{args.prefix}-#{args.name}-label') }}
+    - if(args.icon)
+      i.icon(class=args.icon)
+    textarea(type=args.type, name=args.name, ng-model=args.model, placeholder="{{ m('#{args.prefix}-#{args.name}-placeholder') }}", title="{{ m('#{args.prefix}-#{args.name}-label') }}", ng-disabled='disabled', tabindex=args.tab)&attributes(args.errors)&attributes(attributes)
+    block
+    each k, v in args.errors
+      - show = "submitted && " + formName + "." + args.name + ".$error." + v.replace(/^[a-z]+-/,'')
+      p.error(ng-show=show) {{ m('#{args.prefix}-#{args.name}-error-#{v}') }}
+    
+mixin numeric(args)
+  - args.prefix = args.prefix || formData
+  - args.model = args.model || formData + '.item.' + args.name
+  - args.errors = args.errors || {}
+  - var myclass = args.name + ' ' + (args.errors.required?'required':'') + ' ' + (args.nolabel?'no-label':'') + ' ' + (args.icon?'has-icon':'') + ' ' + (args.currency?'has-currency':'')
+  .form-item.c-numeric(class=myclass, ng-class="{warning: submitted #{'&&'} #{formName}.#{args.name}.$invalid}")
+    - if(!args.nolabel)
+      label.label {{ m('#{args.prefix}-#{args.name}-label') }}
+    .input-holder
+      - if(args.currency)
+        p.currency(ng-class="{placeholder: !#{args.model}}") {{m('currency')}}
+      input(numeric=true, name=args.name, ng-model=args.model, placeholder="{{ m('#{args.prefix}-#{args.name}-placeholder') }}", title="{{ m('#{args.prefix}-#{args.name}-label') }}", decimal=args.decimal, step=args.step, ng-disabled='disabled', tab=args.tab)&attributes(args.errors)&attributes(attributes)
+    block
+    each k, v in args.errors
+      - show = "submitted && " + formName + "." + args.name + ".$error." + v.replace(/^[a-z]+-/,'')
+      p.error(ng-show=show) {{ m('#{args.prefix}-#{args.name}-error-#{v}') }}
+    
+mixin datePicker(args)
+  - args.prefix = args.prefix || formData
+  - args.model = args.model || formData + '.item.' + args.name
+  - args.errors = args.errors || {}
+  - var myclass = args.name + ' ' + (args.errors.required?'required':'') + ' ' + (args.nolabel?'no-label':'') + ' ' + (args.icon?'has-icon':'')
+  .form-item.c-date-picker(class=myclass, ng-if=args.if, ng-disabled='disabled', ng-class="{warning: submitted #{'&&'} #{formName}.#{args.name}.$invalid}")
+    - if(!args.nolabel)
+      label.label {{ m('#{args.prefix}-#{args.name}-label') }}
+    date-picker(name=args.name, ng-model=args.model, placeholder="{{ m('#{args.prefix}-#{args.name}-placeholder') }}", title="{{ m('#{args.prefix}-#{args.name}-label') }}", anchor=args.anchor, change=args.change, tab=args.tab)&attributes(args.errors)&attributes(attributes)
+    block
+    each k, v in args.errors
+      - show = "submitted && " + formName + "." + args.name + ".$error." + v.replace(/^[a-z]+-/,'')
+      p.error(ng-show=show) {{ m('#{args.prefix}-#{args.name}-error-#{v}') }}
+      
+mixin checkbox(args)
+  - args.prefix = args.prefix || formData
+  - args.model = args.model || formData + '.item.' + args.name
+  - args.id = 'check' + Math.floor(Math.random() * 999999999)
+  - args.errors = args.errors || {}
+  - var myclass = args.name + ' ' + (args.errors.required?'required':'') + ' ' + (args.nolabel?'no-label':'') + ' ' + (args.icon?'has-icon':'')
+  .form-item.c-checkbox(class=myclass, ng-class="{warning: submitted #{'&&'} #{formName}.#{args.name}.$invalid}")
+    - if(!args.nolabel)
+      label.label {{ m('#{args.prefix}-#{args.name}-label') }}
+    - if(args.type=='radio')
+      .radios.row(ng-disabled='disabled')
+        .radio
+          input(type='radio', id='#{args.id + "t"}', ng-model=args.model, ng-value='true')
+          label(for='#{args.id + "t"}') {{ m('#{args.prefix}-#{args.name}-yes') }}
+        .radio
+          input(type='radio', id='#{args.id + "f"}', ng-model=args.model, ng-value='false', ng-checked='!#{args.model}')
+          label(for='#{args.id + "f"}') {{ m('#{args.prefix}-#{args.name}-no') }}
+    - else
+      .check
+        .checkbox
+          input(type='checkbox', id=args.id, ng-model=args.model, ng-disabled='disabled', ng-change=args.change, tabindex=args.tab)
+          label(for=args.id)
+        label.check(for=args.id, ng-disabled='disabled') 
+          span(ng-show=args.model) {{ m('#{args.prefix}-#{args.name}-yes') }}
+          span(ng-hide=args.model) {{ m('#{args.prefix}-#{args.name}-no') }}
+      
+mixin fileUpload(args)
+  - args.prefix = args.prefix || formData
+  - args.model = args.model || formData + '.item.' + args.name
+  - args.accept = args.accept || 'image/*'
+  - args.maxSize = args.maxSize || '5MB'
+  - args.multiple = args.multiple || false
+  - args.errors = args.errors || {}
+  - var rnd = Math.floor(Math.random() * 99999999)
+  - var myclass = args.name + ' ' + (args.errors.required?'required':'') + ' ' + (args.nolabel?'no-label':'') + ' ' + (args.icon?'has-icon':'')
+  .form-item.c-file-upload(class=myclass, ng-class="{warning:(#{formName}.#{args.name}.$invalid && (!submitted && #{formName}.#{args.name}.$error.required)) || (#{formName}.#{args.name}Drop.$invalid && (!submitted && #{formName}.#{args.name}Drop.$error.required))}")&attributes(attributes)
+    - if(!args.nolabel)
+      label.label {{ m('#{args.prefix}-#{args.name}-label') }}
+    .file-upload
+      .drop-box(name="#{args.name}Drop", ng-model="image#{rnd}", ngf-drop="uploadFiles('#{args.model}', $files, $invalidFiles)", ngf-drag-over-class="'dragover'", ngf-multiple=args.multiple, ngf-pattern=args.accept, ngf-accept=args.accept, ngf-max-size=args.maxSize, ng-disabled='disabled || uploading')&attributes(args.errors)
+        h3 {{ m('#{args.prefix}-#{args.name}-droptext') }}
+        .button-holder
+          button.file-upload.btn(name=args.name, ng-model="image#{rnd}", type='file', ngf-select="uploadFiles('#{args.model}', $files, $invalidFiles)", ngf-multiple=args.multiple, ngf-pattern="'#{args.accept}'", ngf-accept="'#{args.accept}'", ngf-max-size=args.maxSize, ng-disabled='disabled || uploading', tabindex=args.tab)&attributes(args.errors) {{ m('#{args.prefix}-#{args.name}-clicktext') }}
+        .progress-holder(ng-show='uploading')
+          .progress(style='width:{{uploadProgress}}%')
+      - if(!args.multiple)
+        .image(ng-show='#{args.model}')
+          img.thumbnail(ng-src='{{makeDownloadUrl(#{args.model})}}')
+          .remove(ng-show='#{args.model} && !disabled')
+            a.btn.small(href='#', ng-click='#{args.model}=null;#{formName}.$setDirty()')
+              i.icon.remove-image
+      - if(args.multiple)
+        .images(ng-show='#{args.model}')
+          .image(ng-repeat='image in #{args.model}')
+            img.thumbnail(ng-src='{{makeDownloadUrl(image)}}')
+            .remove(ng-show='image && !disabled')
+              a.btn.small(href='#', ng-click='removeImage(image,#{args.model});#{formName}.$setDirty()')
+                i.icon.remove-image
+    block
+    each k, v in args.errors
+      - show = "submitted && ((" + formName + "." + args.name + ".$error." + v.replace(/^[a-z]+-/,'') + ") || (" + formName + "." + args.name + ".$error." + v.replace(/^[a-z]+-/,'') + "))"
+      p.error(ng-show=show) {{ m('#{args.prefix}-#{args.name}-error-#{v}') }}
+      
+mixin select(args)
+  - args.prefix = args.prefix || formData
+  - args.model = args.model || formData + '.item.' + args.name
+  - args.repeat = args.repeat || args.name + ' in ' + args.list
+  - args.id = args.id || '_id'
+  - args.text = args.text || 'name'
+  - args.disabled = args.disabled || 'disabled'
+  - args.errors = args.errors || {}
+  - var myclass = args.name + ' ' + (args.errors.required?'required':'') + ' ' + (args.nolabel?'no-label':'') + ' ' + (args.icon?'has-icon':'')
+  .form-item.c-select(class=myclass, ng-class="{warning: submitted #{'&&'} #{formName}.#{args.name}.$invalid}")&attributes(attributes)
+    - if(!args.nolabel)
+      label.label {{ m('#{args.prefix}-#{args.name}-label') }}
+    .input-holder
+      select(sumoselect="{placeholder:m('#{args.prefix}-#{args.name}-placeholder'), search:true}", ng-model=args.model, name=args.name, ng-disabled=args.disabled, ng-change=args.change, tabindex=args.tab, multiple=args.multiple)&attributes(args.errors)
+        option(ng-repeat=args.repeat, value="{{#{args.name}.#{args.id}}}", ng-disabled="#{args.name}.disabled", ng-hide="#{args.name}.hidden") {{ #{args.name}.#{args.text} }}
+    block
+    each k, v in args.errors
+      - show = "submitted && " + formName + "." + args.name + ".$error." + v.replace(/^[a-z]+-/,'')
+      p.error(ng-show=show) {{ m('#{args.prefix}-#{args.name}-error-#{v}') }}
+    
+mixin controls(args)
+  - args = args || {}
+  - args.last = args.last || 'defaultLast'
+  - args.cancelText = args.cancelText || 'forms-cancel'
+  - args.submitText = args.submitText || 'forms-submit'
+  - args.cancel = args.cancel || 'auth.goToLast("' + args.last + '")'
+  - args.submitDisabled = (args.submitDisabled || 'disabled') + ' || ' + formName + '.$pristine'
+  .controls&attributes(attributes)
+    - if(!args.nocancel)
+      button.btn.cancel(type='button', ng-click=args.cancel) {{ m('#{args.cancelText}') }}
+    input.btn.button-alt(type='submit', value="{{ m('#{args.submitText}') }}", ng-disabled=args.submitDisabled)

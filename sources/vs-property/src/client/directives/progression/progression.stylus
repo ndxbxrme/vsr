@@ -1,0 +1,103 @@
+@import '../../variables'
+
+.progression
+  border 1px solid vs-lightgrey
+  padding 20px
+  margin 10px 0
+  border-radius 5px
+  .heading
+    display flex
+    justify-content space-between
+    align-items center
+    color vs-orange
+    margin-bottom 20px
+    h5
+      margin-top 0
+      margin-bottom 0
+      font-weight 100
+      font-size 1.6rem
+      flex 1
+    a
+      padding 10px 15px
+      width 100px
+      color white
+      background vs-orange
+      border none
+      border-radius 3px
+      i 
+        margin-left 5px
+    .inputs
+      display flex
+      flex-direction column
+      label
+        font-weight 800
+        span
+          min-width 6rem
+          display inline-block
+      input[type=text]
+        width 320px
+        max-width 90%
+        vs-input()
+    .controls
+      margin-left 2rem
+      a 
+        background none
+        border none
+        padding 0
+        color vs-orange
+        font-size 2rem
+  .milestones
+    display flex
+    flex-wrap wrap
+    justify-content space-between
+    align-items center
+    position relative
+    canvas
+      position absolute
+      top 0
+      left 0
+      width 100%
+      height 100%
+      z-index 0
+    .branch
+      display flex
+      flex-direction column
+      justify-content center
+      align-items center
+      z-index 2
+      &.new
+        flex 1
+        align-items flex-start
+      .new-milestone
+        width 30px
+        height 30px
+        line-height 30px
+        text-align center
+        background vs-lightgrey
+        border-radius 50%
+        margin-bottom 30px
+        opacity 0.2
+        &.hidden
+          visibility hidden
+          pointer-events none
+      &:hover
+        .new-milestone
+          opacity 1
+  .save, .new-milestone, .branch.new
+    display none
+  &.editing
+    .save, .new-milestone, .branch.new
+      display block
+    .branch
+      margin-right 2rem
+      
+.progressions
+  button
+    vs-button()
+  .save button:first-of-type
+    color white
+    background vs-orange
+    border none
+    border-radius 3px
+    &:hover
+      background vs-grey

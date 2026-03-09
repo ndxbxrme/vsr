@@ -1,0 +1,20 @@
+.profile
+  h1 Profile
+  h2 {{user.dezrez.ContactName}}: 
+    a(href='/api/logout', target='_self') Log out
+  .update-password(ng-show='user.local')
+    a(href='', ng-click='setStatus("updating-password")', ng-hide='status("updating-password")') Update password
+    .password-controls(ng-show='status("updating-password")')
+      form(name='upf', no-validate, ng-submit='updatePassword()')
+        label Old Password
+        input(type='password', name='oldPassword', ng-model='oldPassword', required)
+        .error(ng-show='submitted && upf.oldPassword.$error.required') Please type your old password
+        label Retype Password
+        input(type='password', name='oldPassword1', ng-model='oldPassword1', required)
+        .error(ng-show='submitted && upf.oldPassword1.$error.required') Please retype your password
+        .error(ng-show='upf.oldPassword1.$dirty && oldPassword!==oldPassword1') Passwords must match
+        label New Password
+        input(type='password', name='newPassword', ng-model='newPassword', required)
+        .error(ng-show='submitted && upf.newPassword.$error.required') Please type your new password
+        .error(ng-show='submiited && error') {{error}}
+        input(type='submit', value='Update')

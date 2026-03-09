@@ -1,0 +1,20 @@
+<div class="invited">
+  <h3 class="orange">Welcome to Vitalspace</h3>
+  <form name="myform" ng-submit="submit()" ng-show="loaded && codeGood">
+    <div ng-show="newUser">
+      <label>Display name</label>
+      <input type="text" ng-model="user.displayName" />
+      <label>Telephone</label>
+      <input type="text" ng-model="user.telephone" />
+    </div>
+    <label>New password</label>
+    <input type="password" ng-model="password" />
+    <label>Repeat password</label>
+    <div class="error" ng-show="submitted && password!==repeatPassword">Passwords must match.</div>
+    <input type="password" ng-model="repeatPassword" />
+    <div class="controls">
+      <input type="submit" value="Submit" />
+    </div>
+  </form>
+  <div class="error" ng-if="loaded && !codeGood">Invalid code</div>
+</div>

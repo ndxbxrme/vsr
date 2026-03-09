@@ -1,0 +1,161 @@
+.viewings
+  .container
+    .row
+      .col-xs-12.title-row
+        h2 
+          i.fa-duotone.fa-light.fa-eye
+          |  Viewings
+        a(href='/').medium.button.orange 
+          i.fa-light.fa-arrow-turn-left(aria-hidden='true')  
+          |  Dashboard
+      
+    div.prop-single(ng-repeat='property in getProperties()' ng-hide='!property.details.Address') 
+      h3(ng-hide='property.error || property.loading') {{property.Address.Number}} {{property.Address.Street }}, {{property.Address.Locality }}, {{property.Address.Town}}
+      h3(ng-show='property.error') Error fetching property details
+      h3(ng-show='property.loading') Fetching property details
+      p(ng-show='loading("viewings") && !property.viewings.length') Loading Viewings
+      p(ng-show='!loading("viewings") && !property.viewings.length') No viewings
+      
+      div(ng-show='property.viewings.length')
+        ul.nav.nav-tabs(role='tablist')
+          li.active(role='presentation')
+            a(href='#completed-{{$index}}' aria-controls='completed' role='tab' data-toggle='tab') 
+              | Completed 
+              span.badge(ng-bind='(property.viewings | filter:{EventStatus:{Name:"Completed"}}).length')
+          li(role='presentation')
+            a(href='#upcoming-{{$index}}' aria-controls='upcoming' role='tab' data-toggle='tab') 
+              | Upcoming 
+              span.badge(ng-bind='(property.viewings | filter:isUpcoming).length')
+          li(role='presentation')
+            a(href='#incomplete-{{$index}}' aria-controls='incomplete' role='tab' data-toggle='tab') 
+              | Incomplete 
+              span.badge(ng-bind='(property.viewings | filter:isIncomplete).length')
+        
+        // Tab Content
+        .tab-content
+          div(id='completed-{{$index}}' class='tab-pane active' role='tabpanel')
+            .viewing(ng-repeat='viewing in property.viewings | filter:{EventStatus:{Name:"Completed"}} | orderBy: sort')
+              .viewing-header
+                .person
+                  img(gravatar-src='viewing.MainContact.email')
+                  span.main-contact {{viewing.MainContact.name}}
+                .person-position
+                  p Position: 
+                    span {{viewing.Grade.Name}}
+                .viewing-date
+                  p Date: 
+                    span {{viewing.StartDate | date:'mediumDate'}}
+                .viewing-time
+                  p Time: 
+                    span {{viewing.StartDate | date:'shortTime'}}
+              .viewing-details
+                .viewing-status
+                  {{viewing.EventStatus.Name}}
+                .viewing-accompanied
+                  p Accompanied by
+                  .person(ng-repeat='person in viewing.Negotiators')
+                    img(gravatar-src='person.PrimaryEmail.Value')
+                    span {{person.ContactName}}
+                  .person(ng-repeat='person in viewing.AccompaniedBy')
+                    img(gravatar-src='person.email')
+                    span {{person.name}}
+            .no-viewings(ng-show='!(property.viewings | filter:{EventStatus:{Name:"Completed"}}).length') 
+              .row
+                .col-xs-12 
+                  p You don't have any completed viewings
+                .col-md-6 
+                  a(href="https://vitalspace.co.uk/offer-solicitor-quote/" target="_blank") 
+                    img(src="public/img/need-solicitor.jpg" alt="Solicitor Quote")
+                    span.title Need a solicitor?
+                    span Receive a quote from our recommended solicitor
+                .col-md-6 
+                  a(href="https://vitalspace.co.uk/arrange-a-survey/" target="_blank") 
+                    img(src="public/img/property-survey.jpg" alt="Arrange a Survey")
+                    span.title Arrange a survey
+                    span Arrange a property inspection with a RICS Surveyor
+          
+          // Upcoming Tab
+          div(id='upcoming-{{$index}}' class='tab-pane' role='tabpanel')
+            .viewing(ng-repeat='viewing in property.viewings | filter:isUpcoming | orderBy: sort')
+              .viewing-header
+                .person
+                  img(gravatar-src='viewing.MainContact.email')
+                  span.main-contact {{viewing.MainContact.name}}
+                .person-position
+                  p Position: 
+                    span {{viewing.Grade.Name}}
+                .viewing-date
+                  p Date: 
+                    span {{viewing.StartDate | date:'mediumDate'}}
+                .viewing-time
+                  p Time: 
+                    span {{viewing.StartDate | date:'shortTime'}}
+              .viewing-details
+                .viewing-status
+                  {{viewing.EventStatus.Name}}
+                .viewing-accompanied
+                  p Accompanied by
+                  .person(ng-repeat='person in viewing.Negotiators')
+                    img(gravatar-src='person.PrimaryEmail.Value')
+                    span {{person.ContactName}}
+                  .person(ng-repeat='person in viewing.AccompaniedBy')
+                    img(gravatar-src='person.email')
+                    span {{person.name}}
+            .no-viewings(ng-show='!(property.viewings | filter:isUpcoming).length') 
+              .row
+                .col-xs-12 
+                  p You don't have any upcoming viewings
+                .col-md-6 
+                  a(href="https://vitalspace.co.uk/offer-solicitor-quote/" target="_blank") 
+                    img(src="public/img/need-solicitor.jpg" alt="Solicitor Quote")
+                    span.title Need a solicitor?
+                    span Receive a quote from our recommended solicitor
+                .col-md-6 
+                  a(href="https://vitalspace.co.uk/arrange-a-survey/" target="_blank") 
+                    img(src="public/img/property-survey.jpg" alt="Arrange a Survey")
+                    span.title Arrange a survey
+                    span Arrange a property inspection with a RICS Surveyor
+          
+          // Incomplete Tab
+          div(id='incomplete-{{$index}}' class='tab-pane' role='tabpanel')
+            .viewing(ng-repeat='viewing in property.viewings | filter:isIncomplete | orderBy: sort')
+              .viewing-header
+                .person
+                  img(gravatar-src='viewing.MainContact.email')
+                  span.main-contact {{viewing.MainContact.name}}
+                .person-position
+                  p Position: 
+                    span {{viewing.Grade.Name}}
+                .viewing-date
+                  p Date: 
+                    span {{viewing.StartDate | date:'mediumDate'}}
+                .viewing-time
+                  p Time: 
+                    span {{viewing.StartDate | date:'shortTime'}}
+              .viewing-details
+                .viewing-status
+                  {{viewing.EventStatus.Name}}
+                .viewing-accompanied
+                  p Accompanied by
+                  .person(ng-repeat='person in viewing.Negotiators')
+                    img(gravatar-src='person.PrimaryEmail.Value')
+                    span {{person.ContactName}}
+                  .person(ng-repeat='person in viewing.AccompaniedBy')
+                    img(gravatar-src='person.email')
+                    span {{person.name}}
+            .no-viewings(ng-show='!(property.viewings | filter:isIncomplete).length') 
+              .row
+                .col-xs-12 
+                  p You don't have any incomplete viewings
+                .col-md-6 
+                  a(href="https://vitalspace.co.uk/offer-solicitor-quote/" target="_blank") 
+                    img(src="public/img/need-solicitor.jpg" alt="Solicitor Quote")
+                    span.title Need a solicitor?
+                    span Receive a quote from our recommended solicitor
+                .col-md-6 
+                  a(href="https://vitalspace.co.uk/arrange-a-survey/" target="_blank") 
+                    img(src="public/img/property-survey.jpg" alt="Arrange a Survey")
+                    span.title Arrange a survey
+                    span Arrange a property inspection with a RICS Surveyor
+    
+    h3(ng-show='!loading("properties") && !getProperties().length') No properties to show

@@ -1,0 +1,77 @@
+
+
+<div class="offers-list">
+  <div class="container-xl">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <h1><i class="fa-duotone fa-light fa-hand-holding-dollar"></i> <span ng-show="isHistoric">Historic</span><span ng-hide="isHistoric">Pending</span> Offers</h1>
+      </div>
+      <div class="col-md-4 search">
+        <input type="text" ng-model="search" placeholder="Search Offers" ng-change="page=1"/>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="row align-items-end">
+        <div class="col-md-6">
+          <div class="sort">Order By:<br>
+            <a href="" ng-click="sort=&quot;-date&quot;;page=1" ng-class="{selected:sort===&quot;-date&quot;}" class="order-item">Offer Date</a>
+            <a href="" ng-click="sort=&quot;applicant&quot;;page=1" ng-class="{selected:sort===&quot;applicant&quot;}" class="order-item">Applicant</a>
+            <a href="" ng-click="sort=&quot;-address&quot;;page=1" ng-class="{selected:sort===&quot;-address&quot;}" class="order-item">Address</a>
+          </div>
+        </div>
+        <div class="col-md-6 text-end">
+          <div class="showing">Showing {{filterData.length}} offer{{filterData.length!==1?'s':''}}</div>
+          <input type="button" ui-sref="agency_offers-list_historic" value="Show Historic" ng-hide="isHistoric" />
+          <input type="button" ui-sref="agency_offers-list" value="Show Pending" ng-show="isHistoric" />
+        </div>
+      </div>
+    </div>
+
+    <div class="properties-list" ng-show="filterData.length &gt; 0">
+      <div class="property-card" ng-repeat="offer in filterData =(offers.items | filter:{&quot;search&quot;:search} | orderBy:sort) | limitTo:limit:limit*(page-1)">
+        <div class="property-main row g-5">
+          <div class="property-image col-md-3" ng-class="{&quot;has-request animated pulse infinite&quot;:hasRequest(offer)}">
+            <img ng-if="offer.image" ng-src="{{offer.image}}" onerror="this.onerror=null; if(this.dataset.fb1 && !this.dataset.tried1) { this.dataset.tried1='true'; this.src=this.dataset.fb1; } else if(this.dataset.fb2 && !this.dataset.tried2) { this.dataset.tried2='true'; this.src=this.dataset.fb2; } else { this.style.display='none'; this.nextElementSibling.style.display='flex'; }" data-fb1="{{offer.imageFallback1}}" data-fb2="{{offer.imageFallback2}}" class="image"/>
+            <div class="no-image" ng-if="!offer.image">No Image</div>
+          </div>
+          
+          <div class="property-info col-md-6">
+            <div class="property-meta">
+              <div class="property-address"><strong>Address:</strong> {{formatAddress(offer.address)}}</div>
+              <span class="offer-details" ng-show="offer.offerAmount"><strong>Offer Amount:</strong> {{offer.offerAmount | currency : "£" : 0}}</span>
+            </div>
+
+            <div class="offer-details-section">
+              <p class="applicant-info"><i class="fa-duotone fa-light fa-user"></i> <strong>Applicant:</strong> {{offer.applicant}}</p>
+              <p class="applicant-info" ng-show="offer.applicant2"><i class="fa-duotone fa-light fa-users"></i> <strong>Co-Applicant:</strong> {{offer.applicant2}}</p>
+            </div>
+          </div>
+          
+          <div class="property-stats-actions col-md-3">
+            <div class="property-vendor">
+              <div class="label"><i class="fa-duotone fa-light fa-calendar-check"></i> Offer Received</div>
+              <div class="value">{{formatDate(offer.date)}}</div>
+              <span class="time-ago">({{offer.date | timeAgo}})</span>
+            </div>
+
+            <div class="property-stats">
+              <div class="stat-item" ng-show="offer.status">
+                <span class="status"><i class="fa-duotone fa-light fa-info-circle"></i> <strong>Status:</strong> {{offer.status}}</span>
+              </div>
+            </div>
+
+            <div class="property-actions">
+              <a class="button" ui-sref="agency_offer({id:offer._id})">View Offer</a>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+    </div>
+    <pagination total="offers.total" ng-model="page" page-size="limit" page-change="pageChange" show-first-last="true" class="pagination-sm pagination"></pagination>
+    <div ng-show="filterData.length===0" class="nothing-to-show">
+      <h3>Nothing to show</h3>
+    </div>
+  </div>
+</div>

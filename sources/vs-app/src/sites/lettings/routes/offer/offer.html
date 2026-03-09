@@ -1,0 +1,308 @@
+
+<div class="offer-details client-management-details">
+  <div class="container-xl">
+    <div class="header-row">
+      <div class="row justify-content-between align-items-end">
+        <div class="col-lg-5">
+          <h1><i class="fa-duotone fa-light fa-hand-holding-dollar"></i> Offer Received</h1>
+          <h2><i class="fa-duotone fa-light fa-circle-info"></i> At a Glance</h2>
+        </div>
+        <div class="col-lg-7 contacts">
+          <div class="vendor">
+            <div class="contact-details">
+              <div class="card">
+                <div class="contact-name"><span>{{offer.item.applicant.title}} {{offer.item.applicant.first_name}} {{offer.item.applicant.last_name}}</span></div>
+                <div class="communication">
+                  <div class="contact-telephone"><a href="tel:{{offer.item.applicant.phone_no}}"><i class="fa-duotone fa-light fa-mobile"></i> {{offer.item.applicant.phone_no}}</a></div>
+                  <div class="contact-email"><a href="mailto:{{offer.item.applicant.email}}"><i class="fa-duotone fa-light fa-at"></i> {{offer.item.applicant.email}}</a></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="vendor" ng-if="offer.item.applicant2.title">
+            <div class="contact-details">
+              <div class="card">
+                <div class="contact-name"><span>{{offer.item.applicant2.title}} {{offer.item.applicant2.first_name}} {{offer.item.applicant2.last_name}}</span></div>
+                <div class="communication">
+                  <div class="contact-telephone"><a href="tel:{{offer.item.applicant2.phone_no}}"><i class="fa-duotone fa-light fa-mobile"></i> {{offer.item.applicant2.phone_no}}</a></div>
+                  <div class="contact-email"><a href="mailto:{{offer.item.applicant2.email}}"><i class="fa-duotone fa-light fa-at"></i> {{offer.item.applicant2.email}}</a></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-xs-12 property-summary">
+      <div class="property">
+        <h5 ng-show="property.loading" class="loading">Contacting Dezrez</h5>
+        <div class="row">
+          <div class="col-md-5">
+            <div class="property-image">
+              <img ng-src="{{offer.item.image}}" onerror="this.onerror=null; if(this.dataset.fb1 && !this.dataset.tried1) { this.dataset.tried1='true'; this.src=this.dataset.fb1; } else if(this.dataset.fb2 && !this.dataset.tried2) { this.dataset.tried2='true'; this.src=this.dataset.fb2; } else { this.style.display='none'; this.nextElementSibling.style.display='block'; }" data-fb1="{{offer.item.imageFallback1}}" data-fb2="{{offer.item.imageFallback2}}"/>
+              <span class="no-image" style="display:none;">No Image</span>
+              <span class="status" ng-show="!offer.item.actioned">Pending</span>
+              <span class="status actioned" ng-show="offer.item.actioned">Actioned</span>
+            </div>
+          </div>
+          <div class="col-md-1"></div>
+          <div class="col-md-6">
+            <h4>{{offer.item.address}}</h4>
+            <div class="summary-detail">
+              <div class="financial-items">
+                <p class="financial-item">Move In Date: <span>{{offer.item.rent_details.tenancy_start | date:'mediumDate'}} <span ng-if="offer.item.lengthOfTenancy">({{offer.item.lengthOfTenancy==='Longer (Max 18 Months)' ? 'Longer - Max 18 Months' : offer.item.lengthOfTenancy}})</span></span></p>
+                <p class="financial-item">Asking Price: <span>{{formatToUKCurrency(offer.item.price)}} per month</span></p>
+                <p class="financial-item">Offer Amount: <span>{{formatToUKCurrency(offer.item.rent_details.monthly_rent)}} per month</span></p>
+              </div>
+              <div class="buttons">
+                <input type="button" class="medium orange button" ng-hide="offer.item.actioned" ng-click="actionOffer(offer)" value="Mark as Actioned"/>
+                <button class="medium orange button" ng-click="downloadPdf()"><i class="fa-light fa-duotone fa-file-pdf" aria-hidden="true"></i> Download PDF</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <h2><i class="fa-duotone fa-light fa-users"></i> Applicant Details</h2>
+    <div class="case-row tabbed-section" ng-if="offer.item">
+      <ul class="nav-pills">
+        <li ng-class="{active: activeTab === 'details'}" ng-click="setActiveTab('details')"><i class="fa-duotone fa-light fa-circle-info"></i> Applicant Details</li>
+        <li ng-if="offer.item.applicant2 && offer.item.applicant2.first_name" ng-class="{active: activeTab === 'details2'}" ng-click="setActiveTab('details2')"><i class="fa-light fa-circle-info"></i> Second Applicant Details</li>
+      </ul>
+      
+      <div class="tab-content">
+        <div class="tab-pane" ng-show="activeTab === 'details'">
+          <div class="row g-3">
+            <h3>{{offer.item.applicant.title}} {{offer.item.applicant.first_name}} {{offer.item.applicant.last_name}}</h3>
+            <div class="col-md-6 item">
+              <p class="title">Address</p>
+              <p>{{formatAddress(offer.item.applicant.address)}}</p>
+            </div>
+            <div class="col-md-3 item">
+              <p class="title">Phone</p>
+              <p>{{offer.item.applicant.phone_no}}</p>
+            </div>
+            <div class="col-md-3 item">
+              <p class="title">Email</p>
+              <p>{{offer.item.applicant.email}}</p>
+            </div>
+            <div class="col-md-3 item">
+              <p class="title">Date of Birth</p>
+              <p>{{offer.item.applicant.dob | date:'mediumDate'}}</p>
+            </div>
+            <div class="col-md-3 item">
+              <p class="title">Proof of Identity</p>
+              <p><a href="{{getProofOfIdentity(offer.item.applicant.proof_of_identity)}}" target="_blank">Download</a></p>
+            </div>
+            <div class="col-md-3 item">
+              <p class="title">Employment Status</p>
+              <p>{{offer.item.applicant.employment_status}}</p>
+            </div>
+            <div class="col-md-3 item">
+              <p class="title">Living Status</p>
+              <p>{{offer.item.applicant.living_status}}</p>
+            </div>
+            <div class="col-md-3 item">
+              <p class="title">Company Name</p>
+              <p>{{offer.item.applicant.company_name}}</p>
+            </div>
+            <div class="col-md-3 item">
+              <p class="title">Occupation</p>
+              <p>{{offer.item.applicant.occupation}}</p>
+            </div>
+            <div class="col-md-3 item">
+              <p class="title">Salary</p>
+              <p>{{formatToUKCurrency(offer.item.applicant.salary)}}</p>
+            </div>
+            <div class="col-md-3 item">
+              <p class="title">Time Employed</p>
+              <p>{{offer.item.applicant.time_employed}}</p>
+            </div>
+          </div>
+          
+          <div class="row g-3 preferences">
+            <h4>Preferences</h4>
+            <div class="col-md-2 col-sm-4 col-6 item">
+              <p class="title">In arrears</p>
+              <p class="prefsIcon">
+                <span ng-show="offer.item.applicant.preferences.arrears"><i class="fal fa-check"></i></span>
+                <span ng-hide="offer.item.applicant.preferences.arrears"><i class="fal fa-times"></i></span>
+              </p>
+            </div>
+            <div class="col-md-2 col-sm-4 col-6 item">
+              <p class="title">Children</p>
+              <p class="prefsIcon">
+                <span ng-show="offer.item.applicant.preferences.children"><i class="fal fa-check"></i></span>
+                <span ng-hide="offer.item.applicant.preferences.children"><i class="fal fa-times"></i></span>
+              </p>
+            </div>
+            <div class="col-md-2 col-sm-4 col-6 item">
+              <p class="title">Renting (Agent)</p>
+              <p class="prefsIcon">
+                <span ng-show="offer.item.applicant.preferences.renting_agent"><i class="fal fa-check"></i></span>
+                <span ng-hide="offer.item.applicant.preferences.renting_agent"><i class="fal fa-times"></i></span>
+              </p>
+            </div>
+            <div class="col-md-2 col-sm-4 col-6 item">
+              <p class="title">Renting (Landlord)</p>
+              <p class="prefsIcon">
+                <span ng-show="offer.item.applicant.preferences.renting_landlord"><i class="fal fa-check"></i></span>
+                <span ng-hide="offer.item.applicant.preferences.renting_landlord"><i class="fal fa-times"></i></span>
+              </p>
+            </div>
+            <div class="col-md-2 col-sm-4 col-6 item">
+              <p class="title">Pets</p> 
+              <p class="prefsIcon">
+                <span ng-show="offer.item.applicant.preferences.pets"><i class="fal fa-check"></i></span>
+                <span ng-hide="offer.item.applicant.preferences.pets"><i class="fal fa-times"></i></span>
+              </p>
+            </div>
+            <div class="col-md-2 col-sm-4 col-6 item">
+              <p class="title">Smokes</p>
+              <p class="prefsIcon">
+                <span ng-show="offer.item.applicant.preferences.smokes"><i class="fal fa-check"></i></span>
+                <span ng-hide="offer.item.applicant.preferences.smokes"><i class="fal fa-times"></i></span>
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="tab-pane" ng-show="activeTab === 'details2'">
+            <div class="row g-3">
+              <h3>{{offer.item.applicant2.title}} {{offer.item.applicant2.first_name}} {{offer.item.applicant2.last_name}}</h3>
+              <div class="col-md-6 item">
+                <p class="title">Address</p>
+                <p>{{formatAddress(offer.item.applicant2.address)}}</p>
+              </div>
+              <div class="col-md-3 item">
+                <p class="title">Phone</p>
+                <p>{{offer.item.applicant2.phone_no}}</p>
+              </div>
+              <div class="col-md-3 item">
+                <p class="title">Email</p>
+                <p>{{offer.item.applicant2.email}}</p>
+              </div>
+              <div class="col-md-3 item">
+                <p class="title">Date of Birth</p>
+                <p>{{offer.item.applicant2.dob | date:'mediumDate'}}</p>
+              </div>
+              <div class="col-md-3 item">
+                <p class="title">Proof of Identity</p>
+                <p><a href="{{getProofOfIdentity(offer.item.applicant2.proof_of_identity)}}" target="_blank">Download</a></p>
+              </div>
+              <div class="col-md-3 item">
+                <p class="title">Employment Status</p>
+                <p>{{offer.item.applicant2.employment_status}}</p>
+              </div>
+              <div class="col-md-3 item">
+                <p class="title">Living Status</p>
+                <p>{{offer.item.applicant2.living_status}}</p>
+              </div>
+              <div class="col-md-3 item">
+                <p class="title">Company Name</p>
+                <p>{{offer.item.applicant2.company_name}}</p>
+              </div>
+              <div class="col-md-3 item">
+                <p class="title">Occupation</p>
+                <p>{{offer.item.applicant2.occupation}}</p>
+              </div>
+              <div class="col-md-3 item">
+                <p class="title">Salary</p>
+                <p>{{formatToUKCurrency(offer.item.applicant2.salary)}}</p>
+              </div>
+              <div class="col-md-3 item">
+                <p class="title">Time Employed</p>
+                <p>{{offer.item.applicant2.time_employed}}</p>
+              </div>
+            </div>
+            
+            
+            <div class="row g-3 preferences">
+              <h4>Preferences</h4>
+              <div class="col-md-2 item">
+                <p class="title">In arrears</p>
+                <p class="prefsIcon">
+                  <span ng-show="offer.item.applicant2.preferences.arrears"><i class="fal fa-check"></i></span>
+                  <span ng-hide="offer.item.applicant2.preferences.arrears"><i class="fal fa-times"></i></span>
+                </p>
+              </div>
+              <div class="col-md-2 item">
+                <p class="title">Children</p>
+                <p class="prefsIcon">
+                  <span ng-show="offer.item.applicant2.preferences.children"><i class="fal fa-check"></i></span>
+                  <span ng-hide="offer.item.applicant2.preferences.children"><i class="fal fa-times"></i></span>
+                </p>
+              </div>
+              <div class="col-md-2 item">
+                <p class="title">Renting (Agent)</p>
+                <p class="prefsIcon">
+                  <span ng-show="offer.item.applicant2.preferences.renting_agent"><i class="fal fa-check"></i></span>
+                  <span ng-hide="offer.item.applicant2.preferences.renting_agent"><i class="fal fa-times"></i></span>
+                </p>
+              </div>
+              <div class="col-md-2 item">
+                <p class="title">Renting (Landlord)</p>
+                <p class="prefsIcon">
+                  <span ng-show="offer.item.applicant2.preferences.renting_landlord"><i class="fal fa-check"></i></span>
+                  <span ng-hide="offer.item.applicant2.preferences.renting_landlord"><i class="fal fa-times"></i></span>
+                </p>
+              </div>
+              <div class="col-md-2 item">
+                <p class="title">Pets</p>
+                <p class="prefsIcon">
+                  <span ng-show="offer.item.applicant2.preferences.pets"><i class="fal fa-check"></i></span>
+                  <span ng-hide="offer.item.applicant2.preferences.pets"><i class="fal fa-times"></i></span>
+                </p>
+              </div>
+              <div class="col-md-2 item">
+                <p class="title">Smokes</p>
+                <p class="prefsIcon">
+                  <span ng-show="offer.item.applicant2.preferences.smokes"><i class="fal fa-check"></i></span>
+                  <span ng-hide="offer.item.applicant2.preferences.smokes"><i class="fal fa-times"></i></span>
+                </p>
+              </div>
+            </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Additional Comments Section -->
+    <div class="additional-comments" ng-show="offer.item.comments">
+      <h2><i class="fa-duotone fa-light fa-comment"></i> Additional Comments</h2>
+      <div class="comments-section">
+        <div class="row">
+          <div class="col-12">
+            <p class="title">Additional Comments</p>
+            <div>{{offer.item.comments}}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notes Section -->
+    <div class="case-notes" id="notes">
+      <h2><i class="fa-duotone fa-light fa-message-lines"></i> Notes about this offer</h2>
+      <div class="case-note" ng-repeat="note in notesData = ( getNotes() | orderBy:&quot;-date&quot; ) | limitTo:notesLimit:notesLimit*(notesPage-1)">
+        <div class="header-row">
+          <div class="date"><img gravatar-src="note.user.local.email"/><span>{{note.user.displayName || note.user.local.email}}<br><span class="date">{{note.date | date:'mediumDate'}}, {{note.date | date:'shortTime'}}</span></span></div>
+          <div class="actions">
+            <a class="delete" href="" ng-click="deleteNote(note)" ng-show="auth.checkRoles([&quot;admin&quot;, &quot;superadmin&quot;]) &amp;&amp; !note.advanceTo"><i class="fa-light fa-duotone fa-trash"></i></a><a class="edit" href="" ng-click="editNote(note)" ng-show="auth.checkRoles([&quot;admin&quot;,&quot;superadmin&quot;]) &amp;&amp; !note.advanceTo"><i class="fa-light fa-duotone fa-pen"></i></a>
+          </div>
+        </div>
+        <div class="note"> 
+          <div class="details"><span ng-show="note.side">- {{note.side}}</span>
+            <div class="note-body" ng-bind-html="note.text | markdown:true"></div>
+          </div>
+        </div>
+      </div>
+      <pagination class="pagination-sm pagination" total="notesData.length" ng-model="notesPage" page-size="notesLimit"></pagination>
+      <div class="add-note">
+        <code-mirror ng-model="note.text" options="{mode:markdown, lineWrapping:true}"></code-mirror>
+        <button ng-click="addNote()">{{note.date?'Update':'Add'}} Note</button>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>

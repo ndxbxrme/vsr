@@ -1,0 +1,4 @@
+@import '../../variables'
+.offer-details
+  .pdf-upload
+    font-size 3em

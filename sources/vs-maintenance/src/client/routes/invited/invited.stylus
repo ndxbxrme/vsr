@@ -1,0 +1,8 @@
+@import '../../variables'
+.invited
+  form
+    display flex
+    flex-direction column
+    max-width 320px
+    input
+      margin-bottom 2rem

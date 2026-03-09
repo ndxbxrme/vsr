@@ -1,0 +1,13 @@
+<div class="new-user-modal">
+  <form name="forms.userForm" ng-submit="submit()">
+    <h2 ng-hide="user.local.email">New user</h2>
+    <div class="form-item">
+      <label>Email</label>
+      <input type="text" name="email" ng-model="user.email" ng-disabled="user.local.email" />
+    </div>
+    <div class="controls">
+      <input type="submit" value="Submit" />
+      <input type="button" value="Cancel" ng-click="cancel()" />
+    </div>
+  </form>
+</div>

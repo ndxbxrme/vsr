@@ -1,0 +1,24 @@
+.vsheader(ng-show='auth.getUser()')
+  section.container
+    .branding
+      a.logo(href="/")
+        img.logo(src="public/img/int/vitalspace-logo-darktext.svg")
+    .user.mobile-hide
+      a(href='/api/logout', target='_self') {{getDezrezUser().dezrez.ContactName}} 
+        i.fal.fa-lock-alt
+    nav.main-menu.mobile-hide
+      ul.menu
+        li(ng-class="{selected:isSelected('dashboard')}")
+          a(href='/') 
+            span Dashboard
+        li(ng-class="{selected:isSelected('viewings')}")
+          a(href='/viewings') 
+            span Viewings
+        li(ng-class="{selected:isSelected('feedback')}")
+          a(href='/feedback') 
+            span Feedback
+        li(ng-class="{selected:isSelected('offers')}")
+          a(href='/offers') 
+            span Offers
+    button#click-me.lines-button.x2.desktop-hide(type='button', role='button', aria-label='Toggle Navigation', ng-click='mobileMenuOut=!mobileMenuOut; $event.stopPropagation()')
+      .fal.fa-bars

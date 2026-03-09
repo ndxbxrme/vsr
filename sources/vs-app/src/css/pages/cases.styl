@@ -1,0 +1,271 @@
+.cases
+  padding-top 30px
+  // Controls
+  .controls
+    .row 
+      align-items end
+    .sort
+      margin-right 30px
+    .order-item, .filter-item
+      display inline-flex
+      align-items center
+      position relative
+      color vs-grey
+      background white
+      font-weight 600
+      margin 0px 5px 10px 0px
+      padding 5px 15px
+      border 1px solid vs-lightgrey
+      border-radius 30px
+      &:hover
+        color vs-orange
+      &.icon-green, &.icon-red, &.icon-orange
+        padding-left 3rem
+        &:before
+          content ''
+          position absolute
+          top 0.7rem
+          left 0.5rem
+          width 2rem
+          height 2rem
+          background vs-green
+          border-radius 50%
+      &.icon-red:before
+        background vs-red
+      &.icon-orange:before
+        background vs-amber
+      &.selected
+        background vs-orange
+        color white
+        border: 1px solid vs-orange
+  .showing 
+    margin-bottom: 10px
+    
+  .property-card
+    background white
+    border-radius 10px
+    border 1px solid vs-lightgrey
+    transition all 0.3s ease
+    margin-bottom 30px
+    &:hover
+      box-shadow 0 4px 12px rgba(0,0,0,0.1)
+    &.no-milestone 
+      .property-image img
+        filter grayscale(100%)
+        opacity 0.8
+      .property-milestone
+        padding 5px
+    &.has-request
+      border 2px solid vs-orange
+      animation pulse 2s infinite
+      
+  .property-status
+    padding 20px 0px 20px 20px
+    display flex
+    align-items center
+    justify-content center  
+      
+  .property-image
+    padding 20px 30px 20px 35px
+    position relative
+    img
+      width 100%
+      height 200px
+      object-fit cover
+      border-radius 10px
+    &.has-request
+      img
+        border 3px solid vs-orange
+    .property-milestone
+      position absolute
+      top 30px
+      right 40px
+      text-align left
+      display flex
+      flex-direction row
+      align-items center
+      background white
+      padding 5px 15px 5px 5px
+      border-radius 40px
+      .icon
+        height 30px
+        width 30px
+        margin-bottom 0px
+        &:after
+          font-size 1.6rem
+      .milestone-title
+        font-size 1.4rem
+        font-weight 600
+        color vs-grey
+        margin-left 10px
+          
+  .property-info 
+    padding 20px 30px 20px 0px
+    border-right 1px solid vs-lightgrey
+    display flex
+    flex-direction column
+    justify-content space-between
+    .property-address,
+    .property-landlord,
+    .property-tenants,
+    .purchase-price,
+    .fees
+      font-size 1.8rem
+      font-weight 600
+      color vs-orange
+      margin-bottom 10px
+      display block
+      strong
+        color vs-grey
+    .property-milestone
+      background vs-body
+      padding 15px 20px
+      border-radius 10px
+      .milestone-title
+        font-size 1.4rem
+        font-weight 600
+        color vs-grey
+    .dates
+      font-size 1.4rem
+      display flex
+      justify-content space-between
+      span
+        display block
+        margin-bottom 5px
+        i
+          margin-right 5px
+            
+  .property-stats-actions
+    padding 20px 30px 20px 30px
+    display flex
+    flex-direction column
+    align-items flex-start
+    justify-content space-between
+    .property-vendor,
+    .property-purchaser,
+    .property-stats
+      margin-bottom 15px
+      .label
+        font-weight 600
+        margin-bottom 5px
+        i
+          margin-right 5px
+      .value
+        font-size 1.6rem
+        color vs-grey
+        font-weight 600
+      .stat-item
+        margin-bottom 10px
+        font-size 1.4rem
+        .date-detail
+          font-size 1.2rem
+          color vs-silver
+    .button 
+      margin-bottom 0px !important
+      &.pipeline-home
+        background #00a651
+        border-color #00a651
+        &:hover
+          background darken(#00a651, 10%)
+          
+  .pagination-holder
+    display flex
+    justify-content center
+    .pagination
+      a
+        color vs-orange
+      a:hover
+        color vs-orange
+      li.active
+        a
+          background vs-orange
+          border-color vs-orange
+          color #fff
+          
+  .pagination
+    justify-content center
+    text-align center
+    .page
+      padding 5px 10px 3px 10px
+      border 1px solid vs-lightgrey
+      border-left none
+      transition all 0.4s ease-in-out
+      &:first-of-type 
+        border-left: 1px solid vs-lightgrey
+        border-bottom-left-radius 5px
+        border-top-left-radius 5px
+      &:last-of-type 
+        border-bottom-right-radius 5px
+        border-top-right-radius 5px
+      &.last, &.first 
+        padding 5px 20px 3px 20px
+      &.selected, &:hover
+        background vs-orange
+        color white
+
+@media screen and (max-width:992px)
+  .cases
+    .property-image img
+      height 150px
+    .property-info
+      padding 20px 40px 20px 0px
+      border none
+    .property-stats-actions
+      margin 0px 0px 0px 15px
+      padding 20px 20px 0px 20px
+      display flex
+      justify-content space-between
+      align-items flex-start
+      gap 15px
+      border-top 1px solid vs-lightgrey
+      width calc(100% - 30px)
+
+@media screen and (max-width:768px)
+  .cases
+    .property-image img
+      width 150px
+      height auto
+    .property-info
+      margin 0px
+      padding 0px 40px 20px 40px
+      border none
+  .controls
+    .text-end
+      text-align left !important
+
+@media screen and (max-width:576px)
+  .cases
+    .controls
+      .row
+        .d-flex
+          flex-direction column
+    .property-info
+      .property-address,
+      .property-landlord,
+      .property-tenants,
+      .purchase-price,
+      .fees
+        font-size 1.4rem
+        line-height 1.5
+        margin-bottom 5px
+    .property-stats-actions
+      margin 0px 0px 0px 15px
+      padding 20px 0px 20px 20px
+      display flex
+      flex-direction column
+      justify-content flex-start
+      align-items flex-start
+      gap 10px
+      .vendor-purchaser
+        display flex
+        flex-direction row
+        gap 30px
+      .label,
+      .value,
+      .stat-item
+        font-size 1.4rem
+        line-height 1.5
+      .property-vendor,
+      .property-purchaser,
+      .property-stats .stat-item
+        margin-bottom 5px

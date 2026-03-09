@@ -1,0 +1,21 @@
+
+<div class="modal lightbox">
+  <div ng-if="converting" class="lightbox-converting">
+    <i class="fa-light fa-spinner fa-spin"></i>
+    <span>Converting image&hellip;</span>
+  </div>
+  <img ng-if="!converting && imgSrc && !isVideo(imgSrc)" ng-src="{{imgSrc}}" class="big-img"/>
+  <video ng-if="!converting && imgSrc && isVideo(imgSrc)" class="big-video" controls>
+    <source ng-src="{{imgSrc}}" type="video/mp4">
+    <source ng-src="{{imgSrc}}" type="video/webm">
+    <source ng-src="{{imgSrc}}" type="video/mov">
+    Your browser does not support the video tag.
+  </video>
+  <div ng-show="imgIndex.length > 1" class="img-index">
+    <div ng-repeat="img in imgIndex" ng-click="selectImage(img.URL)" class="index-img" ng-class="{video: isVideo(img.URL)}">
+      <div ng-if="isVideo(img.URL)" class="video-overlay"><i class="fa fa-play"></i></div>
+      <div ng-if="!isVideo(img.URL)" style="background-image: url({{img.URL}})"></div>
+    </div>
+  </div>
+  <a ng-click="cancel()" class="close-reveal-modal">&times;</a>
+</div>

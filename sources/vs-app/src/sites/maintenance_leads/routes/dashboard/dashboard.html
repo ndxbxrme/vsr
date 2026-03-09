@@ -1,0 +1,244 @@
+
+<div ng-show="auth.getUser()" class="dashboard-route route maintenance-leads-dashboard">
+  <div class="container-xl">
+    <div class="row align-items-center mb-4">
+      <div class="col-md-8">
+        <h1><i class="fa-duotone fa-light fa-screwdriver-wrench"></i> Maintenance <strong class="orange">Dashboard</strong></h1>
+      </div>
+      <div class="col-md-4 text-md-end">
+        <button ng-click="openAddIssueModal()" class="button button-alt orange-button">New Issue <i class="fas fa-plus"></i></button>
+        <button type="button" ng-click="openAddWorksOrderModal()" class="button button-grey">New Works Order <i class="fas fa-plus"></i></button>
+      </div>
+    </div>
+    
+    <!-- Snapshot Boxes -->
+    <div class="row g-md-5 g-2 snapshot-row">
+      <div class="col-6 col-md-4 col-lg-2">
+        <div class="snapshot-box" ui-sref="maintenance_leads_issues">
+          <div class="snapshot-label">Today's Issues <i class="fa-duotone fa-light fa-arrow-up-right-from-square"></i></div>
+          <div class="snapshot-value">{{ maintenanceToday.total }}</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-4 col-lg-2">
+        <div class="snapshot-box" ui-sref="maintenance_leads_issues">
+          <div class="snapshot-label">Outstanding Issues <i class="fa-duotone fa-light fa-arrow-up-right-from-square"></i></div>
+          <div class="snapshot-value">{{ maintenanceOutstanding.total }}</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-4 col-lg-2">
+        <div class="snapshot-box" ui-sref="maintenance_leads_worksorders">
+          <div class="snapshot-label">Outstanding Works <i class="fa-duotone fa-light fa-arrow-up-right-from-square"></i></div>
+          <div class="snapshot-value">{{ worksOutstanding.total }}</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-4 col-lg-2">
+        <div class="snapshot-box" ui-sref="maintenance_leads_worksorders">
+          <div class="snapshot-label">Invoices Outstanding <i class="fa-duotone fa-light fa-arrow-up-right-from-square"></i></div>
+          <div class="snapshot-value">{{ invoiceOutstanding.total }}</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-4 col-lg-2">
+        <div class="snapshot-box" ui-sref="maintenance_leads_worksorders">
+          <div class="snapshot-label">Inspections <i class="fa-duotone fa-light fa-arrow-up-right-from-square"></i></div>
+          <div class="snapshot-value">{{ inspectionWorks.total }}</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-4 col-lg-2">
+        <div class="snapshot-box" ui-sref="maintenance_leads_worksorders">
+          <div class="snapshot-label">MoveOut Works <i class="fa-duotone fa-light fa-arrow-up-right-from-square"></i></div>
+          <div class="snapshot-value">{{ moveOutWorks.total }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabbed Layout -->
+    <div class="maintenance-tabs">
+      <ul class="nav nav-tabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="today-tab" data-bs-toggle="tab" data-bs-target="#today" type="button" role="tab" aria-controls="today" aria-selected="true">
+            Today's Issues <span class="badge">{{ maintenanceToday.total }}</span>
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="outstanding-tab" data-bs-toggle="tab" data-bs-target="#outstanding" type="button" role="tab" aria-controls="outstanding" aria-selected="false">
+            Outstanding Issues <span class="badge">{{ maintenanceOutstanding.total }}</span>
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="works-tab" data-bs-toggle="tab" data-bs-target="#works" type="button" role="tab" aria-controls="works" aria-selected="false">
+            Works Orders <span class="badge">{{ worksOutstanding.total }}</span>
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="invoices-tab" data-bs-toggle="tab" data-bs-target="#invoices" type="button" role="tab" aria-controls="invoices" aria-selected="false">
+            Invoices <span class="badge">{{ invoiceOutstanding.total }}</span>
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="inspections-tab" data-bs-toggle="tab" data-bs-target="#inspections" type="button" role="tab" aria-controls="inspections" aria-selected="false">
+            Inspections <span class="badge">{{ inspectionWorks.total }}</span>
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="moveout-tab" data-bs-toggle="tab" data-bs-target="#moveout" type="button" role="tab" aria-controls="moveout" aria-selected="false">
+            MoveOut Works <span class="badge">{{ moveOutWorks.total }}</span>
+          </button>
+        </li>
+      </ul>
+
+      <div class="tab-content">
+        <!-- Today's Issues Tab -->
+        <div class="tab-pane fade show active" id="today" role="tabpanel" aria-labelledby="today-tab">
+          <div class="issues-list">
+            <div ng-repeat="issue in maintenanceToday.items" ui-sref="maintenance_leads_issue({_id:issue._id})" ng-class="issue.status" class="issue">
+              <div class="details">
+                <div class="address">{{issue.address}}</div>
+                <div class="issue-title">{{issue.title}}</div>
+              </div>
+              <div class="status">
+                <div class="booked"> 
+                  <div class="fad fa-file-medical"></div>
+                </div>
+                <div class="completed">
+                  <div class="fad fa-file-check"></div>
+                </div>
+                <div class="invoiced">
+                  <div class="fad fa-thumbs-up"></div>
+                </div>
+              </div>
+              <div ng-if="issue.newMessages > 0" ng-class="{newmessage:issue.newMessages > 0}" class="messages">{{issue.newMessages || 0}}</div>
+            </div>
+          </div>
+          <pagination ng-model="maintenanceToday.args.page" total="maintenanceToday.total" page-size="maintenanceToday.args.pageSize"></pagination>
+        </div>
+
+        <!-- Outstanding Issues Tab -->
+        <div class="tab-pane fade" id="outstanding" role="tabpanel" aria-labelledby="outstanding-tab">
+          <div class="issues-list">
+            <div ng-repeat="issue in maintenanceOutstanding.items" ui-sref="maintenance_leads_issue({_id:issue._id})" ng-class="issue.status" class="issue">
+              <div class="details">
+                <div class="address">{{issue.address}}</div>
+                <div class="issue-title">{{issue.title}}</div>
+              </div>
+              <div class="status">
+                <div class="booked"> 
+                  <div class="fad fa-file-medical"></div>
+                </div>
+                <div class="completed">
+                  <div class="fad fa-file-check"></div>
+                </div>
+                <div class="invoiced">
+                  <div class="fad fa-thumbs-up"></div>
+                </div>
+              </div>
+              <div ng-if="issue.newMessages > 0" ng-class="{newmessage:issue.newMessages > 0}" class="messages">{{issue.newMessages || 0}}</div>
+            </div>
+          </div>
+          <pagination ng-model="maintenanceOutstanding.args.page" total="maintenanceOutstanding.total" page-size="maintenanceOutstanding.args.pageSize"></pagination>
+        </div>
+
+        <!-- Works Orders Tab -->
+        <div class="tab-pane fade" id="works" role="tabpanel" aria-labelledby="works-tab">
+          <div class="issues-list">
+            <div ng-repeat="issue in worksOutstanding.items" ui-sref="maintenance_leads_issue({_id:issue._id})" ng-class="issue.status" class="issue">
+              <div class="details">
+                <div class="address">{{issue.address}}</div>
+                <div class="issue-title">{{issue.title}}</div>
+              </div>
+              <div class="status">
+                <div class="booked"> 
+                  <div class="fad fa-file-medical"></div>
+                </div>
+                <div class="completed">
+                  <div class="fad fa-file-check"></div>
+                </div>
+                <div class="invoiced">
+                  <div class="fad fa-thumbs-up"></div>
+                </div>
+              </div>
+              <div ng-if="issue.newMessages > 0" ng-class="{newmessage:issue.newMessages > 0}" class="messages">{{issue.newMessages || 0}}</div>
+            </div>
+          </div>
+          <pagination ng-model="worksOutstanding.args.page" total="worksOutstanding.total" page-size="worksOutstanding.args.pageSize"></pagination>
+        </div>
+
+        <!-- Invoices Tab -->
+        <div class="tab-pane fade" id="invoices" role="tabpanel" aria-labelledby="invoices-tab">
+          <div class="issues-list">
+            <div ng-repeat="issue in invoiceOutstanding.items" ui-sref="maintenance_leads_issue({_id:issue._id})" ng-class="issue.status" class="issue">
+              <div class="details">
+                <div class="address">{{issue.address}}</div>
+                <div class="issue-title">{{issue.title}}</div>
+              </div>
+              <div class="status">
+                <div class="booked"> 
+                  <div class="fad fa-file-medical"></div>
+                </div>
+                <div class="completed">
+                  <div class="fad fa-file-check"></div>
+                </div>
+                <div class="invoiced">
+                  <div class="fad fa-thumbs-up"></div>
+                </div>
+              </div>
+              <div ng-if="issue.newMessages > 0" ng-class="{newmessage:issue.newMessages > 0}" class="messages">{{issue.newMessages || 0}}</div>
+            </div>
+          </div>
+          <pagination ng-model="invoiceOutstanding.args.page" total="invoiceOutstanding.total" page-size="invoiceOutstanding.args.pageSize"></pagination>
+        </div>
+
+         <!-- Inspections Tab -->
+        <div class="tab-pane fade" id="inspections" role="tabpanel" aria-labelledby="inspections-tab">
+          <div class="issues-list">
+            <div ng-repeat="issue in inspectionWorks.items" ui-sref="maintenance_leads_issue({_id:issue._id})" ng-class="issue.status" class="issue">
+              <div class="details">
+                <div class="address">{{issue.address}}</div>
+                <div class="issue-title">{{issue.title}}</div>
+              </div>
+              <div class="status">
+                <div class="booked"> 
+                  <div class="fad fa-file-medical"></div>
+                </div>
+                <div class="completed">
+                  <div class="fad fa-file-check"></div>
+                </div>
+                <div class="invoiced">
+                  <div class="fad fa-thumbs-up"></div>
+                </div>
+              </div>
+              <div ng-if="issue.newMessages > 0" ng-class="{newmessage:issue.newMessages > 0}" class="messages">{{issue.newMessages || 0}}</div>
+            </div>
+          </div>
+          <pagination ng-model="inspectionWorks.args.page" total="inspectionWorks.total" page-size="inspectionWorks.args.pageSize"></pagination>
+        </div>
+
+        <!-- MoveOut Works Tab -->
+        <div class="tab-pane fade" id="moveout" role="tabpanel" aria-labelledby="moveout-tab">
+          <div class="issues-list">
+            <div ng-repeat="issue in moveOutWorks.items" ui-sref="maintenance_leads_issue({_id:issue._id})" ng-class="issue.status" class="issue">
+              <div class="details">
+                <div class="address">{{issue.address}}</div>
+                <div class="issue-title">{{issue.title}}</div>
+              </div>
+              <div class="status">
+                <div class="booked"> 
+                  <div class="fad fa-file-medical"></div>
+                </div>
+                <div class="completed">
+                  <div class="fad fa-file-check"></div>
+                </div>
+                <div class="invoiced">
+                  <div class="fad fa-thumbs-up"></div>
+                </div>
+              </div>
+              <div ng-if="issue.newMessages > 0" ng-class="{newmessage:issue.newMessages > 0}" class="messages">{{issue.newMessages || 0}}</div>
+            </div>
+          </div>
+          <pagination ng-model="moveOutWorks.args.page" total="moveOutWorks.total" page-size="moveOutWorks.args.pageSize"></pagination>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>

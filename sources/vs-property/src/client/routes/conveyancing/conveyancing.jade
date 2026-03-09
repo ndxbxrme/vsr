@@ -1,0 +1,101 @@
+.conveyancing-page
+  .container
+    .row
+      .col-xs-12.title-row
+        h2 
+          i.fa-duotone.fa-light.fa-envelope-open-dollar
+          |  Conveyancing
+        a(href='/').medium.button.orange 
+          i.fa-light.fa-arrow-turn-left(aria-hidden='true')  
+          |  Dashboard
+    .row.intro.noprog(ng-show='!property.progressions.length')
+      .col-sm-8
+        p.lead
+          | Once a sale is agreed, this page will form an overview of any activity surrounding the legal progression of your sale. Our clients will be able to obtain a detailed understanding of how matters are advancing with the assistance of our dedicated sales progressor - Hannah
+        .call-out
+          img(src='/public/img/Hannah.png', width='250')
+          .call-out-text
+            h2 I'm 
+              span Hannah
+            p
+              | My role is to support and offer advice should you have any problems or concerns throughout the course of your legal transaction
+            p Please contact me if I can help
+            p.contacts
+              a(href='tel:07967051927')
+                i.fa-duotone.fa-light.fa-phone
+                | 07967 051 927
+              a(href='mailto:progression@vitalspace.co.uk')
+                i.fa-duotone.fa-light.fa-envelope
+                | progression@vitalspace.co.uk
+
+    .row.intro.prog(ng-show='property.progressions.length')
+      .col-sm-8
+        .call-out
+          img(src='/public/img/Hannah.png', width='250')
+        .call-out-text
+          h2 I'm 
+            span Hannah
+          p
+            | My role is to support and offer advice should you have any problems or concerns throughout the course of your legal transaction
+          p Please contact me if I can help
+          p.contacts
+            a(href='tel:07967051927')
+              i.fa-duotone.fa-light.fa-phone
+              | 07967 051 927
+            a(href='mailto:progression@vitalspace.co.uk')
+              i.fa-duotone.fa-light.fa-envelope
+              | progression@vitalspace.co.uk
+          
+    div.row(ng-repeat='property in getProperties()', ng-hide='!property.progressions.length || !property.details.Address || property.details.RoleStatus.SystemName==="InstructionToSell" || property.details.RoleStatus.SystemName==="UnderOffer"')
+      .property-overview
+        h3(ng-hide='property.error || property.loading') {{property.Address.Number}} {{property.Address.Street }}, {{property.Address.Locality }}, {{property.Address.Town}}
+        .row
+          .col-md-4
+            .stat 
+              i.fa-duotone.fa-light.fa-sign-hanging
+              p Marketed Price 
+                span {{property.details.Price.PriceValue | currency:'£':0}}
+            .stat 
+              i.fa-duotone.fa-light.fa-envelope-open-dollar
+              p Offer Price 
+                span {{property.offer.Value | currency:'£':0}}
+            .stat 
+              i.fa-duotone.fa-light.fa-calendar-check
+              p Sale Agreed 
+                span {{property.offer.CreatedDate | date:'mediumDate'}}
+            .stat 
+              i.fa-duotone.fa-light.fa-clock-three
+              p Last Updated 
+                span {{property.modifiedAt | date:'mediumDate'}}
+          .col-md-8.people
+            .stat 
+              i.fa-duotone.fa-light.fa-house-person-leave
+              p Vendor(s) 
+                span {{property.vendor}}
+            .stat 
+              i.fa-duotone.fa-light.fa-house-person-return
+              p Purchaser(s) 
+                span {{property.purchaser}}
+        .row.stats.stats-row(ng-if='property.progressions')
+          .col-md-4
+            .progression-bar
+              .progression-label Sale Progress: {{getProgressionPercent(property)}}%
+              .progression-track
+                .progression-fill(style='width: {{getProgressionPercent(property)}}%')
+          .col-md-8
+            .milestone-key
+              .milestone.completed
+                i.fa-light.fa-file-check
+                p
+                  | Completed
+              .milestone.progressing
+                i.fa-light.fa-bars-progress
+                p
+                  | In Progress
+              .milestone.overdue
+                i.fa-light.fa-file-exclamation
+                p
+                  | Outstanding
+          
+            
+        progression(ng-repeat='progression in property.progressions', data='progression')

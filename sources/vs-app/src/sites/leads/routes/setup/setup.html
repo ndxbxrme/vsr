@@ -1,0 +1,14 @@
+<div class="setup route"> 
+  <div class="container-xl">
+    <h1><i class="fa-duotone fa-light fa-gear"></i> {{ mla('setup-heading') }}</h1>
+    <div class="row setup-row">
+      <div class="col-sm-6 email-templates">
+        <h2 class="orange"><i class="fa-duotone fa-light fa-at"></i> Email templates</h2>
+        <div class="email-template" ng-repeat="template in emailTemplates.items"><a class="name" ui-sref="leads_template({id:template._id,type:'email'})">{{template.name}}</a>
+          <div class="delete"><a href="" ng-click="emailTemplates.delete(template)"><i class="fa-duotone fa-light fa-trash"></i></a></div>
+        </div>
+        <div><a class="button" ui-sref="leads_template({id:'new',type:'email'})">Add email template</a></div>
+      </div>
+    </div>
+  </div>
+</div>

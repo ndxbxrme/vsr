@@ -1,0 +1,98 @@
+
+<div class="maintenance-dashboard-route">
+
+  <nav class="maint-primary-bar">
+    <div class="container-xl">
+      <div class="row align-items-center">
+        <div class="col-md-6 d-flex align-items-center gap-3 date-user">
+          <span class="navbar-brand  maint-today-label">
+            {{today | date:'EEE, d MMM yyyy'}}
+          </span>
+
+          <div class="maint-user-select">
+            <select class="usertheme" ng-model="$root.selectedUser" ui-select2="userSelectOptions" theme="usertheme" ng-change="hidePopup()" style="width:100%">
+              <option ng-repeat="user in maintenance" value="{{user._id}}">{{user.displayName || user.local.email}}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="col-md-6 text-md-end">
+          <div class="button-row">
+            <a ui-sref="maintenance_agenda" class="button">Agenda <i class="fa-light fa-clipboard-list"></i></a>
+            <button class="button"
+                    type="button"
+                    ng-click="dateSwiperConfig.show = !dateSwiperConfig.show"
+                    ng-class="{'button-active': dateSwiperConfig.show}">
+                    Date <i class="fa-light fa-calendar-circle-user"></i>
+            </button>
+            <button class="button button-alt d-md-none d-block"
+                    type="button"
+                    ng-click="panelOpen = !panelOpen">
+                    Filter <i class="fa-light fa-filter"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>  
+  </nav>
+
+  <maintenance-date-swiper config="dateSwiperConfig"></maintenance-date-swiper>
+
+  <div class="collapse d-md-block maint-secondary-panel" ng-class="{'show': panelOpen}">
+    <div class="container-xl">
+      <div class="row">
+        <div class="col-lg-4 col-md-12">
+          <div class="maint-panel-section">
+            <div class="maint-section-label">Status</div>
+            <div class="maint-filter-pills">
+              <a href="" class="filter-item icon-confirmed" ng-click="filters.confirmed = !filters.confirmed; setFilters()" ng-class="{selected: filters.confirmed}">Confirmed</a>
+              <a href="" class="filter-item icon-quote"     ng-click="filters.quote = !filters.quote; setFilters()"         ng-class="{selected: filters.quote}">Quote</a>
+              <a href="" class="filter-item icon-completed" ng-click="filters.completed = !filters.completed; setFilters()" ng-class="{selected: filters.completed}">Completed</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-4 col-md-6">
+          <div class="maint-panel-section">
+            {{income = calculateWeeklyIncome(); ''}}
+            <div class="maint-section-label">Weekly target</div>
+            <div class="maint-kv-table">
+              <div class="maint-kv-row"><div class="text-muted">Income</div><div class="fw-semibold">{{income.amount | currency:'£'}}</div></div>
+              <div class="maint-kv-row"><div class="text-muted">Target</div><div class="fw-semibold">{{income.target | currency:'£'}}</div></div>
+              <div class="maint-kv-row"><div class="text-muted">+/−</div>
+                <div class="fw-semibold" ng-class="{loss: income.profitLoss &lt; 0, profit: income.profitLoss >= 0}">
+                  {{income.profitLoss | currency:'£'}}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-4 col-md-6">
+          <div class="maint-panel-section">
+            <div class="maint-section-label">This week</div>
+            <div class="maint-kv-table">
+              <div class="maint-kv-row"><div class="text-muted">Jobs</div><div class="fw-semibold">{{income.jobs}}</div></div>
+              <div class="maint-kv-row"><div class="text-muted">Quotes</div><div class="fw-semibold">{{income.quotes}}</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- <div class="col-md-12 col-lg-4">
+        <div class="maint-panel-section">
+          <div class="maint-section-label">Staff</div>
+          <div class="d-flex flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-1 maint-staff-chip" ng-repeat="user in staff">
+              <img gravatar-src="user.local.email" class="rounded-circle" width="22" height="22"/>
+              <span class="small">{{user.displayName || user.local.email}}</span>
+            </div>
+          </div>
+        </div>
+      </div> -->
+    </div>
+  </div>
+
+  <maintenance-calendar></maintenance-calendar>
+
+</div>

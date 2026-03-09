@@ -1,0 +1,86 @@
+.property
+  .container
+    .row
+      .col-xs-12.title-row
+        h2 
+          i.fa-duotone.fa-light.fa-house-user
+          |  Property
+        a(href='/').medium.button.orange 
+          i.fa-light.fa-arrow-turn-left(aria-hidden='true')  
+          |  Dashboard
+  section.property-banner
+    .container
+      .row
+        .col-xs-12
+          .property-slider.row
+            .property-slider-large.col-md-8
+              .property-image(ng-repeat='image in property.details.Images | limitTo:1')
+                img(ng-src='{{image.Url}}' alt='{{property.Address.Street}}')
+            .property-slider-thumbs.col-md-4.col-sm-6
+              .thumb(ng-repeat='image in property.details.Images.slice(1,5) | limitTo:2')
+                img(ng-src='{{image.Url}}' alt='{{property.Address.Street}}')
+
+            .prop-nav
+              a.icon-button(ng-click='openPhotos()' title='Photos')
+                i.fa-duotone.fa-light.fa-file-image
+                span {{property.details.Images.length}} Photos
+              a.icon-button(ng-show='hasDocument("Floorplan")' ng-click='openFloorplan()' title='Floorplan')
+                i.fa-duotone.fa-light.fa-object-group
+                span Floorplan
+              a.icon-button(ng-show='hasDocument("Brochure")' href='{{getDocumentUrl("Brochure")}}' target='_blank' title='Brochure')
+                i.fa-duotone.fa-light.fa-file-pdf
+                span Brochure
+
+
+  .property-content
+    .container 
+      .row 
+        .col-xs-12
+          .property-detail
+            h4 {{property.Address.Number}} {{property.Address.Street }}, {{property.Address.Locality }}, {{property.Address.Town}}
+              br 
+              span(ng-if='property.details.Price') {{property.details.Price.PriceValue | currency:"£":0}}
+            .row
+              .col-xs-12
+                section.property-info
+                  .icon-wrapper
+                    p.icon-wrap(ng-if='property.details.RoomCountsDescription.Bedrooms')
+                      i.fa-light.fa-bed
+                      span.count
+                        span.no {{property.details.RoomCountsDescription.Bedrooms}}
+                        span  Bedrooms
+                    p.icon-wrap(ng-if='property.details.RoomCountsDescription.Bathrooms')
+                      i.fa-light.fa-bath
+                      span.count
+                        span.no {{property.details.RoomCountsDescription.Bathrooms}}
+                        span  Bathrooms
+                    p.icon-wrap(ng-if='property.details.RoomCountsDescription.Receptions')
+                      i.fa-light.fa-couch
+                      span.count
+                        span.no {{property.details.RoomCountsDescription.Receptions}}
+                        span  Receptions
+                .col-xs-12.col-lg-8
+                  .summary(ng-if='property.details.SummaryTextDescription')
+                    h3 Description
+                    .long-desc(ng-bind-html='property.details.SummaryTextDescription')
+
+                  section.location-map(ng-if='mapUrl')
+                    h3 Location
+                    .map-holder
+                      iframe(ng-src='{{mapUrl}}' width='100%' height='450' style='border:0; border-radius:10px;' allowfullscreen='' loading='lazy' referrerpolicy='no-referrer-when-downgrade')
+
+                .col-xs-12.col-lg-4
+                  section.key-features
+                    .key-features-content
+                      h3 Key Features
+                      ul
+                        li(ng-repeat='feature in getFeatures()') {{feature.Feature}}
+                  
+                  .contact-buttons
+                    a.medium.orange.button(href='tel:{{office.phone}}')
+                      i.fa-light.fa-phone
+                      |  Call Office
+                    a.medium.orange.button(href='mailto:{{office.email}}')
+                      i.fa-light.fa-envelope
+                      |  Email Office
+          

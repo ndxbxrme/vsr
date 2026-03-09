@@ -1,0 +1,16 @@
+.forgot-dir
+  h1 forgot password {{token}}
+  form(name='emailForm', ng-submit='submitEmail()', ng-hide='token')
+    label Email address
+    input(type='email', ng-model='email')
+    label.error {{error}}
+    .controls
+      input(type='submit', value='OK')
+  form(name='passForm', ng-submit='submitPass()', ng-show='token')
+    label Choose a password
+    input(type='password', ng-model='password')
+    label Repeat password
+    input(type='password', ng-model='repeatPassword')
+    .controls
+      input(type='submit', value='OK')
+  

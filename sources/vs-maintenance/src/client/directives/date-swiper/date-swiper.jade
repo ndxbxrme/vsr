@@ -1,0 +1,23 @@
+.date-swiper-holder(ng-class="{'is-active': config.show}")
+  .date-swiper-box
+    .date-swiper
+      .carousel
+        .month(class='month-{{$index+1}} month-{{m.year}}-{{m.month+1}}', ng-repeat='m in months track by $index')
+          .month-holder
+            .left
+              .prev(tap='monthPrev()') &lt;
+            .month-name
+              | {{m.monthName}} 
+              span.month-year {{m.year}}
+            .right
+              .next(tap='monthNext()') &gt;
+          ul.day-names
+            li(ng-repeat='n in dayNames track by $index', ng-class="{'is-weekend': $first || $last}")
+              .day-name {{n}}
+          ul.days
+            li(ng-repeat='d in m.days track by $index', tap='setDate(d.date)', ng-class='setClass(d, m)')
+              .date {{d.num}}
+    .controls
+      .button-row
+        .done(ng-click='done()') Done
+      

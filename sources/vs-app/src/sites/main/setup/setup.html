@@ -1,0 +1,19 @@
+
+<div class="setup">
+  <div class="container-xl">
+    <h1><i class="fa-duotone fa-light fa-gear"></i> Admin Setup</h1>
+    <div class="row">
+      <div class="col-sm-6">
+        <div class="email-templates">
+          <h2><i class="fa-duotone fa-light fa-at"></i> Email templates</h2>
+          <div class="email-template" ng-repeat="template in emailTemplates.items"><a class="name" ui-sref="template({id:template._id,type:'email'})">{{template.name}}</a>
+            <div class="delete"><a href="" ng-click="emailTemplates.delete(template)"><i class="fa-light fa-duotone fa-trash" aria-hidden="true"></i></a></div>
+          </div>
+        </div>
+        <div>
+          <a class="add-email-template button mt-3" ui-sref="template({id:'new',type:'email'})">Add email template <i class="fa-light fa-plus"></i></a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

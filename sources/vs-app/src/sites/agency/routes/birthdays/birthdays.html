@@ -1,0 +1,81 @@
+<div class="birthdays">
+  <div class="container-xl">
+    <div class="row align-items-center">
+      <div class="col-sm-8">
+        <h1><i class="fa-duotone fa-light fa-cake-candles"></i> Birthdays</h1>
+        <input type="button" ng-click="showBirthdayControls()" value="{{controlsHidden?'Add':'Cancel'}}" />
+      </div>
+      <div class="col-sm-4 search">
+        <input type="text" ng-model="search" placeholder="Search Birthdays" ng-change="page=1"/>
+        <div class="total" style="text-align: right">Showing<br>{{((page - 1) * limit) + 1}} to {{topLimit(page, limit, birthdays.total)}} of {{birthdays.total}} leads</div>
+      </div>
+    </div>
+    <div class="birthday-controls" ng-hide="controlsHidden">
+      <div class="row">
+        <div class="col-md-2 col-sm-4 col-6">
+          <label>Address</label>
+          <input type="text" ng-model="birthday.address"/>
+        </div>
+        <div class="col-md-2 col-sm-4 col-6">
+          <label>Client Name</label>
+          <input type="text" ng-model="birthday.name"/>
+        </div>
+        <div class="col-md-2 col-sm-4 col-6">
+          <label>Client Email</label>
+          <input type="text" ng-model="birthday.email"/>
+        </div>
+        <div class="col-md-2 col-sm-4 col-6">
+          <label>Image Url</label>
+          <input type="text" ng-model="birthday.image"/>
+        </div>
+        <div class="col-md-2 col-sm-4 col-6">
+          <label>Date</label>
+          <input type="date" ng-model="birthday.full_date"/>
+        </div>
+        <div class="col-md-2 col-sm-4 col-6">
+          <label style="width: 100%">&nbsp;</label>
+          <input type="button" ng-click="submitBirthday()" value="Submit" />
+        </div>
+      </div>
+    </div>
+    <div class="properties-list" ng-show="filterData.length>0">
+      <div class="property-card" ng-repeat="birthday in filterData = (birthdays.items | filter:{&quot;search&quot;:search} | orderBy:sort) | limitTo:limit:limit*(page-1)">
+        <div class="property-main row g-5">
+          <div class="property-image col-md-3">
+            <img src="{{birthday.image}}&width=500" class="image"/>
+          </div>
+          
+          <div class="property-info col-md-6">
+            <div class="property-meta">
+              <div class="property-address"><strong>Address:</strong> {{birthday.address}}</div>
+              <div class="client-name"><strong>Client Name:</strong> {{birthday.name}}</div>
+              <div class="client-email"><strong>Client Email:</strong> {{birthday.email}}</div>
+            </div>
+          </div>
+          
+          <div class="property-stats-actions col-md-3">
+            <div class="birthday-info">
+              <div class="stat-item">
+                <span class="age"><i class="fa-duotone fa-light fa-cake-candles"></i> <strong>Age:</strong> <strong class="orange">{{age(birthday.full_date)}}</strong></span>
+              </div>
+              <div class="stat-item">
+                <span class="days-till"><i class="fa-duotone fa-light fa-calendar-days"></i> <strong>Days Until:</strong> {{birthday.daysTillNext}} {{birthday.daysTillNext===1?'Day':'Days'}}</span>
+              </div>
+              <div class="stat-item">
+                <span class="completion-date"><i class="fa-duotone fa-light fa-calendar-check"></i> <strong>Date:</strong> {{birthday.full_date | date:'dd/MM/yyyy'}}</span>
+              </div>
+            </div>
+
+            <div class="property-actions">
+              <input class="button delete" type="button" ng-click="deleteBirthday(birthday)" value="Delete" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <pagination class="pagination-sm pagination" total="filterData.length" ng-model="page" page-size="limit" page-change="pageChange" show-first-last="true"></pagination>
+    <div class="nothing-to-show" ng-show="filterData.length===0">
+      <h3>Nothing to show</h3>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,242 @@
+.offers-list
+  padding-top 30px
+  // Controls
+  .controls
+    .sort
+      margin-right 30px
+    .order-item, .filter-item
+      display inline-flex
+      align-items center
+      position relative
+      color vs-grey
+      background white
+      font-weight 600
+      margin 0px 5px 10px 0px
+      padding 5px 15px
+      border 1px solid vs-lightgrey
+      border-radius 30px
+      &:hover
+        color vs-orange
+      &.icon-green, &.icon-red, &.icon-orange
+        padding-left 3rem
+        &:before
+          content ''
+          position absolute
+          top 0.7rem
+          left 0.5rem
+          width 2rem
+          height 2rem
+          background vs-green
+          border-radius 50%
+      &.icon-red:before
+        background vs-red
+      &.icon-orange:before
+        background vs-amber
+      &.selected
+        background vs-orange
+        color white
+        border: 1px solid vs-orange
+        
+  .showing 
+    margin-bottom: 10px
+  input[type="button"]
+    margin-right 0px
+  .properties-list
+    .property-card
+      background white
+      border-radius 10px
+      border 1px solid vs-lightgrey
+      transition all 0.3s ease
+      margin-bottom 15px
+      &:hover
+        box-shadow 0 4px 12px rgba(0,0,0,0.1)  
+        
+  .property-image
+    padding 20px 30px 20px 35px
+    position relative
+    img
+      width 100%
+      height 200px
+      object-fit cover
+      border-radius 10px
+    .no-image
+      width 100%
+      height 200px
+      display flex
+      align-items center
+      justify-content center
+      background vs-lightgrey
+      border-radius 10px
+      color vs-grey
+      font-weight 600
+      font-size 1.6rem
+    &.has-request
+      img
+        border 3px solid vs-orange
+          
+  .property-info 
+    border-right 1px solid vs-lightgrey
+    display flex
+    flex-direction column
+    justify-content space-between
+    .property-meta
+      .property-address
+        font-size 1.8rem
+        font-weight 600
+        color vs-orange
+        margin-bottom 10px
+        strong
+          color vs-grey
+      .offer-details
+        display block
+        font-size 1.6rem
+        font-weight 600
+        color vs-orange
+        margin-bottom 10px
+        strong
+          color vs-grey
+    .offer-details-section
+      background vs-body
+      padding 20px
+      border-radius 10px
+      margin-top 10px
+      p
+        font-size 1.4rem
+        margin-bottom 5px
+        &:last-child
+          margin-bottom 0
+        i
+          margin-right 8px
+        strong
+          color vs-grey
+            
+  .property-stats-actions
+    padding 20px 30px 20px 30px
+    display flex
+    flex-direction column
+    align-items flex-start
+    justify-content space-between
+    .property-vendor
+      margin-bottom 15px
+      .label
+        font-weight 600
+        margin-bottom 5px
+        font-size 1.4rem
+        color vs-grey
+        i
+          margin-right 5px
+      .value
+        font-size 1.6rem
+        font-weight 600
+      .time-ago
+        font-size 1.4rem
+        color vs-silver
+        display block
+    .property-stats
+      margin-bottom 15px
+      .stat-item
+        margin-bottom 10px
+        span
+          font-size 1.4rem
+          i
+            margin-right 5px
+            color vs-orange
+          strong
+            color vs-grey
+          strong.orange
+            color vs-orange
+    .property-actions
+      .button 
+        margin-bottom 0px !important
+          
+  .pagination-holder
+    display flex
+    justify-content center
+    .pagination
+      a
+        color vs-orange
+      a:hover
+        color vs-orange
+      li.active
+        a
+          background vs-orange
+          border-color vs-orange
+          color #fff
+          
+  .pagination
+    justify-content center
+    text-align center
+    .page
+      padding 5px 10px 3px 10px
+      border 1px solid vs-lightgrey
+      border-left none
+      transition all 0.4s ease-in-out
+      &:first-of-type 
+        border-left: 1px solid vs-lightgrey
+        border-bottom-left-radius 5px
+        border-top-left-radius 5px
+      &:last-of-type 
+        border-bottom-right-radius 5px
+        border-top-right-radius 5px
+      &.last, &.first 
+        padding 5px 20px 3px 20px
+      &.selected, &:hover
+        background vs-orange
+        color white
+        .title
+          min-height 0!important
+  .options
+    a.button
+      display inline-block
+      white-space nowrap
+      padding 1rem
+      border 1px solid #ccc
+      border-radius 0.5rem
+      color vs-orange
+      transition all 0.4s ease-in-out
+      cursor pointer
+      &:hover
+        background vs-orange
+        color white
+  .pagination-holder
+    display flex
+    justify-content center
+    .pagination
+      a
+        color vs-orange
+      a:hover
+        color vs-orange
+      li.active
+        a
+          background vs-orange
+          border-color vs-orange
+          color #fff
+  .pagination
+    justify-content center
+    margin 20px 0
+    text-align center
+    .page
+      padding 5px 10px 3px 10px
+      border 1px solid vs-lightgrey
+      border-left none
+      transition all 0.4s ease-in-out
+      &:first-of-type 
+        border-left: 1px solid vs-lightgrey
+        border-bottom-left-radius 5px
+        border-top-left-radius 5px
+      &:last-of-type 
+        border-bottom-right-radius 5px
+        border-top-right-radius 5px
+      &.last, &.first 
+        padding 5px 20px 3px 20px
+      &.selected, &:hover
+        background vs-orange
+        color white
+.mobile
+  .cases
+    .controls
+      .order-item, .filter-item
+        margin-left 1rem
+    .mobile-table
+      .address-row
+        flex 1

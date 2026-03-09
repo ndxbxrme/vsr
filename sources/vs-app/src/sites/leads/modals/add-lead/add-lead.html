@@ -1,0 +1,122 @@
+<div class="modal add-lead-modal large">
+  <div class="modal-header">
+    <h2>{{lead.item &amp;&amp; lead.item._id ? 'Edit Lead' : 'Add New Lead'}}</h2>
+    <a ng-click="cancel()" class="close-reveal-modal">&times;</a>
+  </div>
+  
+  <div class="modal-body">
+    <form name="forms.myForm" novalidate="novalidate" ng-submit="save()">
+      
+      <div class="radio-row">
+        <label for="rts-modal">Selling
+          <input id="rts-modal" type="radio" name="roleType" ng-model="lead.item.roleType" value="Selling"/>
+        </label>
+        <label for="rtl-modal">Letting
+          <input id="rtl-modal" type="radio" name="roleType" ng-model="lead.item.roleType" value="Letting"/>
+        </label>
+        <label for="rtv-modal">Valuation
+          <input id="rtv-modal" type="radio" name="roleType" ng-model="lead.item.roleType" value="Valuation"/>
+        </label>
+      </div>
+
+      <div ng-if="!lead.item._id" ng-hide="lead.item.roleType===&quot;Valuation&quot;" class="form-row">
+        <h3 class="orange">{{ mla('lead-property-label') }}</h3>
+        <div ng-class="{warning: submitted &amp;&amp; forms.myForm.selectedProperty.$invalid}" class="form-item c-select selectedProperty required  " ng-if="lead.item.roleType===&quot;Selling&quot;">
+          <label class="label">{{ mla('lead-selectedProperty-label') }}</label>
+          <div class="input-holder">
+            <select sumoselect="{placeholder:mla('lead-selectedProperty-placeholder'), search:true}" ng-model="selection.selectedProperty" name="selectedProperty" ng-disabled="disabled" required="required">
+              <option ng-repeat="selectedProperty in selling.items" value="{{selectedProperty._id}}" ng-disabled="selectedProperty.disabled" ng-hide="selectedProperty.hidden">{{ selectedProperty.name }}</option>
+            </select>
+          </div>
+          <p ng-show="submitted &amp;&amp; forms.myForm.selectedProperty.$error.required" class="error">{{ mla('lead-selectedProperty-error-required') }}</p>
+        </div>
+        <div ng-class="{warning: submitted &amp;&amp; forms.myForm.selectedProperty.$invalid}" class="form-item c-select selectedProperty required  " ng-if="lead.item.roleType===&quot;Letting&quot;">
+          <label class="label">{{ mla('lead-selectedProperty-label') }}</label>
+          <div class="input-holder">
+            <select sumoselect="{placeholder:mla('lead-selectedProperty-placeholder'), search:true}" ng-model="selection.selectedProperty" name="selectedProperty" ng-disabled="disabled" required="required">
+              <option ng-repeat="selectedProperty in letting.items" value="{{selectedProperty._id}}" ng-disabled="selectedProperty.disabled" ng-hide="selectedProperty.hidden">{{ selectedProperty.name }}</option>
+            </select>
+          </div>
+          <p ng-show="submitted &amp;&amp; forms.myForm.selectedProperty.$error.required" class="error">{{ mla('lead-selectedProperty-error-required') }}</p>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <h3 class="orange">{{ mla('lead-name-label') }}</h3>
+        <div class="user row">
+          <div ng-class="{warning: submitted &amp;&amp; forms.myForm.usertitle.$invalid}" class="form-item c-input usertitle required col-sm-2">
+            <label class="label">{{ mla('lead-usertitle-label') }}</label>
+            <input type="text" name="usertitle" ng-model="lead.item.user.title" placeholder="{{ mla('lead-usertitle-placeholder') }}" title="{{ mla('lead-usertitle-label') }}" ng-disabled="disabled" required="required"/>
+            <p ng-show="submitted &amp;&amp; forms.myForm.usertitle.$error.required" class="error">{{ mla('lead-usertitle-error-required') }}</p>
+          </div>
+          <div ng-class="{warning: submitted &amp;&amp; forms.myForm.userfirst_name.$invalid}" class="form-item c-input userfirst_name required col-sm-5">
+            <label class="label">{{ mla('lead-userfirst_name-label') }}</label>
+            <input type="text" name="userfirst_name" ng-model="lead.item.user.first_name" placeholder="{{ mla('lead-userfirst_name-placeholder') }}" title="{{ mla('lead-userfirst_name-label') }}" ng-disabled="disabled" required="required"/>
+            <p ng-show="submitted &amp;&amp; forms.myForm.userfirst_name.$error.required" class="error">{{ mla('lead-userfirst_name-error-required') }}</p>
+          </div>
+          <div ng-class="{warning: submitted &amp;&amp; forms.myForm.userlast_name.$invalid}" class="form-item c-input userlast_name required col-sm-5">
+            <label class="label">{{ mla('lead-userlast_name-label') }}</label>
+            <input type="text" name="userlast_name" ng-model="lead.item.user.last_name" placeholder="{{ mla('lead-userlast_name-placeholder') }}" title="{{ mla('lead-userlast_name-label') }}" ng-disabled="disabled" required="required"/>
+            <p ng-show="submitted &amp;&amp; forms.myForm.userlast_name.$error.required" class="error">{{ mla('lead-userlast_name-error-required') }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-label">{{ mla('lead-phone-label') }}</div>
+        <div ng-class="{warning: submitted &amp;&amp; forms.myForm.userphone_day.$invalid}" class="form-item c-input userphone_day   ">
+          <label class="label">{{ mla('lead-userphone_day-label') }}</label>
+          <input type="text" name="userphone_day" ng-model="lead.item.user.phone_day" placeholder="{{ mla('lead-userphone_day-placeholder') }}" title="{{ mla('lead-userphone_day-label') }}" ng-disabled="disabled"/>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-label"> </div>
+        <div ng-class="{warning: submitted &amp;&amp; forms.myForm.email.$invalid}" class="form-item c-input email-input ">
+          <label class="label">{{ mla('lead-email-label') }}</label>
+          <input type="text" name="email" ng-model="lead.item.email" placeholder="{{ mla('lead-email-placeholder') }}" title="{{ mla('lead-email-label') }}" ng-disabled="disabled"/>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <h3 class="orange">{{ mla('lead-addressSection-label') }}</h3>
+        <div class="address">
+          <div ng-class="{warning: submitted &amp;&amp; forms.myForm.useraddress.$invalid}" class="form-item c-input useraddress required  ">
+            <label class="label">{{ mla('lead-useraddress-label') }}</label>
+            <input type="text" name="useraddress" ng-model="lead.item.user.address" placeholder="{{ mla('lead-useraddress-placeholder') }}" title="{{ mla('lead-useraddress-label') }}" ng-disabled="disabled" required="required"/>
+            <p ng-show="submitted &amp;&amp; forms.myForm.useraddress.$error.required" class="error">{{ mla('lead-useraddress-error-required') }}</p>
+          </div>
+          <div ng-class="{warning: submitted &amp;&amp; forms.myForm.useraddress2.$invalid}" class="form-item c-input useraddress2   ">
+            <label class="label">{{ mla('lead-useraddress2-label') }}</label>
+            <input type="text" name="useraddress2" ng-model="lead.item.user.address2" placeholder="{{ mla('lead-useraddress2-placeholder') }}" title="{{ mla('lead-useraddress2-label') }}" ng-disabled="disabled"/>
+          </div>
+          <div ng-class="{warning: submitted &amp;&amp; forms.myForm.userpostcode.$invalid}" class="form-item c-input userpostcode required  ">
+            <label class="label">{{ mla('lead-userpostcode-label') }}</label>
+            <input type="text" name="userpostcode" ng-model="lead.item.user.postcode" placeholder="{{ mla('lead-userpostcode-placeholder') }}" title="{{ mla('lead-userpostcode-label') }}" ng-disabled="disabled" required="required"/>
+            <p ng-show="submitted &amp;&amp; forms.myForm.userpostcode.$error.required" class="error">{{ mla('lead-userpostcode-error-required') }}</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-label">{{ mla('lead-source-label') }}</div>
+        <div ng-class="{warning: submitted &amp;&amp; forms.myForm.method.$invalid}" class="form-item c-select method required  ">
+          <label class="label">{{ mla('lead-method-label') }}</label>
+          <div class="input-holder">
+            <select sumoselect="{placeholder:mla('lead-method-placeholder'), search:true}" ng-model="lead.item.method" name="method" ng-disabled="disabled" required="required">
+              <option ng-repeat="method in sources.items" value="{{method._id}}" ng-disabled="method.disabled" ng-hide="method.hidden">{{ method.name }}</option>
+            </select>
+          </div>
+          <p ng-show="submitted &amp;&amp; forms.myForm.method.$error.required" class="error">{{ mla('lead-method-error-required') }}</p>
+        </div>
+      </div>
+    </form>
+  </div>
+
+  <div class="modal-footer">
+    <div class="controls">
+      <button type="button" ng-click="save()" class="button">{{ mla('forms-submit') }}</button>
+      <button type="button" ng-click="cancel()" class="button-alt button cancel">{{ mla('forms-cancel') }}</button>
+    </div>
+  </div>
+</div>

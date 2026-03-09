@@ -1,0 +1,180 @@
+$dark = #23292c
+$darker = mix($dark, black, 50%)
+$light = #e2e4e6
+$lighter = mix($light, white, 40%)
+$base = vs-text
+$alert = #f06292
+// structural/functional
+@keyframes IN
+  0%
+    opacity 0
+  100%
+    opacity 1
+@keyframes OUT
+  0%
+    opacity 1
+  100%
+    opacity 0
+.date-picker-holder
+  z-index 3000
+  align-items center
+  justify-content center
+  position fixed!important
+  top 0
+  left 0
+  right 0
+  bottom 0
+  opacity 1
+  transform: translate3d(0%, 0%, 0)
+  background rgba(0,0,0,0.05)
+  &.open
+    opacity 1
+  &.is-active
+    transform: translate3d(0%, 0%, 0)
+  .date-picker-box
+    max-width 26rem
+    min-width 26rem
+    width 26rem
+    box-shadow 0 4px 6px rgba(0,0,0,0.4)
+    .date-picker
+      padding: 0
+      overflow: hidden
+      display: flex
+      flex-direction: row
+      font-family: "DIN Alternate", sans-serif
+      no-select()
+      *, *::before, *::after
+        box-sizing: border-box
+      // important structure
+      ul
+        padding: 0
+        margin: 0
+        display: flex
+        flex-direction: row
+        flex-wrap: wrap
+        li
+          list-style-type: none
+          //padding: .2em 0
+          flex: 1 0 14.285714286%
+          text-align: center
+          display flex
+          justify-content center
+          align-items center
+          height 3rem
+      .carousel
+        display: flex
+        flex-direction: row
+        position: relative
+        transform: translate3d(-100%, 0, 0)
+        width 100%
+        // important interactions
+        &.animate
+          transition: transform 300ms ease-out
+      .month
+        flex: 1 0 100%
+        position: relative
+        font-size 1.2rem
+      .month-name
+        font-size: 1.2em
+        padding: .5em
+        background vs-text
+        .month-year
+          cursor pointer
+          padding 0.2rem
+          &:hover
+            color white
+            opacity 1
+            background rgba(255,255,255,0.2)
+        .month-year:after
+          content '\25BE'
+          position absolute
+        .month-year.open:after
+          transform rotate(180deg)
+      .day-names
+        font-size: .8em
+        line-height: 1.5
+        padding-top 3rem
+      .days, .year-list
+        font-size: 1em
+        line-height: 2
+        background vs-white
+        color vs-text
+      .date
+        padding: 0
+        border-radius: 100%
+        //margin: .3em auto
+        width: 2em
+        height: 2em
+        pointer-events: none
+      .year-list
+        padding-top 3rem
+      .year-list li
+        flex 1 0 33%
+        padding 1rem 0
+  .button-row
+    display flex
+    justify-content center
+    padding 0.5rem
+    background #edebfa
+// Theme/Design related
+.date-picker
+  z-index: 5
+  background: $dark
+  color: $lighter
+  // important interaction
+  &:not(.dragging)
+    transition: transform 300ms ease-out
+  .month
+    background: $base
+  .month-holder
+    display flex
+    position relative
+    .prev, .next
+      width 2em
+      height 2em
+      border 2px solid #fff
+      border-radius 100%
+      text-align center
+      line-height 1.8em
+      cursor pointer
+      position absolute
+      top .2rem
+      left .2rem
+      z-index 3
+    .next
+      right .2rem
+      left auto
+    .month-name
+      text-transform: uppercase
+      position absolute
+      top 0
+      left 0
+      width 100%
+      display block
+      text-align center
+      line-height 1.4rem
+    .month-year
+      opacity: .65
+  .day-names
+    background #f3f5f5
+    color: vs-text
+  .days li
+    &:not(.day-in-curr-month)
+      opacity: .65
+    &.invalid
+      opacity 0.2
+      pointer-events none
+  .is-today .date
+    background: rgba($dark, 0.1)
+  .is-selected
+    .date
+      color: vs-text
+      box-shadow: 0 0 0 .1em
+  .toggle
+    background: rgba($dark, 0.25)
+    color: $light
+.ie
+  .date-picker
+    .month
+      min-width 26rem
+      flex none!important

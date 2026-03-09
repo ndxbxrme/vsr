@@ -1,0 +1,9 @@
+
+<div class="header-dir">
+  <div class="container-xl">
+    <div class="logo"><a class="logo" href="/leads/"><img class="logo" src="public/img/VitalSpaceLogo-2016.svg"/></a></div>
+    <menu class="main-menu mobile-hide"></menu>
+    <div class="user mobile-hide"><a ui-sref="leads_profile">{{auth.getUser().displayName || auth.getUser().local.email}} </a><a href="/leads/api/logout" target="_self"> <img class="logo" src="public/img/icons/logout.svg"/></a></div>
+    <button class="lines-btn desktop-hide" ng-click="toggleMobileMenu($event)"><span class="lines"></span></button>
+  </div>
+</div>

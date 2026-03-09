@@ -1,0 +1,53 @@
+<div class="dashboard admin-dashboard">
+  <div class="container-xl">
+    <h1><i class="fa-light fa-duotone fa-tachometer-alt"></i> Admin <strong class="orange">Dashboard</strong></h1>
+    <p class="intro">Select a module to manage.</p>
+    <div class="quick-links">
+      <div class="button-row row g-3">
+        <div class="col-md-4 col-sm-6" ng-show="auth.isAuthorized('admin_boards')">
+          <a ui-sref="admin_boards" class="button big-link">
+            Boards Management
+            <i class="fa-light fa-duotone fa-handshake"></i>
+          </a>
+        </div>
+        <div class="col-md-4 col-sm-6" ng-show="auth.isAuthorized('admin_epc')">
+          <a ui-sref="admin_epc" class="button big-link">
+            EPC Management
+            <i class="fa-light fa-duotone fa-money-check-pen"></i>
+          </a>
+        </div>
+        <div class="col-md-4 col-sm-6" ng-show="auth.isAuthorized('admin_misdescriptions')">
+          <a ui-sref="admin_misdescriptions" class="button big-link">
+            Property Misdescriptions
+            <i class="fa-light fa-duotone fa-house-person-return"></i>
+          </a>
+        </div>
+        <div class="col-md-4 col-sm-6" ng-show="auth.isAuthorized('agency_marketing')">
+          <a ui-sref="agency_marketing" class="button big-link">
+            Property Marketing
+            <i class="fa-light fa-duotone fa-money-check-pen"></i>
+          </a>
+        </div>
+        <div class="col-md-4 col-sm-6" ng-show="auth.isAuthorized('sms_dashboard')">
+          <a ui-sref="sms_dashboard" class="button big-link">
+            SMS
+            <i class="fa-light fa-duotone fa-mobile"></i>
+          </a>
+        </div>
+        <!-- Probably needs something different for the ngShow -->
+        <div class="col-md-4 col-sm-6" ng-show="auth.isAuthorized('sms_templates')">
+          <a ui-sref="sms_templates" class="button big-link">
+            SMS Templates
+            <i class="fa-light fa-duotone fa-clipboard"></i>
+          </a>
+        </div>
+        <div class="col-md-4 col-sm-6" ng-show="auth.isAuthorized('admin_windows')">
+          <a ui-sref="admin_windows" class="button big-link">
+            Windows
+            <i class="fa-light fa-duotone fa-money-check-pen"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

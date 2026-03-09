@@ -1,0 +1,86 @@
+.diary-route
+  display flex
+  font-size 12px
+  .toolbar
+    background vs-grey
+    color white
+    display flex
+    flex-direction column
+    width 260px
+    min-width 260px
+    max-width 260px
+    flex-wrap wrap
+    padding-top .5rem
+    padding-bottom .5rem
+    margin 10px
+    border-radius 20px
+    .contractors
+      label
+        color vs-orange
+        margin 0.5rem
+        font-size 1.2rem
+        display block
+        font-weight 700
+    .issue
+      width 100%
+      padding .4rem .5rem
+      border-bottom 1px solid rgba(255,255,255,0.2)
+      div
+        padding 0 .4rem .4rem .4rem
+    .dates
+      width 100%
+      .date-swiper-holder
+        position relative
+        display block
+        z-index 1
+        .day-names
+          color inherit
+          margin-top 1.6rem
+        .month
+          background #394a58
+        .controls
+          display none
+        .month-holder
+          height 2rem
+          position relative
+        .month-name
+          position absolute
+          top 0
+          left 0
+          width 100%
+          display block
+          pointer-events none
+        .is-selected
+          .date
+            background vs-orange
+        ul li:before
+          display none
+          
+    .contractors
+      width 100%
+      .input-holder
+        color #333
+        margin 1rem 0.5rem
+  .back a
+    vs-button-alt()
+    color white
+    text-align center
+    margin 0.5rem
+    padding .65rem 1rem .65rem .65rem
+    text-transform uppercase
+    text-decoration none
+    font-weight 600
+    svg 
+      margin-right 1rem
+  .SumoSelect > .optWrapper > .options li.opt label
+    font-size 1.4rem
+    color vs-grey
+  .SumoSelect > .optWrapper.multiple > .options li.opt span, .SumoSelect .select-all > span
+    opacity 0
+  .SumoSelect.open > .optWrapper > .options li
+    &:before
+      display none
+    &.selected
+      background vs-orange 
+      label
+        color white

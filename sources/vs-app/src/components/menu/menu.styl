@@ -1,0 +1,20 @@
+.site-menu
+  height 4em
+  z-index 40000
+  sites
+    position absolute
+    display flex
+    flex-direction row
+  pages
+    display none
+    background white
+  site
+    display flex
+    flex-direction column
+    min-width 9em
+    min-height 2.8em
+    justify-content center
+    &:hover, &:focus
+      pages
+        display flex
+        flex-direction column

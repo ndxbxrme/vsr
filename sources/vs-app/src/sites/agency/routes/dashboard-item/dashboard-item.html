@@ -1,0 +1,50 @@
+
+<div class="dashboard-item">
+  <div class="container-xl">
+    <h1>Dashboard {{type==='overview'?'Overview':'Income'}} item</h1>
+    <div class="row">
+      <form class="col-sm-6" name="myForm" ng-submit="save()">
+        <label>Name</label>
+        <input type="text" ng-model="dashboardItem.item.name"/>
+        <label>Progression</label>
+        <select ng-model="dashboardItem.item.progression">
+          <option ng-repeat="progression in progressions.items" value="{{progression._id}}">{{progression.name}}</option>
+        </select>
+        <div class="col" ng-show="type==='income'">
+          <label>Sum Type</label>
+          <select ng-model="dashboardItem.item.sumtype">
+            <option>Count</option>
+            <option>Income</option>
+          </select>
+        </div>
+        <div class="col" ng-show="type==='income'">
+          <label>Status</label>
+          <select ng-model="dashboardItem.item.status">
+            <option>Due</option>
+            <option>Completed</option>
+            <option>Started</option>
+          </select>
+        </div>
+        <label ng-show="type==='overview'">Start milestone</label>
+        <label ng-show="type==='income'">Milestone</label>
+        <select ng-model="dashboardItem.item.minms">
+          <option ng-repeat="item in getMilestones()" value="{{item._id}}">{{item.title}}</option>
+        </select>
+        <div class="col" ng-show="type==='overview'">
+          <label>End milestone</label>
+          <select ng-model="dashboardItem.item.maxms">
+            <option ng-repeat="item in getMilestones()" value="{{item._id}}">{{item.title}}</option>
+          </select>
+        </div>
+        <label>Minimum date</label>
+        <input type="text" ng-model="dashboardItem.item.min" agency-date-input="date-input"/>
+        <label>Maximum date</label>
+        <input type="text" ng-model="dashboardItem.item.max" agency-date-input="date-input"/>
+        <div class="controls">
+          <input type="submit" value=" Save "/>
+          <button ng-click="cancel()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

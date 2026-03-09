@@ -1,0 +1,16 @@
+
+<div class="modal issue-book small" ng-click="$event.preventDefault()">
+  <h1>{{ mml('modal-issue-book-title') }}</h1>
+  <form name="forms.myForm" novalidate="novalidate" autocomplete="off" ng-submit="save('forms.myForm')">
+    <div ng-class="{warning: submitted &amp;&amp; forms.myForm.jobnumber.$invalid}" class="form-item c-input jobnumber required  ">
+      <label class="label">{{ mml('forms.myForm-jobnumber-label') }}</label>
+      <input type="text" name="jobnumber" ng-model="forms.myForm.item.jobnumber" placeholder="{{ mml('forms.myForm-jobnumber-placeholder') }}" title="{{ mml('forms.myForm-jobnumber-label') }}" ng-disabled="disabled" required="required"/>
+      <p ng-show="submitted &amp;&amp; forms.myForm.jobnumber.$error.required" class="error">{{ mml('forms.myForm-jobnumber-error-required') }}    </p>
+    </div>
+    <div class="controls">
+      <label> </label>
+      <button type="submit" value="Book" class="button-green">Book <i class="fa-light fa-duotone fa-ballot-check"></i></button>
+      <button type="button" ng-click="cancel()" class="button-grey">Cancel <i class="fa-light fa-duotone fa-times"></i></button>
+    </div>
+  </form>
+</div>

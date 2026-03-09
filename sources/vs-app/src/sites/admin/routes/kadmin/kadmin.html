@@ -1,0 +1,14 @@
+
+
+<div class="client-management-list misdescriptions-list">
+  <div class="container-xl">
+    <h1>Kadmin</h1>
+    <table>
+      <tr ng-repeat="admin in propertyadmin.items">
+        <td>{{admin.RoleId}}</td>
+        <td>{{isBad(admin) ? admin : ''}}</td>
+        <td><input type="button" ng-click="padelete(admin)" value="Delete" /></td>
+      </tr>
+    </table>
+  </div>
+</div>

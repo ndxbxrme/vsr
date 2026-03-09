@@ -1,0 +1,105 @@
+.login-dir
+  height 100vh
+  .login-holder
+    .row
+      display flex
+      justify-content center
+      align-items center
+      height 100%
+      margin 0px
+    .text-side
+      padding 50px 150px
+      .login-form
+        max-width 500px
+    .image-side
+      padding 0px
+      img
+        width 100%
+        height 100vh
+        object-fit cover
+        object-position right
+    .logo
+      width 220px
+      margin-bottom 30px
+    h2
+      margin 0px
+      padding 0px
+      font-size 6rem
+      line-height 6.5rem
+    p.lead
+      margin-bottom 0px
+
+    form
+      margin-top 20px
+      width 90%
+    input
+      margin-bottom 0.7rem
+    input[type=text], input[type=email], input[type=password]
+      font-size 1.8rem
+      width 100%
+      padding 10px
+      border-radius 10px
+    .error 
+      border none
+    .button-row
+      display flex
+      flex-direction row
+      justify-content flex-start
+      gap 10px
+      margin-top: 10px
+      .button
+        margin-right 0px
+    .login-help
+      color vs-orange
+      margin-top 30px
+      small
+        font-size 1.4rem
+        margin-bottom 5px
+        padding 0px
+        &.grey
+          color #4a4a4a
+        a
+         color #df542c
+@media screen and (max-width:1600px) 
+  .login-dir
+    .col-lg-5,
+    .col-lg-7
+      width 50%
+@media screen and (max-width:1200px) 
+  .login-dir
+    .col-md-8
+      width 66.66666667%;
+    .col-md-4
+      width 33.3333%;
+    .login-dir .login-holder .text-side
+      padding 50px
+@media screen and (max-width:768px)
+  .login-dir
+    .login-holder
+      text-align center
+      .row
+        flex-direction column
+        .col-md-8,
+        .col-md-4
+          width 100%
+      .login-help a.button
+        margin 20px auto 0
+      .text-side .login-form
+        margin 0 auto
+      form
+        margin 20px auto 0
+      .image-side
+        display none
+    .main-content
+      .row.feature-blocks
+        flex-direction column
+        p
+          margin 0 auto 30px
+@media screen and (max-width:576px)
+  .login-dir
+    h2
+      font-size 5rem
+      line-height 5.5rem
+    .login-holder
+      .text-side
+        padding 20px

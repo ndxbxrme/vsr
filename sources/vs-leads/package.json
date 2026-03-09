@@ -1,0 +1,62 @@
+{
+  "name": "vs-leads",
+  "version": "0.0.44",
+  "description": "",
+  "main": "server/app.js",
+  "scripts": {
+    "test": "grunt test"
+  },
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "author": "",
+  "license": "MIT",
+  "homepage": "",
+  "devDependencies": {
+    "grunt": "^1.0.1",
+    "grunt-angular-templates": "^1.1.0",
+    "grunt-cli": "^1.2.0",
+    "grunt-contrib-clean": "^1.1.0",
+    "grunt-contrib-coffee": "^2.0.0",
+    "grunt-contrib-copy": "^1.0.0",
+    "grunt-contrib-jade": "^1.0.0",
+    "grunt-contrib-stylus": "^1.2.0",
+    "grunt-contrib-watch": "^1.0.0",
+    "grunt-express-server": "^0.5.3",
+    "grunt-file-append": "0.0.7",
+    "grunt-filerev": "^2.3.1",
+    "grunt-injector": "^1.1.0",
+    "grunt-keepalive": "^1.0.0",
+    "grunt-ndx-script-inject": "0.0.9",
+    "grunt-ndxmin": "0.0.5",
+    "grunt-ngmin": "0.0.3",
+    "grunt-usemin": "^3.1.1",
+    "grunt-wiredep": "^3.0.1",
+    "load-grunt-tasks": "^3.5.2"
+  },
+  "dependencies": {
+    "async": "^2.6.0",
+    "crypto-js": "^3.1.9-1",
+    "googleapis": "^23.0.0",
+    "grunt-ndxmin": "0.0.6",
+    "ndx-auth": "^0.1.11",
+    "ndx-connect": "0.0.6",
+    "ndx-cors": "0.0.10",
+    "ndx-database-backup": "^0.1.0",
+    "ndx-mailgun-api": "0.0.10",
+    "ndx-modified": "^0.1.2",
+    "ndx-passport": "^0.5.4",
+    "ndx-permissions": "^0.3.4",
+    "ndx-rest": "^0.5.6",
+    "ndx-server": "^0.13.28",
+    "ndx-short-token": "0.0.6",
+    "ndx-socket": "0.0.14",
+    "ndx-superadmin": "^0.1.6",
+    "ndx-user-roles": "^0.4.0",
+    "objtrans": "*",
+    "passport-google-oauth": "^1.0.0",
+    "pdfkit": "^0.17.0",
+    "superagent": "^3.8.1"
+  }
+}

@@ -1,0 +1,49 @@
+
+<div class="date-picker-holder" ng-click="done()">
+  <div class="date-picker-box" ng-click="$event.stopPropagation()">
+    <div class="date-picker">
+      <div class="carousel">
+        <div class="month month-{{$index+1}} month-{{m.year}}-{{m.month+1}}" ng-repeat="m in months track by $index">
+          <div class="dates" ng-show="mode===&quot;date&quot;">
+            <div class="month-holder">
+              <div class="left">
+                <div class="prev" tap="monthPrev()">&lt;</div>
+              </div>
+              <div class="month-name">{{m.monthName}} <span class="month-year" ng-click="toggleMode()">{{m.year}}</span></div>
+              <div class="right">
+                <div class="next" tap="monthNext()">&gt;</div>
+              </div>
+            </div>
+            <ul class="day-names">
+              <li ng-repeat="n in dayNames track by $index" ng-class="{'is-weekend': $first || $last}">
+                <div class="day-name">{{n}}</div>
+              </li>
+            </ul>
+            <ul class="days">
+              <li ng-repeat="d in m.days track by $index" ng-click="setDate(d.date, true)" ng-class="setClass(d, m)">
+                <div class="date">{{d.num}}</div>
+              </li>
+            </ul>
+          </div>
+          <div class="years" ng-show="mode===&quot;year&quot;">
+            <div class="month-holder">
+              <div class="left">
+                <div class="prev" tap="monthPrev()">&lt;</div>
+              </div>
+              <div class="month-name">{{m.monthName}} <span class="month-year open" ng-click="toggleMode()">{{m.year}}</span></div>
+              <div class="right">
+                <div class="next" tap="monthNext()">&gt;</div>
+              </div>
+            </div>
+            <ul class="year-list">
+              <li ng-repeat="y in m.years track by $index" tap="setYear(y)">{{y}}</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="controls" ng-hide="closeOnSelect">
+      <div class="button-row"><a class="done btn" ng-click="done()">Done</a></div>
+    </div>
+  </div>
+</div>

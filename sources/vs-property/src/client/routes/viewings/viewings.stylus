@@ -1,0 +1,7 @@
+@import '../../variables'
+.viewings
+  background #f1f1f1
+  padding 45px 0px
+  height 100%
+  h2 
+    margin-top 0

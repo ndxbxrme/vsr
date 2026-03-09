@@ -1,0 +1,19 @@
+.mobile-menu(ng-click='mobileMenuOut=false')
+  nav
+    ul.menu
+      li(ng-class="{selected:isSelected('dashboard')}")
+        a(href='/') 
+          span Dashboard
+      li(ng-class="{selected:isSelected('viewings')}")
+        a(href='/viewings') 
+          span Viewings
+      li(ng-class="{selected:isSelected('feedback')}")
+        a(href='/feedback') 
+          span Feedback
+      li(ng-class="{selected:isSelected('offers')}")
+        a(href='/offers') 
+          span Offers
+      li
+        a(href='/api/logout', target='_self') 
+          i.fa-duotone.fa-light.fa-lock
+          |  Logout

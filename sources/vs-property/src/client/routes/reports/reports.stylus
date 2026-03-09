@@ -1,0 +1,86 @@
+@import '../../variables'
+.reports
+  .property-details
+    h2
+      text-align center
+      border-bottom 1px solid vs-lightgrey
+  .header
+    text-align center
+    margin 0 0 30px 0
+    display flex
+    align-items center
+    justify-content center
+    flex-direction column
+    .info
+      width 320px
+      padding 20px 20px 0
+      border-bottom 1px solid vs-lightgrey
+      i.mortgage
+        background url(../../public/img/icons/vs-icons2.png) no-repeat
+        background-position -1px -81px
+        vertical-align middle
+      h2
+        margin-bottom 0
+        padding 0
+      p 
+        text-align center
+        span
+          color vs-orange
+  .results, .stats
+    text-align center
+    .col-sm-6
+      margin-bottom 30px
+      p
+        font-size 2rem
+        line-height 1
+        padding-bottom 0
+        color vs-orange
+        &.small
+          font-size 1.4rem
+          color vs-grey
+      i
+        background url(../../public/img/icons/vs_icons.png) no-repeat
+        width 80px
+        height 80px
+        &.vs-iconsale
+          background-position -340px -252px
+        &.vs-iconstaff
+          background-position -256px -336px
+        &.guarantor
+          background url(../../public/img/icons/icons3.png) no-repeat
+          background-position -2px -82px
+        &.mail
+          background url(../../public/img/icons/vs_mail.png) no-repeat
+          display inline-block
+          background-size contain
+          width 40px
+          height 40px
+        &.vs-iconphoto
+          background-position -340px -168px
+        &.vs-iconvideo
+          background-position -4px -420px
+        &.offer
+          background url(../../public/img/icons/vs-icons2.png) no-repeat
+          background-position -82px -81px
+        &.vs-iconsearch
+          background-position -4px -336px
+        &.vs-icondocument
+          background-position -88px -84px
+        &.reserving
+          background url(../../public/img/icons/icons3.png) no-repeat
+          background-position -84px -82px
+        &.vs-iconthumb
+          background-position -340px -336px
+  .rightmove-stats
+    text-align center
+    margin 60px 0 30px 0
+    display flex
+    align-items center
+    justify-content center
+    flex-direction column
+    .info
+      width 320px
+      padding 20px 20px 0
+      border-bottom 1px solid vs-lightgrey
+      p span
+        color vs-orange

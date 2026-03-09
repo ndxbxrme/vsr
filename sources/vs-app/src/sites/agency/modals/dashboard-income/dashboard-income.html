@@ -1,0 +1,16 @@
+
+<div class="modal dashboard-income">
+  <div class="modal-header">
+    <h1>{{data.di.name}}<span ng-show="data.month.name">, {{data.month.name}}</span></h1>
+    <input type="text" ng-model="search" placeholder="Search..."/>
+  </div>
+  <div class="table-responsive">
+    <table class="table">
+      <tbody ng-repeat="property in list = (data.list | filter:{displayAddress:search}) | orderBy:&quot;offer.Property.Address.Street&quot; | limitTo:limit:limit*(page-1)">
+        <td><a class="address" href="" ng-click="go(property)"><span>{{property.displayAddress}}</span> <i class="fa-duotone fa-light fa-arrow-up-right-from-square"></i></a></td>
+        <td class="currency" ng-show="data.di.sumtype===&quot;Income&quot; && property.role && property.role.Commission != null"><strong class="orange">&pound;{{property.role.Commission}}</strong></td>
+      </tbody>
+    </table>
+  </div>
+  <pagination class="pagination-sm pagination" total="list.length" ng-model="page" page-size="limit" page-change="pageChange" show-first-last="true"></pagination><a class="close-reveal-modal" ng-click="cancel()">&times;</a>
+</div>

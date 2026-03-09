@@ -1,0 +1,33 @@
+.admin
+  .container
+    .row
+      .col-xs-12.title-row
+        h2 
+          i.fa-duotone.fa-light.fa-eye
+          |  Admin Dashboard
+        .controls
+          input(type='text', ng-model='search', placeholder='Search', ng-change='page=1')
+    .row
+      .col-xs-12
+        table.user-list
+          thead
+            th(ng-click="setSort('local.email')", ng-class="getSortClass('local.email')") Email
+            th Properties
+            th(ng-click="setSort('lastLogin')", ng-class="getSortClass('lastLogin')") Last login
+            th(ng-click="setSort('lastRefresh')", ng-class="getSortClass('lastRefresh')") Last activity
+            th.squish
+          tr.user(ng-repeat='user in myusers = (users.items | filter:search | filter:"!superadmin" | orderBy:sort) | limitTo:limit:limit*(page-1)', ng-class='{incomplete:!user.dezrez}')
+            td {{ user.local.email || user.email || user.twitter.username }}
+            td
+              a.property(href='http://vitalspace.co.uk/property/#/true/true/{{property.id}}/overview', ng-repeat='property in user.properties', target='_self') {{ property.address }}
+            td.half
+              label Last login
+              | {{ user.lastLogin | date:'mediumDate' }}, {{ user.lastLogin | date:'mediumTime' }}
+            td.half
+              label Last activity
+              | {{ user.lastRefresh | date:'mediumDate' }}, {{ user.lastRefresh | date:'mediumTime' }}
+            td
+              a.medium.orange.button(href='', ng-click='delete(user)') Delete
+          tr(ng-show='!myusers.length')
+            td(colspan='5') Nothing to show
+        pagination.pagination-sm.pagination(total='myusers.length', ng-model='page', page-size='limit', show-first-last='true')

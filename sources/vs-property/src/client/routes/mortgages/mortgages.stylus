@@ -1,0 +1,11 @@
+.mortgages
+  margin-bottom 30px
+  h2
+    text-align center
+    display block
+    padding 15px
+    border-bottom 1px solid #cccccc
+  .button
+    margin-top 20px
+    i
+      padding-right 8px

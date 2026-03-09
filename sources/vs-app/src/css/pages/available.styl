@@ -1,0 +1,139 @@
+.available
+  padding-top 30px
+  
+  .controls
+    .order-item, .filter-item
+      display inline-flex
+      position relative
+      color vs-grey
+      background white
+      font-weight 600
+      margin 0px 5px 10px 0px
+      padding 5px 15px
+      border 1px solid vs-lightgrey
+      border-radius 30px
+      &:hover
+        color vs-orange
+      &.selected
+        background vs-orange
+        color white
+        border: 1px solid vs-orange
+    .showing
+      margin-bottom 10px
+      
+  .property-card
+    background white
+    border-radius 10px
+    border 1px solid vs-lightgrey
+    transition all 0.3s ease
+    margin-bottom 30px
+    &:hover
+      box-shadow 0 4px 12px rgba(0,0,0,0.1)
+      
+  .property-image
+    padding 20px 30px 20px 35px
+    img
+      width 100%
+      height 200px
+      object-fit cover
+      border-radius 10px
+      
+  .property-info 
+    padding-top 20px
+    padding-bottom 20px
+    border-right 1px solid vs-lightgrey
+    display flex
+    flex-direction column
+    justify-content space-between
+    .property-address,
+    .rental-price,
+    .property-landlord
+      font-size 1.8rem
+      font-weight 600
+      color vs-orange
+      margin-bottom 10px
+      strong
+        color vs-grey
+    .rental-price,
+    .property-landlord
+      display block
+    .property-viewing
+      background vs-body
+      padding 20px
+      border-radius 10px
+      p, 
+      .title
+        font-size 1.4rem
+        font-weight 600
+        margin-bottom 0px
+      .title
+        color vs-silver
+        
+  .property-stats-actions
+    padding 20px 30px 20px 30px
+    display flex
+    flex-direction column
+    justify-content space-between
+    .property-stats
+      margin-bottom 20px
+      .stat-item
+        margin-bottom 10px
+    .button 
+      margin-bottom 0px !important
+
+@media screen and (max-width:992px)
+  .available
+    .property-image img
+      height 150px
+    .property-info
+      padding 20px 40px 20px 0px
+      border none
+    .property-stats-actions
+      margin 0px 0px 0px 15px
+      padding 20px 20px 0px 20px
+      display flex
+      justify-content space-between
+      align-items flex-start
+      gap 15px
+      border-top 1px solid vs-lightgrey
+      width calc(100% - 30px)
+
+@media screen and (max-width:768px)
+  .available
+    .property-image img
+      width 150px
+      height auto
+    .property-info
+      margin 0px
+      padding 0px 40px 20px 40px
+      border none
+  .controls
+    .text-end
+      text-align left !important
+
+@media screen and (max-width:576px)
+  .available
+    .property-info
+      .property-address,
+      .rental-price,
+      .property-landlord
+        font-size 1.4rem
+        line-height 1.5
+        margin-bottom 5px
+      .property-viewing
+        padding 15px
+    .property-stats-actions
+      margin 0px 0px 0px 15px
+      padding 20px 0px 20px 20px
+      display flex
+      flex-direction column
+      justify-content flex-start
+      align-items flex-start
+      gap 10px
+      .label,
+      .value,
+      .stat-item
+        font-size 1.4rem
+        line-height 1.5
+      .property-stats .stat-item
+        margin-bottom 5px

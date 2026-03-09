@@ -1,0 +1,290 @@
+.lead-route
+  padding-top 30px
+  
+  .lead-action
+    margin-right 15px
+    
+  .form-holder
+    margin-top 30px
+    padding 20px 30px 10px 
+    
+  .radio-row
+    margin-bottom 10px
+    padding-bottom 10px
+    
+  // Header section
+  .header-row
+    margin-bottom 30px
+    h1
+      font-size 2.8rem
+      font-weight 600
+      color vs-grey
+      margin-top 0px
+      margin-bottom 20px
+      i
+        margin-right 10px
+    h2
+      font-size 2rem
+      font-weight 600
+      margin-bottom 5px
+      i
+        margin-right 8px
+      span
+        display inline-block
+        font-weight 300
+    .add-lead-button
+      flex-shrink 0
+      margin-bottom 20px
+      i 
+        margin-left 8px
+    .contacts
+      display flex
+      justify-content flex-end
+      .vendor
+        &:nth-of-type(2n)
+          margin-left 20px
+          padding-left 10px
+          border-left 1px solid vs-lightgrey
+    .contact-details
+      display flex
+      justify-content flex-end
+      margin-left 10px
+      font-size: 1.6rem;
+      .card
+        background none
+        border none
+        position relative
+        margin-bottom 10px
+        .contact-name
+          font-weight 600
+          margin-bottom 5px
+        .edit-btn
+          position absolute
+          top 10px
+          right 10px
+        .role
+          font-weight 600
+        .mail-link
+          width 200px
+          white-space nowrap
+          overflow hidden
+          text-overflow ellipsis
+        .edit-button
+          color vs-grey
+          margin-top 10px
+          margin-bottom 20px
+  
+  .lead-details-section
+    background white
+    border-radius 20px
+    padding 30px
+    margin-bottom 20px
+    
+  .info-card
+    background white
+    border 1px solid vs-lightgrey
+    border-radius 20px
+    padding 25px
+    margin-bottom 20px
+    transition all 0.3s ease
+    &:hover
+      box-shadow 0 4px 12px rgba(0,0,0,0.08)
+    h3
+      font-size 1.8rem
+      font-weight 600
+      color vs-grey
+      margin-bottom 15px
+      i
+        margin-right 10px
+  .source
+    width 170px
+    height 35px
+    display block
+    margin 0px 0px 30px
+    &.rightmove
+      background url(./public/img/rm-logo.svg) center no-repeat
+      background-size 170px 50px
+    &.gravity
+      background-size 170px 50px
+      background url(./public/img/vitalspace-logo.svg) center no-repeat
+    &.onthemarket
+      background url(./public/img/otm-logo.png) center no-repeat
+      background-size 180px 40px
+    &.local.telephone
+      width auto
+      background none
+      &:after 
+        color vs-grey
+        font var(--fa-font-duotone)
+        font-size 5rem
+        font-weight 300
+        content '\e223'
+    &.local.email
+      width auto
+      background none
+      &:after 
+        color vs-grey
+        font var(--fa-font-duotone)
+        font-size 5rem
+        font-weight 300
+        content '\e4e8'
+    &.local.walkin
+      background url(./public/img/icons/vs_icons.png) no-repeat
+      background-position -256px -336px
+      width 80px
+      height 80px
+      display block
+      zoom .6
+      
+  h2
+    margin-bottom 15px
+    font-weight 600
+    i
+      margin-right 10px
+      
+  p
+    &.date,
+    &.name
+      font-weight 600
+      margin-bottom 0px
+      
+  .sources
+    h3
+      font-weight 600
+      margin-bottom 10px
+      
+  .details
+    border 1px solid vs-lightgrey
+    border-radius 20px
+    background white
+    margin-bottom 30px
+    padding 30px
+    transition all 0.3s ease
+    &:hover
+      box-shadow 0 4px 12px rgba(0,0,0,0.08)
+    h3
+      font-size 1.8rem
+      font-weight 600
+      color vs-grey
+      margin-bottom 15px
+      i
+        margin-right 10px
+    p
+      font-size 1.6rem
+      line-height 1.6
+      color vs-grey
+      
+  .controls
+    margin-top 0px
+    margin-bottom 0px
+    
+  // Case notes section
+  .case-notes
+    border 1px solid vs-lightgrey
+    border-radius 20px
+    padding 30px
+    margin 30px 0
+    background white
+    h2
+      font-size 2.2rem
+      font-weight 600
+      margin-bottom 25px
+      i
+        margin-right 10px
+    .case-note
+      border 1px solid vs-lightgrey
+      border-radius 15px
+      padding 20px
+      margin 15px 0
+      background vs-body
+      transition all 0.3s ease
+      &:hover
+        box-shadow 0 2px 8px rgba(0,0,0,0.05)
+      .header-row
+        display flex
+        justify-content space-between
+        align-items flex-start
+        margin-bottom 15px
+        padding-bottom 15px
+        border-bottom 1px solid vs-lightgrey
+        .date
+          display flex
+          align-items flex-start
+          gap 10px
+          font-weight 600
+          font-size 1.4rem
+          color vs-grey
+          img
+            width 40px
+            height 40px
+            border-radius 50%
+            margin-right 5px
+          span
+            line-height 1.4
+            .date
+              font-weight 400
+              color vs-silver
+              font-size 1.2rem
+        .actions
+          display flex
+          gap 15px
+          .edit, .delete
+            color vs-orange
+            text-decoration none
+            font-size 2rem
+            transition all 0.3s ease
+            &:hover
+              color vs-grey
+      p, h1, h2, h3, h4, h5, h6
+        margin 0 0 0px 0
+      .note
+        .details
+          border none
+          padding 0px
+          background transparent
+          box-shadow none
+          &:hover
+            box-shadow none
+          .note-body
+            font-size 1.4rem
+            line-height 1.6
+            color vs-grey
+  
+  // Add note section
+  .add-note
+    margin-top 25px
+    padding-top 25px
+    border-top 2px solid vs-lightgrey
+    h3
+      font-size 1.8rem
+      font-weight 600
+      color vs-grey
+      margin-bottom 15px
+      i
+        color vs-orange
+        margin-right 10px
+    .CodeMirror
+      border 1px solid vs-lightgrey
+      border-radius 10px
+      background #f1f1f1
+      padding-left 15px
+      height 120px
+      pre
+        font-size 1.8rem
+    .connector
+      height 3rem
+      border none
+      width 8rem
+      background url(./public/img/icons/commercial-chain.jpg)
+      background-size cover
+    .current-property, .chain-property
+      chain-box()
+      max-width 420px
+      display flex
+      color vs-grey
+      img
+        max-width 160px
+      .details
+        margin-left 1rem
+    .add-chain
+      z-index 10

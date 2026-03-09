@@ -1,0 +1,49 @@
+.properties
+  i.vs-iconhouse
+    zoom 0.3
+    vertical-align top
+    background-image url(../../public/img/icons/vs_icons.png)
+  h2 
+    margin-top 0
+  .property-item
+    .property-details
+      li
+        display inline-block
+        text-align center
+        margin-right 20px
+        margin-top 15px
+        padding-top 25px
+        position relative
+        i,a
+          display block
+        i
+          zoom 0.3
+          position absolute
+          top 0
+          left 50%
+          transform translateX(-50%)
+          &.vs-iconstaff
+            background-image url(../../public/img/icons/vs_icons.png)
+          &.guarantor
+            background-image url(../../public/img/icons/icons3.png)
+          &.offer
+            background-image url(../../public/img/icons/vs-icons2.png)
+        a 
+          color #4a4a4a
+        p
+          padding 0
+          font-size 2.5rem
+          font-weight 800
+          &.hidden
+            display none
+      p 
+        padding 0
+    .property-controls
+      h3 
+        font-size 3.5rem
+        color #4a4a4a
+        font-family ProximaNova-Light
+        padding 5px 0 0 0
+        margin-bottom 35px
+      .button
+        float right

@@ -1,0 +1,141 @@
+@import '../../variables'
+.client-management-details  
+  .header1
+    text-align center
+    margin 0 0 30px 0
+    display flex
+    align-items center
+    justify-content center
+    flex-direction column
+    .info
+      width 320px
+      padding 20px 20px 0
+      border-bottom 1px solid vs-lightgrey
+      i.mortgage
+        background url(../../public/img/icons/vs-icons2.png) no-repeat
+        background-position -1px -81px
+        vertical-align middle
+      h2
+        margin-bottom 0
+        padding 0
+      p 
+        text-align center
+        span
+          color vs-orange
+  .results, .stats
+    display grid
+    grid-template-columns 1fr 1fr 1fr 1fr
+    .ic50
+      display inline-block
+      zoom .5
+  .property-item
+    display flex
+    align-items center
+    background #f1f1f1
+    padding 10px
+    margin-bottom 55px
+    border-radius 10px
+    border 1px solid #ccc
+    .item
+      display flex
+      align-items baseline
+    .property-status
+      flex 1
+    .property-marketing
+      .item
+        justify-content flex-end
+    h4
+      margin 0
+      margin-left 2em
+      color vs-orange
+  .property-image 
+    width 9em
+    height 6em
+  
+  .property-image 
+    width 12em
+    height 8em
+    background #eee
+    background-position center
+    background-size cover
+    margin-right 2rem
+    box-shadow 0 2px 2px rgb(0 0 0 / 50%)
+  
+  .rightmove-stats
+    text-align center
+    margin 60px 0 30px 0
+    display flex
+    align-items center
+    justify-content center
+    flex-direction column
+    .info
+      width 320px
+      padding 20px 20px 0
+      border-bottom 1px solid vs-lightgrey
+      p span
+        color vs-orange
+  sup
+    background vs-orange
+    border-radius 50%
+    padding 4px 7px 2px 7px
+    color white
+  .dropdown
+    box-shadow 2px 2px 25px rgba(200,200,200,0.8)
+    a
+      color vs-grey
+  .address
+    font-size 1.8rem
+    font-weight 100
+    span.right
+      float right
+      font-size 2rem
+      font-weight 800
+      color #999
+  .contacts
+    display flex
+    flex-wrap wrap
+    justify-content space-between
+  button
+    vs-button()
+  .orange
+    color vs-orange
+    font-weight 500
+  .case-notes
+    border 1px solid vs-lightgrey
+    border-radius 5px
+    margin 20px 0
+    padding 10px 20px 20px 20px
+    .case-note
+      border 1px solid #f1f1f1
+      padding 10px
+      border-radius 5px
+      margin-bottom 10px
+      .date 
+        font-weight 600
+        .edit, .delete
+          display inline
+          float right
+          color vs-orange
+          margin-left 1rem
+      p, h1, h2, h3, h4, h5, h6
+        margin 0 0 0px 0
+      img
+        margin-right 5px
+  .add-note
+    .CodeMirror
+      border 1px solid vs-lightgrey
+      border-radius 5px
+      background #f1f1f1
+      padding-left 15px
+      height 120px
+      pre
+        font-size 1.8rem
+    button
+      position relative
+      z-index 5000
+      margin-top 15px
+      background vs-orange
+      color white
+      border vs-orange
+      &:hover
+        background vs-grey

@@ -1,0 +1,60 @@
+
+
+<div class="offers-list">
+  <div class="container-xl">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <h1><i class="fa-duotone fa-light fa-hand-holding-dollar"></i> Lettings -<span ng-show="isHistoric"> Historic</span><span ng-hide="isHistoric"> Pending</span> Offers</h1>
+      </div>
+      <div class="col-md-4 search">
+        <input type="text" ng-model="search" placeholder="Search Offers" ng-change="page=1"/>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="row">
+        <div class="col-md-6">
+          <div class="sort" ng-hide="true">Order By: <a href="" ng-click="sort=&quot;-DateInstructed&quot;;page=1" ng-class="{selected:sort===&quot;-DateInstructed&quot;}" class="order-item">First Listed</a><a href="" ng-click="sort=&quot;-viewings.length&quot;;page=1" ng-class="{selected:sort===&quot;-viewings.length&quot;}" class="order-item">Viewings</a><a href="" ng-click="sort=&quot;-Price.PriceValue&quot;;page=1" ng-class="{selected:sort===&quot;-Price.PriceValue&quot;}" class="order-item">Asking Price</a></div>
+          <input type="button" ui-sref="lettings_offers-list_historic" value="Show Historic" ng-hide="isHistoric" />
+          <input type="button" ui-sref="lettings_offers-list" value="Show Pending" ng-show="isHistoric" />
+        </div>
+        <div class="col-md-6 text-end">
+          <div class="showing">Showing {{filterData.length}} of {{totalProps = offers.items.length}} offer{{totalProps!==1?'s':''}}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="properties-list" ng-show="filterData.length &gt; 0">
+      <div class="property-card" ng-repeat="offer in filterData =(offers.items | filter:{&quot;search&quot;:search} | orderBy:sort) | limitTo:limit:limit*(page-1)">
+        <div class="property-main row g-5">
+          <div class="property-image col-md-3" ng-class="{&quot;has-request animated pulse infinite&quot;:hasRequest(property)}">
+            <img ng-if="offer.image" ng-src="{{offer.image}}" onerror="this.onerror=null; if(this.dataset.fb1 && !this.dataset.tried1) { this.dataset.tried1='true'; this.src=this.dataset.fb1; } else if(this.dataset.fb2 && !this.dataset.tried2) { this.dataset.tried2='true'; this.src=this.dataset.fb2; } else { this.style.display='none'; this.nextElementSibling.style.display='flex'; }" data-fb1="{{offer.imageFallback1}}" data-fb2="{{offer.imageFallback2}}" class="image"/>
+            <div class="no-image" ng-if="!offer.image">No Image</div>
+          </div>
+          
+          <div class="property-info col-md-6">
+            <div class="property-meta">
+              <div class="property-address"><strong>Address:</strong> {{offer.address}}</div>
+              <div class="offer-date"><strong>Offer Received:</strong> {{formatDate(offer.date)}}</div>
+            </div>
+
+            <div class="offer-details-section">
+              <p class="applicant-info"><i class="fa-duotone fa-light fa-user"></i> <strong>Applicant:</strong> {{offer.applicant.title}} {{offer.applicant.first_name}} {{offer.applicant.last_name}}</p>
+              <p class="applicant-info" ng-show="offer.applicant2 && offer.applicant2.first_name"><i class="fa-duotone fa-light fa-users"></i> <strong>Co-Applicant:</strong> {{offer.applicant2.title}} {{offer.applicant2.first_name}} {{offer.applicant2.last_name}}</p>
+            </div>
+          </div>
+          
+          <div class="property-stats-actions col-md-3">
+            <div class="property-actions">
+              <a class="button" ui-sref="lettings_offer({id:offer._id})">View Offer</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <pagination total="offers.total" ng-model="page" page-size="limit" page-change="pageChange" show-first-last="true" class="pagination-sm pagination"></pagination>
+    <div ng-show="filterData.length===0" class="nothing-to-show">
+      <h3>Nothing to show</h3>
+    </div>
+  </div>
+</div>

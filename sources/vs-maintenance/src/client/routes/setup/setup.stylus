@@ -1,0 +1,8 @@
+@import '../../variables'
+.setup-route
+  display flex
+  .jobtypes, .users
+    flex 1
+    padding 0 1rem
+  .CodeMirror
+    border 1px solid #ccc

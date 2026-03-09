@@ -1,0 +1,13 @@
+
+<div class="mobile-menu" ng-click="mobileMenuOut=false">
+  <nav ng-show="auth.getUser()">
+    <ul class="menu">
+      <li ng-class="{selected:state('dashboard')}"><a href="dashboard"><span>Dashboard</span></a></li>
+      <li ng-class="{selected:state(['cases', 'case'])}"><a ui-sref="agency_cases"><span>Cases</span></a></li>
+      <li ng-class="{selected:state('agreed')}"><a ui-sref="agency_agreed"><span>Agreed</span></a></li>
+      <li ng-class="{selected:state('solicitors')}" ng-show="auth.checkRoles(['admin', 'superadmin', 'agency'])"><a ui-sref="agency_solicitors"><span>Solicitors</span></a></li>
+      <li ng-class="{selected:state('setup')}" ng-show="auth.checkRoles(['admin', 'superadmin'])"><a ui-sref="agency_setup"><span>Setup</span></a></li>
+      <li><a href="/agency/api/logout" target="_self"> <img class="logo" src="public/img/icons/logout.svg"/> Logout</a></li>
+    </ul>
+  </nav>
+</div>

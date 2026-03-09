@@ -1,0 +1,5 @@
+span.task-dir {{assigned = selectById(users.items,task.assignedTo); '' }}
+  img(gravatar-src='assigned.local.email') 
+  | {{task.job}}
+  p {{task.property}}
+    

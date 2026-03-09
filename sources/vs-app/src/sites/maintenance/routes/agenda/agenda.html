@@ -1,0 +1,89 @@
+
+<div class="maintenance-agenda-route">
+
+  <div class="agenda-toolbar">
+    <div class="container-xl">
+      <div class="row align-items-center">
+        <div class="col-md-6 d-flex align-items-center gap-3 date-user">
+          <span class="nav-period">{{windowStart | date:'d MMM'}} &ndash; {{windowEnd | date:'d MMM yyyy'}}</span>
+          <div class="maint-user-select">
+            <select class="usertheme" ng-model="$root.selectedUser" ui-select2="userSelectOptions" theme="usertheme" ng-change="hidePopup()" style="width:100%">
+              <option ng-repeat="user in maintenance" value="{{user._id}}">{{user.displayName || user.local.email}}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="col-md-6 text-md-end">
+          <div class="button-row">
+            <a ui-sref="maintenance_dashboard" class="button button-alt">Calendar <i class="fa-light fa-calendar"></i></a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="agenda-nav">
+    <button ng-click="prev()"><i class="fa-light fa-chevron-left"></i> Prev</button>
+    <button ng-click="goToToday()">Today</button>
+    <button ng-click="next()">Next <i class="fa-light fa-chevron-right"></i></button>
+  </div>
+
+  <div class="agenda-body">
+    <div class="container-xl">
+      <div class="agenda-day"
+          ng-repeat="day in days"
+          ng-class="{
+            'is-today': isToday(day.date),
+            'has-tasks': (day.tasks | filter:$root.selectedUser | byStatus:filters).length
+          }">
+
+        <div class="agenda-day-header">
+          <div class="day-label">
+            <span class="day-weekday">{{day.date | date:'EEEE'}}</span>
+            <span class="day-date">{{day.date | date:'d MMMM yyyy'}}</span>
+          </div>
+          <div class="day-meta">
+            <span class="day-count" ng-show="(day.tasks | filter:$root.selectedUser | byStatus:filters).length">
+              {{(day.tasks | filter:$root.selectedUser | byStatus:filters).length}} task{{(day.tasks | filter:$root.selectedUser | byStatus:filters).length !== 1 ? 's' : ''}}
+            </span>
+            <span class="day-income" ng-show="day.income.amount">&pound;{{day.income.amount | number:0}}</span>
+            <button class="button" ng-click="openTask(null, day, $event)" title="Add task for this day">Add Task <i class="fa-light fa-plus"></i></button>
+          </div>
+        </div>
+
+        <div class="agenda-tasks">
+          <div class="agenda-empty" ng-hide="(day.tasks | filter:$root.selectedUser | byStatus:filters).length">
+            <span>No tasks</span>
+          </div>
+
+          <div class="agenda-task-row"
+              ng-repeat="task in day.tasks | filter:$root.selectedUser | byStatus:filters"
+              ng-click="openTask(task, day, $event)"
+              ng-class="task.status">
+
+            <div class="task-time">
+              {{task.date | date:'h:mm a'}}
+              <span class="task-duration" ng-show="task.duration"><i class="fa-light fa-duotone fa-clock"></i> {{task.duration | date:'H\'h\' mm\'m\'' :'UTC'}}</span>
+            </div>
+
+            <div class="task-body">
+              <div class="task-job">{{task.job}}</div>
+              <div class="task-property" ng-show="task.property">{{task.property}}</div>
+            </div>
+
+            <div class="task-aside">
+              <span class="task-status-badge status-{{task.status}}">{{task.status}}</span>
+              <span class="task-media-badge" ng-show="taskHasImages(task)" ng-click="showLightbox(task, $event)" title="View images"><i class="fa-light fa-duotone fa-camera-retro"></i></span>
+              <span class="task-doc-badge" ng-show="taskHasDocs(task)" ng-click="openDocs(task, $event)" title="View document"><i class="fa-light fa-duotone fa-file-lines"></i></span>
+              <span class="task-cost" ng-show="task.cost">&pound;{{task.cost}}</span>
+              <span class="task-paid-badge" ng-show="task.paid">Paid</span>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>  
+  </div>
+
+</div>

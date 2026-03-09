@@ -1,0 +1,48 @@
+.progression(ng-class='{editing:editing()}')
+  div(ng-hide='$parent.editor')
+    .heading
+      h5 Case - {{progression.side}}'s side - {{progression.name}}
+      .controls(ng-show='auth.checkRoles(["admin","superadmin"])')
+        a(href='', ng-click='moveUp()')
+          i.fa.fa-arrow-circle-o-up(aria-hidden='true')
+        a(href='', ng-click='moveDown()')
+          i.fa.fa-arrow-circle-o-down(aria-hidden='true')
+        a(href='', ng-click='remove()')
+          i.fa.fa-times-circle-o(aria-hidden='true')
+  div(ng-show='$parent.editor')
+    .heading(ng-hide='editing()')
+      h5 {{progression.name}}, {{progression.side}}
+      .controls(ng-show='auth.checkRoles(["admin","superadmin"])')
+        a(href='', ng-click='moveUp()')
+          i.fa.fa-arrow-circle-o-up(aria-hidden='true')
+        a(href='', ng-click='moveDown()')
+          i.fa.fa-arrow-circle-o-down(aria-hidden='true')
+        a(href='', ng-click='remove()')
+          i.fa.fa-times-circle-o(aria-hidden='true')
+      .controls
+        a(href='', ng-click='edit();') 
+          | Edit
+          i.fa.fa-pencil-square-o(aria-hidden='true')
+    .heading(ng-show='editing()')
+      .inputs
+        label
+          span Name
+          input(type='text', ng-model='progression.name', placeholder='Name')
+        label(for='default{{$index}}')
+          span Default
+          input(type='checkbox', id='default{{$index}}', ng-model='progression.isdefault')
+      .btn-group
+        input(type='radio', name='side{{$index}}', id='side-buyer{{$index}}', ng-model='progression.side', value='Buyer')
+        label(for='side-buyer{{$index}}') Buyer
+        input(type='radio', name='side{{$index}}', id='side-seller{{$index}}', ng-model='progression.side', value='Seller')
+        label(for='side-seller{{$index}}') Seller
+  .milestones
+    canvas
+    .branch(ng-repeat='branch in progression.milestones')
+      milestone(ng-repeat='milestone in branch', data='milestone', disabled='{{$parent.$parent.$parent.editor && !$parent.$parent.editing()}}')
+      a.new-milestone(href='', ng-click='addMilestone(branch)', ng-class='{hidden:$first}') +
+    .branch.new
+      a.new-milestone(href='', ng-click='addMilestone()') +
+  .save
+    button(ng-click='saveProgression()') Save Progression
+    button(ng-click='cancel()') Cancel

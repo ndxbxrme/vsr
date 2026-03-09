@@ -1,0 +1,171 @@
+@import '../../variables'
+.conveyancing-page
+  background #f1f1f1
+  padding 45px 0px
+  height 100%
+  h2 
+    font-family ProximaNova-SemiBold, sans-serif
+  .intro
+    display block
+    margin-bottom 40px
+    .col-sm-3
+      img 
+        width 100%
+        height auto
+    p.lead
+      margin-bottom 30px
+    .call-out
+      background white
+      padding 15px 22px
+      border 1px solid vs-lightgrey
+      border-radius 20px
+      margin-top 20px
+      display flex
+      align-items center
+      img 
+        border-radius 20px
+        margin-right 30px
+      h2
+        span
+          color vs-grey
+          font-family: ProximaNova-SemiBold, sans-serif
+      .contacts
+        display: flex
+        flex-wrap: wrap
+        a
+          display flex
+          align-items center
+          text-decoration none
+          border 1px solid vs-lightgrey
+          border-radius 20px
+          margin-right 5px
+          padding 5px 10px
+          font-family ProximaNova-SemiBold, sans-serif
+          i 
+            color vs-lightgrey
+            margin-right 10px
+  .property-overview
+    background white
+    padding 20px
+    border-radius 20px
+    margin-bottom 30px
+    h3
+      color vs-grey
+      font-family ProximaNova-SemiBold, sans-serif
+      margin-top 0
+      margin-bottom 20px
+    .stat
+      display flex
+      align-items center
+      i 
+        font-size 2rem
+        margin-right: 10px
+    p
+      font-size 16px
+      span
+        font-family ProximaNova-SemiBold, sans-serif
+
+  .progression-bar
+    margin-top 15px
+    margin-bottom 10px
+    .progression-label
+      font-family ProximaNova-SemiBold, sans-serif
+      font-size 14px
+      color vs-grey
+      margin-bottom 8px
+    .progression-track
+      width 100%
+      height 20px
+      background vs-lightgrey
+      border-radius 10px
+      overflow hidden
+      .progression-fill
+        height 100%
+        background vs-orange
+        border-radius 10px 0 0 10px
+        transition width 0.5s ease-in-out
+  
+  .stats-row 
+    display flex
+    align-items end
+  .milestone-key
+    display flex
+    justify-content end
+    .milestone 
+      display flex
+      flex-direction row
+      align-items center
+      margin-left 20px
+      text-transform none
+      width auto
+      i
+        color white
+        font-size 2rem
+        border-radius 50%
+        padding 10px
+        margin-right 10px
+        display flex
+        align-items center
+        justify-content center
+        width 40px
+        height 40px
+      p
+        font-family ProximaNova-SemiBold, sans-serif
+        color vs-grey
+      &.completed
+        i
+          background vs-green
+      &.progressing
+        i
+          background vs-amber
+      &.overdue
+        i
+          background vs-red
+  .progression
+    border-radius 20px
+    padding 0px
+    overflow hidden
+    .heading
+      padding 10px 20px
+      border-bottom 1px solid vs-lightgrey
+      background #f1f1f1
+      h5
+        color vs-grey
+        margin 0
+        font-family ProximaNova-SemiBold, sans-serif
+    .milestones
+      padding 30px
+
+@media (max-width: 768px)
+  .conveyancing-page
+    padding 20px 0px
+    h2 
+      font-size 20px
+    .intro
+      .call-out
+        flex-direction column
+        align-items flex-start
+        h2 
+          padding 0px
+        img 
+          margin 0px auto 10px
+        .contacts
+          a
+            margin-bottom 10px
+    .property-overview
+      margin 0 20px 
+    .stats-row 
+      flex-direction column
+      align-items flex-start
+    .milestone-key
+      justify-content space-evenly
+      .milestone 
+        flex-direction column
+        align-items flex-start
+        margin: 0 5px
+        i 
+          margin: 0 auto 5px
+        p
+          font-size 16px
+          text-align center
+          line-height 1.2

@@ -1,0 +1,502 @@
+.client-management-list
+  padding-top 30px
+  // Controls
+  .controls
+    .order-item, .filter-item
+      display inline-flex
+      position relative
+      color vs-orange
+      background white
+      font-weight 600
+      margin 0px 5px 10px 0px
+      padding 5px 15px
+      border 1px solid vs-lightgrey
+      border-radius 30px
+      &.selected
+        background #f1f1f1
+  &.history-route
+    .show
+      margin-left 20px
+      .filter-item 
+        padding 5px 15px 5px 0px
+        input[type="radio"]
+          border 1px solid vs-lightgrey
+  .showing 
+    margin-bottom: 10px
+  .property-card
+    background white
+    border-radius 10px
+    border 1px solid vs-lightgrey
+    transition all 0.3s ease
+    margin-bottom 15px
+    &:hover
+      box-shadow 0 4px 12px rgba(0,0,0,0.1)  
+  .property-image
+    padding 20px 30px 20px 35px
+    img
+      width 100%
+      height 200px
+      object-fit cover
+      border-radius 10px
+    &.has-request
+      img
+        border 3px solid vs-orange
+  .property-info 
+    padding-top 20px
+    padding-bottom 20px
+    border-right 1px solid vs-lightgrey
+    display flex
+    flex-direction column
+    justify-content space-between
+    .property-address,
+    .purchase-price,
+    .fees
+      font-size 1.8rem
+      font-weight 600
+      color vs-orange
+      margin-bottom 10px
+      strong
+        color vs-grey
+    .purchase-price,
+    .fees
+      display: block
+    .lead-details,
+    .property-viewing
+      background vs-body
+      padding 20px
+      border-radius 10px
+      p, 
+      .title
+        font-size 1.4rem
+        font-weight 600
+        margin-bottom 0px
+      .title
+        color vs-silver
+  .property-stats-actions
+    padding 20px 30px 20px 30px
+    .property-vendor,
+    .property-stats
+      margin-bottom 10px
+      .stat-item
+        margin-bottom 10px
+    .button 
+      margin-bottom 0px !important
+  .milestone
+    text-align left
+    align-items flex-start
+    margin-top -10px
+    .icon
+      height 30px
+      width 30px
+      border none
+      &:after
+        height 30px
+        width 30px
+  .pagination-holder
+    display flex
+    justify-content center
+    .pagination
+      a
+        color vs-orange
+      a:hover
+        color vs-orange
+      li.active
+        a
+          background vs-orange
+          border-color vs-orange
+          color #fff
+  .pagination
+    justify-content center
+    text-align center
+    .page
+      padding 5px 10px 3px 10px
+      border 1px solid vs-lightgrey
+      border-left none
+      transition all 0.4s ease-in-out
+      &:first-of-type 
+        border-left: 1px solid vs-lightgrey
+        border-bottom-left-radius 5px
+        border-top-left-radius 5px
+      &:last-of-type 
+        border-bottom-right-radius 5px
+        border-top-right-radius 5px
+      &.last, &.first 
+        padding 5px 20px 3px 20px
+      &.selected, &:hover
+        background vs-orange
+        color white
+  &.epc-management-list
+    .header-row 
+      .button
+        flex-shrink 0
+        margin-left 10px
+    .property-stats-actions
+      padding 20px
+      .property-actions
+        height 100%
+        display flex
+        flex-direction column
+        justify-content center
+        align-items center
+        .button
+          margin-bottom 10px !important
+          &:last-of-type
+            margin-bottom 0px
+  &.coming-soon
+    .property-info
+      .fees
+      .property-address
+        margin-bottom 5px
+    .property-stats-actions
+      .valuer-label 
+        font-size 1.6rem
+        font-weight 600
+        margin-bottom 10px
+      .valuer
+        display flex
+        img 
+          width 45px
+          height 45px
+          border-radius 50%
+          margin-right 10px
+    .property-viewing
+      border-top 1px solid vs-lightgrey
+      width calc(100% - 30px)
+      margin-left 15px
+      padding 20px 30px
+      label
+        margin-bottom 0px
+        flex-shrink 0
+      input
+        margin-bottom 0px
+      &.coming-soon-inputs
+        margin-top 0px
+.client-management-details, .case
+  padding-top 30px
+  .contacts
+    display flex
+    justify-content flex-end
+    .vendor
+      margin-bottom 27px
+      &:nth-of-type(2n)
+        margin-left 20px
+        padding-left 10px
+        border-left 1px solid vs-lightgrey
+  .contact-details
+    display flex
+    justify-content flex-end
+    margin-left 10px
+    .card
+      background none
+      border none
+      position relative
+      .contact-name
+        font-weight 600
+        margin-bottom 5px
+      .edit-btn
+        position absolute
+        top 10px
+        right 10px
+      .role
+        font-weight 600
+      .mail-link
+        width 200px
+        white-space nowrap
+        overflow hidden
+        text-overflow ellipsis
+  .property-summary
+    .property
+      background white
+      margin-bottom 45px
+      padding 30px
+      border-radius: 20px
+      p 
+        font-size 18px
+        line-height 1.5
+        padding 10px 0 10px 0
+      .property-image
+        width 100%
+        height 290px
+        border-radius 20px
+        overflow hidden
+        position relative
+        img 
+          width 100%
+          height 100%
+          object-fit cover
+      .status
+        color white
+        background vs-orange
+        font-weight 600
+        padding 5px 15px
+        border-radius 20px
+        position absolute
+        top 10px
+        right 10px
+      h4
+        color vs-grey
+        font-weight 600
+        margin 10px 0px 0px 0px
+      p 
+        span 
+          font-weight 600
+        &.date-instructed,
+        &.financial-item
+          font-size 16px
+          margin-bottom 5px
+          padding 0px
+          span 
+            color vs-orange
+        &.updated
+          font-size 14px
+          padding-top 5px
+      .buttons 
+        margin-top 10px
+      .progression-bar
+        margin-top 15px
+        margin-bottom 10px
+        .progression-label
+          font-weight 600
+          font-size 14px
+          color vs-grey
+          margin-bottom 8px
+        .progression-track
+          width 100%
+          height 20px
+          background vs-lightgrey
+          border-radius 10px
+          overflow hidden
+          .progression-fill
+            height 100%
+            background vs-orange
+            border-radius 10px 0 0 10px
+            transition width 0.5s ease
+      .property-report
+        .results 
+          display flex
+          flex-wrap wrap
+          margin-bottom 15px
+          .result 
+            display flex
+            align-items baseline
+            width 50%
+            p 
+              margin-bottom 0px
+            i,svg
+              font-size 2rem
+              margin-right 10px
+        .rightmove-stats
+          background-color #e5f1ee
+          margin-top 30px
+          padding 20px
+          border-radius 20px
+          .results
+            margin-bottom 0px
+  .tabbed-section
+    background white
+    border 1px solid vs-lightgrey
+    border-radius 20px
+    margin-bottom 30px
+    overflow hidden
+    .nav-pills
+      list-style none
+      padding 30px
+      margin 0
+      display flex
+      flex-wrap wrap
+      gap 10px
+      background white
+      border-bottom 1px solid vs-lightgrey
+      li
+        padding 8px 20px
+        cursor pointer
+        color vs-grey
+        font-weight 600
+        font-size 14px
+        text-indent 0px
+        transition all 0.3s ease
+        user-select none
+        text-align center
+        min-width 150px
+        border 1px solid vs-lightgrey
+        border-radius 30px
+        display flex
+        align-items center
+        justify-content center
+        i 
+          margin-right 8px
+        &:before
+          display none
+        &:hover
+          color vs-orange
+          background vs-body
+        &.active
+          color white
+          background vs-orange
+          border 1px solid vs-orange
+    .tab-content
+      padding 0px
+      .tab-pane
+        display block
+        animation fadeIn 0.3s ease-in
+        .row 
+          padding 30px 30px 15px
+          &.actions
+            border-top 1px solid vs-lightgrey
+            padding 20px 30px 10px
+            .button.button-alt
+              max-width 100px
+        &[ng-show]
+          display block !important
+        &.ng-hide
+          display none !important
+        
+
+  .case-notes
+    border 1px solid vs-lightgrey
+    padding 30px
+    margin 10px 0 30px
+    border-radius 30px
+    background white
+    .case-note
+      background vs-white
+      padding 20px
+      margin 10px 0
+      border-radius 20px
+      .header-row
+        display flex
+        justify-content space-between
+        align-items center
+        margin-bottom 10px
+      .date 
+        font-weight 600
+        line-height 1.2
+        display flex
+        align-items center
+        .date 
+          font-weight 400
+          font-size 1.4rem
+          color vs-orange
+      .actions
+        border 1px solid #ccc
+        border-radius 20px
+        padding 8px 10px
+        display flex
+        justify-content center
+        gap 10px
+      .edit, .delete
+        color vs-grey
+        display inline-flex
+        align-items center
+        justify-content center
+        float right
+      p, h1, h2, h3, h4, h5, h6
+        margin 0 0 0px 0
+      img
+        margin-right 10px
+        border-radius 50%
+        width 48px
+  .add-note
+    margin-top 10px
+    .CodeMirror
+      border 1px solid vs-lightgrey
+      border-radius 5px
+      background #f1f1f1
+      padding-left 15px
+      height 120px
+      pre
+        font-size 1.8rem
+    button
+      margin 0px
+      background vs-orange
+      color white
+      border vs-orange
+      &:hover
+        background vs-grey
+@media screen and (max-width:992px)
+  .client-management-list
+    .property-image img
+      height 150px
+    .property-info
+      padding 20px 40px 20px 0px
+      border none
+    .property-stats-actions
+      margin 0px 0px 0px 15px
+      padding 20px 20px 0px 20px
+      display flex
+      justify-content space-between
+      align-items flex-start
+      gap 15px
+      border-top 1px solid vs-lightgrey
+      width calc(100% - 30px)
+
+@media screen and (max-width:768px)
+  .client-management-list
+    .property-image img
+      width 150px
+      height auto
+    .property-info
+      margin 0px
+      padding 0px 40px 20px 40px
+      border none
+    &.epc-management-list
+      .property-stats-actions
+        .property-actions
+          flex-direction row
+          .button
+            margin-bottom 10px !important
+            &:last-of-type
+              margin-bottom 0px
+  .client-management-details,
+  .case 
+    .contacts
+      justify-content flex-start
+  .controls
+    .text-end
+      text-align left !important
+
+@media screen and (max-width:576px)
+  .client-management-list
+    .property-info
+      .property-address,
+      .purchase-price,
+      .fees
+        font-size 1.4rem
+        line-height 1.5
+        margin-bottom 5px
+      .property-viewing
+        padding 15px
+    .property-stats-actions
+      margin 0px 0px 0px 15px
+      padding 20px 0px 20px 20px
+      display flex
+      flex-direction column
+      justify-content flex-start
+      align-items flex-start
+      gap 10px
+      .label,
+      .value,
+      .stat-item
+        font-size 1.4rem
+        line-height 1.5
+      .property-vendor,
+      .property-stats .stat-item
+        margin-bottom 5px
+  .client-management-details,
+  .case 
+    .property-summary 
+      .property 
+        .property-report 
+          .results 
+            .result
+              width 100%
+              p
+                font-size 1.4rem
+                line-height 1.5
+                padding 5px 0px
+              i,svg
+                font-size 1.6rem
+    .tabbed-section
+      .nav-pills
+        li
+          width 100%

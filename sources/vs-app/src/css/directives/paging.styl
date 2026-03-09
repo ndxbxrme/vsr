@@ -1,0 +1,99 @@
+@import '../global/variables'
+.paging-dir,
+.modal
+  position relative
+  font-size 1.28rem
+  min-height 3rem
+  .pagination
+    justify-content center
+    gap 5px
+    margin-bottom 30px
+    .page
+      padding-left 1rem!important
+      padding-right 1rem!important
+      color vs-gray
+      width 30px
+      height 30px
+      display flex
+      justify-content center
+      align-items center
+      border 1px solid vs-lightgrey
+      border-radius 5px
+      &.selected
+        color white
+        background vs-orange
+        border 1px solid vs-orange
+      &.firstNumber, &.last
+        font-weight 600
+        width auto
+    .prev, .next
+      color vs-orange
+      background white
+      border none
+      width 3.6rem
+      text-align center
+  .list-total
+    position absolute
+    top 2px
+    color vs-silver
+    display flex
+    line-height 2.6rem
+    span
+      margin-left .6rem
+      color vs-text
+    @media screen and (max-width: 740px)
+      position relative
+      justify-content center
+      margin-top 1rem
+  .page-count
+    position absolute
+    display flex
+    justify-content flex-end
+    align-items baseline
+    right 0
+    top 2px
+    color vs-silver
+    @media screen and (max-width: 740px)
+      position relative
+      justify-content center
+      margin-top 1rem
+    .page-size
+      display inline-block
+      padding 0.3rem 2rem 0.3rem 1rem
+      margin 10px
+      box-shadow inset 0 0 0 0.1rem #e5e5e5
+      position relative
+      background white
+      border-radius 10px
+      &:before
+        content ''
+        position: absolute;
+        right: .7rem;
+        top: 50%;
+        margin-top: -.2rem;
+        border-width: 0 .4rem .4rem;
+        border-style: solid;
+        border-color: vs-text transparent;
+      .popout
+        top auto
+        bottom 100%
+        left 0
+        background white
+        box-shadow inset 0 0 0 0.1rem #e5e5e5
+        a
+          cursor pointer
+          color vs-text
+          &.selected
+            background #e7eef3
+          &:hover
+            background #e7eef3
+// Pagination
+.pagination
+  justify-content center
+  padding 10px
+  .page
+    background white
+    &:first-child,
+    &:last-child,
+    &.selected
+      color vs-orange
