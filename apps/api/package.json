@@ -9,9 +9,12 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@vitalspace/auth": "workspace:*",
     "@vitalspace/config": "workspace:*",
     "@vitalspace/contracts": "workspace:*",
+    "@vitalspace/db": "workspace:*",
     "@vitalspace/realtime": "workspace:*",
+    "drizzle-orm": "^0.40.0",
     "express": "^5.1.0",
     "socket.io": "^4.8.1",
     "zod": "^3.24.2"

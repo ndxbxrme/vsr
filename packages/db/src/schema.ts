@@ -70,6 +70,25 @@ export const oauthAccounts = pgTable(
   }),
 );
 
+export const sessions = pgTable(
+  'sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => users.id),
+    sessionTokenHash: text('session_token_hash').notNull(),
+    ipAddress: text('ip_address'),
+    userAgent: text('user_agent'),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    revokedAt: timestamp('revoked_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    sessionTokenIdx: uniqueIndex('sessions_token_hash_idx').on(table.sessionTokenHash),
+    sessionUserIdx: index('sessions_user_idx').on(table.userId),
+  }),
+);
+
 export const tenants = pgTable(
   'tenants',
   {
@@ -117,6 +136,52 @@ export const tenantDomains = pgTable(
   }),
 );
 
+export const roles = pgTable(
+  'roles',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').references(() => tenants.id),
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    scopeType: text('scope_type').notNull(),
+    isSystem: boolean('is_system').notNull().default(false),
+    ...timestamps,
+  },
+  (table) => ({
+    roleTenantKeyIdx: uniqueIndex('roles_tenant_key_idx').on(table.tenantId, table.key),
+  }),
+);
+
+export const permissions = pgTable(
+  'permissions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    ...timestamps,
+  },
+  (table) => ({
+    permissionKeyIdx: uniqueIndex('permissions_key_idx').on(table.key),
+  }),
+);
+
+export const rolePermissions = pgTable(
+  'role_permissions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    roleId: uuid('role_id').notNull().references(() => roles.id),
+    permissionId: uuid('permission_id').notNull().references(() => permissions.id),
+    ...timestamps,
+  },
+  (table) => ({
+    rolePermissionUniqueIdx: uniqueIndex('role_permissions_role_permission_idx').on(
+      table.roleId,
+      table.permissionId,
+    ),
+  }),
+);
+
 export const memberships = pgTable(
   'memberships',
   {
@@ -134,6 +199,22 @@ export const memberships = pgTable(
       table.tenantId,
       table.branchId,
       table.userId,
+    ),
+  }),
+);
+
+export const membershipRoles = pgTable(
+  'membership_roles',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    membershipId: uuid('membership_id').notNull().references(() => memberships.id),
+    roleId: uuid('role_id').notNull().references(() => roles.id),
+    ...timestamps,
+  },
+  (table) => ({
+    membershipRoleUniqueIdx: uniqueIndex('membership_roles_membership_role_idx').on(
+      table.membershipId,
+      table.roleId,
     ),
   }),
 );

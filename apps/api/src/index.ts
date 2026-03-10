@@ -1,13 +1,14 @@
-import express, { type Request, type Response } from 'express';
 import { createServer } from 'node:http';
 import { loadApiConfig } from '@vitalspace/config';
-import { buildEntityChangedEvent } from '@vitalspace/realtime';
-import { z } from 'zod';
+import { createDbClient } from '@vitalspace/db';
 import { Server } from 'socket.io';
+import { createRuntimeApp } from './runtime';
 
 const config = loadApiConfig();
-const app = express();
-const server = createServer(app);
+const { db } = createDbClient(
+  process.env.DATABASE_URL ?? 'postgres://vitalspace:vitalspace@localhost:5432/vitalspace',
+);
+const server = createServer();
 
 const io = new Server(server, {
   cors: {
@@ -15,41 +16,13 @@ const io = new Server(server, {
   },
 });
 
-app.use(express.json());
-
-app.get('/health', (_req: Request, res: Response) => {
-  res.json({ status: 'ok', service: 'api' });
+const app = createRuntimeApp({
+  db,
+  io,
+  oauthProviders: config.oauth.providers,
 });
-
-app.get('/api/v1/bootstrap', (_req: Request, res: Response) => {
-  res.json({
-    appName: 'VitalSpace',
-    realtimeEnabled: true,
-    oauthProviders: config.oauth.providers,
-  });
-});
-
-const propertySyncRequestSchema = z.object({
-  tenantId: z.string().uuid(),
-});
-
-app.post('/api/v1/integrations/dezrez/sync', (req: Request, res: Response) => {
-  const parsed = propertySyncRequestSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: 'invalid_payload' });
-  }
-
-  const event = buildEntityChangedEvent({
-    tenantId: parsed.data.tenantId,
-    entityType: 'property',
-    entityId: '00000000-0000-0000-0000-000000000000',
-    mutationType: 'sync_requested',
-  });
-
-  io.to(`tenant:${parsed.data.tenantId}`).emit('entity.changed', event);
-
-  return res.status(202).json({ accepted: true, event });
-});
+server.removeAllListeners('request');
+server.on('request', app);
 
 io.on('connection', (socket) => {
   const tenantId = socket.handshake.auth.tenantId;

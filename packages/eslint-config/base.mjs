@@ -6,8 +6,11 @@ import tseslint from 'typescript-eslint';
 export default tseslint.config(
   {
     ignores: [
+      '.github/**',
       'dist/**',
+      'apps/**/dist/**',
       'coverage/**',
+      'packages/db/drizzle/**',
       'playwright-report/**',
       'test-results/**',
       'sources/**',
