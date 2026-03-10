@@ -8,6 +8,7 @@ import {
 import type { EntityChangedEvent } from '@vitalspace/contracts';
 import {
   dezrezIntegrationSettingsSchema,
+  dezrezWebhookPayloadSchema,
   propertySyncRequestPayloadSchema,
 } from '@vitalspace/contracts';
 import { type createDbClient, schema } from '@vitalspace/db';
@@ -72,6 +73,11 @@ const createDezrezAccountSchema = z.object({
 
 const listPropertiesQuerySchema = z.object({
   tenantId: z.string().uuid(),
+});
+
+const webhookQuerySchema = z.object({
+  provider: z.literal('dezrez').optional().default('dezrez'),
+  integrationAccountId: z.string().uuid().optional(),
 });
 
 async function recordMutation(args: {
@@ -140,6 +146,44 @@ function hasTenantMembership(auth: AuthenticatedContext, tenantId: string) {
   return auth.memberships.some((membership) => membership.tenantId === tenantId);
 }
 
+async function resolveIntegrationAccount(args: {
+  db: DbClient;
+  provider: string;
+  integrationAccountId?: string | undefined;
+}) {
+  if (args.integrationAccountId) {
+    const [integrationAccount] = await args.db
+      .select()
+      .from(schema.integrationAccounts)
+      .where(
+        and(
+          eq(schema.integrationAccounts.id, args.integrationAccountId),
+          eq(schema.integrationAccounts.provider, args.provider),
+          eq(schema.integrationAccounts.status, 'active'),
+        ),
+      )
+      .limit(1);
+    return integrationAccount ?? null;
+  }
+
+  const integrationAccounts = await args.db
+    .select()
+    .from(schema.integrationAccounts)
+    .where(
+      and(
+        eq(schema.integrationAccounts.provider, args.provider),
+        eq(schema.integrationAccounts.status, 'active'),
+      ),
+    )
+    .limit(2);
+
+  if (integrationAccounts.length === 1) {
+    return integrationAccounts[0] ?? null;
+  }
+
+  return null;
+}
+
 export function createApp(deps: ApiAppDeps) {
   const app = express();
 
@@ -166,6 +210,58 @@ export function createApp(deps: ApiAppDeps) {
       appName: 'VitalSpace',
       realtimeEnabled: true,
       oauthProviders: deps.oauthProviders ?? [],
+    });
+  });
+
+  app.post('/event', async (req: Request, res: Response) => {
+    const parsedQuery = webhookQuerySchema.safeParse(req.query);
+    if (!parsedQuery.success) {
+      return res.status(400).json({ error: 'invalid_query', details: parsedQuery.error.flatten() });
+    }
+
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ error: 'invalid_payload' });
+    }
+
+    const sharedSecret = process.env.DEZREZ_WEBHOOK_SECRET;
+    const providedSecret = req.header('x-vitalspace-webhook-secret') ?? req.query.secret;
+    const signatureValid =
+      !sharedSecret || (typeof providedSecret === 'string' && providedSecret === sharedSecret);
+    const integrationAccount = await resolveIntegrationAccount({
+      db: deps.db,
+      provider: parsedQuery.data.provider,
+      integrationAccountId: parsedQuery.data.integrationAccountId,
+    });
+
+    const eventName =
+      parsedQuery.data.provider === 'dezrez'
+        ? dezrezWebhookPayloadSchema.safeParse(req.body).data?.EventName ?? 'unknown'
+        : 'unknown';
+
+    const createdWebhookEvents = await deps.db
+      .insert(schema.webhookEvents)
+      .values({
+        tenantId: integrationAccount?.tenantId ?? null,
+        integrationAccountId: integrationAccount?.id ?? null,
+        provider: parsedQuery.data.provider,
+        eventType: eventName,
+        signatureValid,
+        payloadJson: req.body as Record<string, unknown>,
+        processingStatus: signatureValid ? 'pending' : 'rejected',
+        errorMessage: signatureValid ? null : 'invalid_signature',
+      })
+      .returning();
+    const webhookEvent = requireValue(createdWebhookEvents[0], 'webhook_event');
+
+    if (!signatureValid) {
+      return res.status(401).json({ error: 'invalid_signature', webhookEventId: webhookEvent.id });
+    }
+
+    return res.status(202).json({
+      accepted: true,
+      webhookEventId: webhookEvent.id,
+      provider: parsedQuery.data.provider,
+      integrationAccountId: integrationAccount?.id ?? null,
     });
   });
 

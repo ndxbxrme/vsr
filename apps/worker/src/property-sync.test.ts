@@ -1,7 +1,11 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { sql, eq } from 'drizzle-orm';
 import { createDbClient, migrateDb, schema } from '@vitalspace/db';
-import { processPendingPropertySyncs } from '@vitalspace/integrations';
+import {
+  processPendingDezrezWebhookEvents,
+  processPendingIntegrationJobs,
+  processPendingPropertySyncs,
+} from '@vitalspace/integrations';
 import { buildTenantRoom } from '@vitalspace/realtime';
 
 const DATABASE_URL =
@@ -27,6 +31,7 @@ async function truncateAllTables() {
       "outbox_events",
       "integration_accounts",
       "webhook_events",
+      "integration_jobs",
       "properties",
       "external_references",
       "tenants",
@@ -183,5 +188,75 @@ describe('processPendingPropertySyncs', () => {
     expect(updatedProperties.some((property) => property.marketingStatus === 'exchanged')).toBe(true);
     expect(createdEvents).toHaveLength(3);
     expect(updatedEvents).toHaveLength(1);
+  });
+
+  it('classifies Dezrez webhooks into durable jobs and fans property refresh into sync requests', async () => {
+    const createdTenants = await db
+      .insert(schema.tenants)
+      .values({
+        name: 'Webhook Worker Estates',
+        slug: 'webhook-worker-estates',
+      })
+      .returning();
+    const tenant = createdTenants[0];
+    if (!tenant) {
+      throw new Error('tenant_not_created');
+    }
+
+    const createdIntegrationAccounts = await db
+      .insert(schema.integrationAccounts)
+      .values({
+        tenantId: tenant.id,
+        provider: 'dezrez',
+        name: 'Webhook Dezrez',
+        settingsJson: {
+          seedProperties: [],
+        },
+      })
+      .returning();
+    const integrationAccount = createdIntegrationAccounts[0];
+    if (!integrationAccount) {
+      throw new Error('integration_account_not_created');
+    }
+
+    await db.insert(schema.webhookEvents).values({
+      tenantId: tenant.id,
+      integrationAccountId: integrationAccount.id,
+      provider: 'dezrez',
+      eventType: 'InstructionToSell',
+      signatureValid: true,
+      payloadJson: {
+        EventName: 'InstructionToSell',
+        PropertyId: 3671906,
+        PropertyRoleId: 30026645,
+        RootEntityId: 88991,
+      },
+      processingStatus: 'pending',
+    });
+
+    const classified = await processPendingDezrezWebhookEvents({ db });
+    expect(classified).toEqual({
+      processedEvents: 1,
+      failedEvents: 0,
+      createdJobs: 1,
+    });
+
+    const jobs = await db.select().from(schema.integrationJobs);
+    expect(jobs).toHaveLength(1);
+    expect(jobs[0]?.jobType).toBe('property.role.refresh');
+
+    const completed = await processPendingIntegrationJobs({ db });
+    expect(completed).toEqual({
+      completedJobs: 1,
+      failedJobs: 0,
+    });
+
+    const propertySyncRequests = await db
+      .select()
+      .from(schema.outboxEvents)
+      .where(eq(schema.outboxEvents.eventName, 'property.sync_requested'));
+
+    expect(propertySyncRequests).toHaveLength(1);
+    expect(propertySyncRequests[0]?.tenantId).toBe(tenant.id);
   });
 });

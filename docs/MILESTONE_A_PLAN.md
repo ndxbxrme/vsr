@@ -49,6 +49,7 @@ Milestone A is done when all of the following are true:
 - every important mutation path writes audit and outbox records
 - Socket.IO clients can authenticate and receive tenant-scoped change events
 - workers can consume queued jobs and webhook events
+- webhook intake persists raw events and classifies them into durable integration jobs
 - a tenant can store Dezrez credentials, trigger a sync, and view synchronized properties through the new API/UI
 - unit, API integration, and Playwright e2e tests run in CI
 
@@ -65,6 +66,7 @@ Suggested top-level layout:
 - `packages/config`
 - `packages/contracts`
 - `packages/auth`
+- `packages/integrations`
 - `packages/realtime`
 - `packages/ui`
 - `packages/test-helpers`
@@ -117,6 +119,13 @@ Suggested top-level layout:
 - auth helpers
 - token/session utilities
 - OAuth/OIDC provider adapters
+
+`packages/integrations`
+
+- provider adapters
+- webhook classifiers
+- integration job processors
+- payload normalizers
 
 `packages/realtime`
 
@@ -258,6 +267,7 @@ Tasks:
   - `outbox_events`
   - `integration_accounts`
   - `webhook_events`
+  - `integration_jobs`
   - `properties`
   - `external_references`
 
@@ -334,6 +344,8 @@ Tasks:
 - SQS queue abstraction
 - outbox publisher worker
 - webhook intake endpoint and persistence
+- provider-agnostic integration job model
+- provider-specific webhook classification
 - retry/dead-letter conventions
 
 Maps to:
@@ -364,6 +376,8 @@ Tasks:
 - create `integration_accounts` flow for Dezrez credentials
 - build a minimal Dezrez client adapter
 - create one manual sync endpoint or admin action
+- implement `/event` Dezrez webhook intake against the generic webhook pipeline
+- classify incoming Dezrez webhooks into durable refresh jobs
 - fetch and persist a property list into `properties` plus `external_references`
 - expose a minimal property list API
 - build a simple property list screen in the admin/app shell

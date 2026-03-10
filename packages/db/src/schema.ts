@@ -310,6 +310,36 @@ export const webhookEvents = pgTable('webhook_events', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const integrationJobs = pgTable(
+  'integration_jobs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').references(() => tenants.id),
+    integrationAccountId: uuid('integration_account_id').references(() => integrationAccounts.id),
+    webhookEventId: uuid('webhook_event_id').references(() => webhookEvents.id),
+    provider: text('provider').notNull(),
+    jobType: text('job_type').notNull(),
+    entityType: text('entity_type').notNull(),
+    entityExternalId: text('entity_external_id'),
+    dedupeKey: text('dedupe_key').notNull(),
+    payloadJson: jsonb('payload_json'),
+    status: text('status').notNull().default('pending'),
+    availableAt: timestamp('available_at', { withTimezone: true }).notNull().defaultNow(),
+    lockedAt: timestamp('locked_at', { withTimezone: true }),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    failedAt: timestamp('failed_at', { withTimezone: true }),
+    errorMessage: text('error_message'),
+    ...timestamps,
+  },
+  (table) => ({
+    integrationJobDedupeIdx: uniqueIndex('integration_jobs_provider_dedupe_idx').on(
+      table.provider,
+      table.dedupeKey,
+    ),
+    integrationJobStatusIdx: index('integration_jobs_status_idx').on(table.status, table.availableAt),
+  }),
+);
+
 export const properties = pgTable(
   'properties',
   {

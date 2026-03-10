@@ -1,18 +1,36 @@
 import {
+  dezrezRefreshJobPayloadSchema,
   dezrezIntegrationSettingsSchema,
+  dezrezWebhookPayloadSchema,
+  integrationJobTypeSchema,
   propertySyncRequestPayloadSchema,
   type DezrezSeedProperty,
+  type IntegrationJobType,
 } from '@vitalspace/contracts';
 import { type createDbClient, schema } from '@vitalspace/db';
 import { buildTenantRoom } from '@vitalspace/realtime';
-import { and, eq, lte } from 'drizzle-orm';
+import { createHash } from 'node:crypto';
+import { and, asc, eq, lte } from 'drizzle-orm';
 
 type DbClient = ReturnType<typeof createDbClient>['db'];
+
+const COLLECTION_EVENT_ENTITY_ID = '00000000-0000-0000-0000-000000000000';
 
 export type ProcessPendingPropertySyncsResult = {
   processedEvents: number;
   failedEvents: number;
   upsertedProperties: number;
+};
+
+export type ProcessPendingDezrezWebhookEventsResult = {
+  processedEvents: number;
+  failedEvents: number;
+  createdJobs: number;
+};
+
+export type ProcessPendingIntegrationJobsResult = {
+  completedJobs: number;
+  failedJobs: number;
 };
 
 function requireValue<T>(value: T | undefined, label: string): T {
@@ -32,6 +50,86 @@ async function markOutboxEventFailed(db: DbClient, eventId: string, message: str
       errorMessage: message,
     })
     .where(eq(schema.outboxEvents.id, eventId));
+}
+
+async function markIntegrationJobFailed(db: DbClient, jobId: string, message: string) {
+  await db
+    .update(schema.integrationJobs)
+    .set({
+      status: 'failed',
+      failedAt: new Date(),
+      errorMessage: message,
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.integrationJobs.id, jobId));
+}
+
+function buildWebhookPayloadHash(payload: Record<string, unknown>) {
+  return createHash('sha256').update(JSON.stringify(payload)).digest('hex');
+}
+
+function getDezrezRoleId(payload: {
+  PropertyRoleId?: string | undefined;
+  MarketingRoleId?: string | undefined;
+}) {
+  return payload.PropertyRoleId ?? payload.MarketingRoleId ?? null;
+}
+
+export function classifyDezrezWebhookEvent(
+  payload: Record<string, unknown>,
+): Array<{
+  jobType: IntegrationJobType;
+  entityType: string;
+  entityExternalId: string | null;
+}> {
+  const parsed = dezrezWebhookPayloadSchema.parse(payload);
+  const eventName = parsed.EventName ?? null;
+  const propertyRoleId = getDezrezRoleId(parsed);
+
+  const pushRoleJob = (jobType: IntegrationJobType) => {
+    if (!propertyRoleId) {
+      return [];
+    }
+
+    return [
+      {
+        jobType,
+        entityType: 'property_role',
+        entityExternalId: propertyRoleId,
+      },
+    ];
+  };
+
+  if (eventName && ['Offer', 'OfferResponse', 'LettingOffer', 'offer'].includes(eventName)) {
+    return pushRoleJob('offer.role.refresh');
+  }
+
+  if (eventName && ['Viewing', 'ViewingFeedback', 'viewing'].includes(eventName)) {
+    return pushRoleJob('viewing.role.refresh');
+  }
+
+  if (
+    eventName &&
+    ['GenericEvent', 'EventPropertySearch', 'EventKey', 'EventAlarm', 'event'].includes(eventName)
+  ) {
+    return pushRoleJob('timeline.role.refresh');
+  }
+
+  if (propertyRoleId) {
+    return pushRoleJob('property.role.refresh');
+  }
+
+  if (parsed.PropertyId) {
+    return [
+      {
+        jobType: integrationJobTypeSchema.enum['property.role.refresh'],
+        entityType: 'property',
+        entityExternalId: parsed.PropertyId,
+      },
+    ];
+  }
+
+  return [];
 }
 
 async function upsertProperty(args: {
@@ -270,6 +368,195 @@ export async function processPendingPropertySyncs(args: {
       const message = error instanceof Error ? error.message : 'sync_failed';
       await markOutboxEventFailed(args.db, pendingEvent.id, message);
       result.failedEvents += 1;
+    }
+  }
+
+  return result;
+}
+
+export async function processPendingDezrezWebhookEvents(args: {
+  db: DbClient;
+  limit?: number;
+}): Promise<ProcessPendingDezrezWebhookEventsResult> {
+  const pendingWebhookEvents = await args.db
+    .select()
+    .from(schema.webhookEvents)
+    .where(
+      and(
+        eq(schema.webhookEvents.provider, 'dezrez'),
+        eq(schema.webhookEvents.processingStatus, 'pending'),
+      ),
+    )
+    .orderBy(asc(schema.webhookEvents.receivedAt))
+    .limit(args.limit ?? 20);
+
+  const result: ProcessPendingDezrezWebhookEventsResult = {
+    processedEvents: 0,
+    failedEvents: 0,
+    createdJobs: 0,
+  };
+
+  for (const webhookEvent of pendingWebhookEvents) {
+    if (!webhookEvent.integrationAccountId || !webhookEvent.tenantId) {
+      await args.db
+        .update(schema.webhookEvents)
+        .set({
+          processingStatus: 'failed',
+          errorMessage: 'integration_account_not_resolved',
+        })
+        .where(eq(schema.webhookEvents.id, webhookEvent.id));
+      result.failedEvents += 1;
+      continue;
+    }
+
+    try {
+      const payload = dezrezWebhookPayloadSchema.parse(webhookEvent.payloadJson);
+      const jobs = classifyDezrezWebhookEvent(payload);
+
+      for (const job of jobs) {
+        const payloadHash = buildWebhookPayloadHash(payload);
+        const refreshPayload = dezrezRefreshJobPayloadSchema.parse({
+          webhookEventId: webhookEvent.id,
+          eventName: payload.EventName ?? null,
+          propertyId: payload.PropertyId ?? null,
+          propertyRoleId: getDezrezRoleId(payload),
+          rootEntityId: payload.RootEntityId ?? null,
+          rawEvent: payload,
+        });
+
+        await args.db
+          .insert(schema.integrationJobs)
+          .values({
+            tenantId: webhookEvent.tenantId,
+            integrationAccountId: webhookEvent.integrationAccountId,
+            webhookEventId: webhookEvent.id,
+            provider: 'dezrez',
+            jobType: job.jobType,
+            entityType: job.entityType,
+            entityExternalId: job.entityExternalId,
+            dedupeKey: `${webhookEvent.integrationAccountId}:${job.jobType}:${payloadHash}`,
+            payloadJson: refreshPayload,
+          })
+          .onConflictDoNothing({
+            target: [schema.integrationJobs.provider, schema.integrationJobs.dedupeKey],
+          });
+      }
+
+      await args.db
+        .update(schema.webhookEvents)
+        .set({
+          processingStatus: 'processed',
+          processedAt: new Date(),
+          errorMessage: null,
+        })
+        .where(eq(schema.webhookEvents.id, webhookEvent.id));
+
+      result.processedEvents += 1;
+      result.createdJobs += jobs.length;
+    } catch (error) {
+      await args.db
+        .update(schema.webhookEvents)
+        .set({
+          processingStatus: 'failed',
+          errorMessage: error instanceof Error ? error.message : 'webhook_processing_failed',
+        })
+        .where(eq(schema.webhookEvents.id, webhookEvent.id));
+      result.failedEvents += 1;
+    }
+  }
+
+  return result;
+}
+
+export async function processPendingIntegrationJobs(args: {
+  db: DbClient;
+  limit?: number;
+}): Promise<ProcessPendingIntegrationJobsResult> {
+  const pendingJobs = await args.db
+    .select()
+    .from(schema.integrationJobs)
+    .where(
+      and(
+        eq(schema.integrationJobs.status, 'pending'),
+        lte(schema.integrationJobs.availableAt, new Date()),
+      ),
+    )
+    .orderBy(asc(schema.integrationJobs.availableAt))
+    .limit(args.limit ?? 20);
+
+  const result: ProcessPendingIntegrationJobsResult = {
+    completedJobs: 0,
+    failedJobs: 0,
+  };
+
+  for (const job of pendingJobs) {
+    if (!job.tenantId || !job.integrationAccountId) {
+      await markIntegrationJobFailed(args.db, job.id, 'integration_job_unscoped');
+      result.failedJobs += 1;
+      continue;
+    }
+
+    try {
+      if (job.provider !== 'dezrez') {
+        throw new Error('unsupported_provider');
+      }
+
+      const payload = dezrezRefreshJobPayloadSchema.parse(job.payloadJson);
+
+      if (job.jobType === 'property.role.refresh') {
+        await args.db.insert(schema.outboxEvents).values({
+          tenantId: job.tenantId,
+          eventName: 'property.sync_requested',
+          entityType: 'property',
+          entityId: COLLECTION_EVENT_ENTITY_ID,
+          mutationType: 'sync_requested',
+          channelKey: buildTenantRoom(job.tenantId),
+          payloadJson: propertySyncRequestPayloadSchema.parse({
+            integrationAccountId: job.integrationAccountId,
+            requestedByUserId: null,
+          }),
+        });
+      } else {
+        await args.db.insert(schema.outboxEvents).values({
+          tenantId: job.tenantId,
+          eventName: `dezrez.${job.jobType.replaceAll('.', '_')}.requested`,
+          entityType: 'integration_job',
+          entityId: job.id,
+          mutationType: 'requested',
+          channelKey: buildTenantRoom(job.tenantId),
+          payloadJson: payload,
+        });
+      }
+
+      await args.db.insert(schema.auditLogs).values({
+        tenantId: job.tenantId,
+        actorUserId: null,
+        actorType: 'system',
+        entityType: 'integration_job',
+        entityId: job.id,
+        action: `${job.provider}.${job.jobType}.completed`,
+        summary: `Queued ${job.jobType} for ${job.provider}`,
+        metadataJson: payload,
+      });
+
+      await args.db
+        .update(schema.integrationJobs)
+        .set({
+          status: 'completed',
+          completedAt: new Date(),
+          errorMessage: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.integrationJobs.id, job.id));
+
+      result.completedJobs += 1;
+    } catch (error) {
+      await markIntegrationJobFailed(
+        args.db,
+        job.id,
+        error instanceof Error ? error.message : 'integration_job_failed',
+      );
+      result.failedJobs += 1;
     }
   }
 

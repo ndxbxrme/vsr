@@ -2,7 +2,11 @@ import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createServer } from 'node:http';
 import { eq, sql } from 'drizzle-orm';
-import { processPendingPropertySyncs } from '@vitalspace/integrations';
+import {
+  processPendingDezrezWebhookEvents,
+  processPendingIntegrationJobs,
+  processPendingPropertySyncs,
+} from '@vitalspace/integrations';
 import { createDbClient, migrateDb, schema } from '@vitalspace/db';
 import { Server } from 'socket.io';
 import { io as createSocketClient } from 'socket.io-client';
@@ -37,6 +41,7 @@ async function truncateAllTables() {
       "outbox_events",
       "integration_accounts",
       "webhook_events",
+      "integration_jobs",
       "properties",
       "external_references",
       "tenants",
@@ -241,6 +246,92 @@ describe('api auth and tenancy', () => {
       displayAddress: '7 Market Street, Manchester',
       externalId: 'DRZ-501',
     });
+  });
+
+  it('accepts Dezrez webhooks on /event and turns them into durable integration jobs', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'webhook-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'webhook-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Webhook Estates',
+        slug: 'webhook-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    const configureDezrez = await request(app)
+      .post('/api/v1/integrations/dezrez/accounts')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId: createTenant.body.tenant.id,
+        name: 'Webhook Dezrez',
+        settings: {
+          seedProperties: [
+            {
+              externalId: '30026645',
+              displayAddress: '50 Manchester Street, Manchester',
+              postcode: 'M16 9GZ',
+              marketingStatus: 'for_sale',
+            },
+          ],
+        },
+      });
+
+    expect(configureDezrez.status).toBe(201);
+
+    const event = await request(app).post('/event').send({
+      EventName: 'ViewingFeedback',
+      PropertyId: 3671906,
+      PropertyRoleId: 30026645,
+      RootEntityId: 88991,
+    });
+
+    expect(event.status).toBe(202);
+    expect(event.body.provider).toBe('dezrez');
+
+    const webhookRows = await db.select().from(schema.webhookEvents);
+    expect(webhookRows).toHaveLength(1);
+    expect(webhookRows[0]?.eventType).toBe('ViewingFeedback');
+    expect(webhookRows[0]?.integrationAccountId).toBe(
+      configureDezrez.body.integrationAccount.id,
+    );
+
+    const classified = await processPendingDezrezWebhookEvents({ db });
+    expect(classified).toEqual({
+      processedEvents: 1,
+      failedEvents: 0,
+      createdJobs: 1,
+    });
+
+    const integrationJobs = await db.select().from(schema.integrationJobs);
+    expect(integrationJobs).toHaveLength(1);
+    expect(integrationJobs[0]?.jobType).toBe('viewing.role.refresh');
+
+    const processedJobs = await processPendingIntegrationJobs({ db });
+    expect(processedJobs).toEqual({
+      completedJobs: 1,
+      failedJobs: 0,
+    });
+
+    const refreshOutboxEvents = await db
+      .select()
+      .from(schema.outboxEvents)
+      .where(eq(schema.outboxEvents.eventName, 'dezrez.viewing_role_refresh.requested'));
+
+    expect(refreshOutboxEvents).toHaveLength(1);
+    expect(integrationJobs[0]?.status).not.toBe('failed');
   });
 
   it('authenticates sockets with bearer tokens and broadcasts tenant-scoped events', async () => {
