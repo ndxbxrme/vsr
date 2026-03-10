@@ -5,8 +5,8 @@ import { createApp, h, resolveComponent } from 'vue';
 import { createRouter, createWebHistory } from 'vue-router';
 
 const config = {
-  apiBaseUrl: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4000/api/v1',
-  apiOrigin: import.meta.env.VITE_API_ORIGIN ?? 'http://localhost:4000',
+  apiBaseUrl: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4220/api/v1',
+  apiOrigin: import.meta.env.VITE_API_ORIGIN ?? 'http://localhost:4220',
 };
 const queryClient = new QueryClient();
 

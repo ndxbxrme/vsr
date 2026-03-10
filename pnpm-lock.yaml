@@ -62,6 +62,9 @@ importers:
       '@vitalspace/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@vitalspace/integrations':
+        specifier: workspace:*
+        version: link:../../packages/integrations
       '@vitalspace/realtime':
         specifier: workspace:*
         version: link:../../packages/realtime
@@ -81,6 +84,9 @@ importers:
       '@types/express':
         specifier: ^5.0.3
         version: 5.0.6
+      socket.io-client:
+        specifier: ^4.8.1
+        version: 4.8.3
 
   apps/web:
     dependencies:
@@ -115,6 +121,18 @@ importers:
       '@vitalspace/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@vitalspace/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@vitalspace/integrations':
+        specifier: workspace:*
+        version: link:../../packages/integrations
+      '@vitalspace/realtime':
+        specifier: workspace:*
+        version: link:../../packages/realtime
+      drizzle-orm:
+        specifier: ^0.40.0
+        version: 0.40.1(gel@2.2.0)(postgres@3.4.8)
 
   packages/auth: {}
 
@@ -144,6 +162,21 @@ importers:
         version: 0.30.6
 
   packages/eslint-config: {}
+
+  packages/integrations:
+    dependencies:
+      '@vitalspace/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@vitalspace/db':
+        specifier: workspace:*
+        version: link:../db
+      '@vitalspace/realtime':
+        specifier: workspace:*
+        version: link:../realtime
+      drizzle-orm:
+        specifier: ^0.40.0
+        version: 0.40.1(gel@2.2.0)(postgres@3.4.8)
 
   packages/realtime:
     dependencies:

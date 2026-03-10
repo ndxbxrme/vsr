@@ -1,15 +1,15 @@
 import { z } from 'zod';
 
 const apiConfigSchema = z.object({
-  port: z.coerce.number().default(4000),
+  port: z.coerce.number().default(4220),
   oauth: z.object({
     providers: z.array(z.enum(['google'])).default([]),
   }),
 });
 
 const webConfigSchema = z.object({
-  apiBaseUrl: z.string().default('http://localhost:4000/api/v1'),
-  apiOrigin: z.string().default('http://localhost:4000'),
+  apiBaseUrl: z.string().default('http://localhost:4220/api/v1'),
+  apiOrigin: z.string().default('http://localhost:4220'),
 });
 
 const workerConfigSchema = z.object({

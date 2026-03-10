@@ -8,6 +8,13 @@
       "when": 1773137184132,
       "tag": "0000_bright_thunderball",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1773138962137,
+      "tag": "0001_brainy_logan",
+      "breakpoints": true
     }
   ]
 }

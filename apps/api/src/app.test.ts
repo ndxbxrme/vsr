@@ -1,8 +1,14 @@
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { sql } from 'drizzle-orm';
-import { createDbClient, migrateDb } from '@vitalspace/db';
+import { createServer } from 'node:http';
+import { eq, sql } from 'drizzle-orm';
+import { processPendingPropertySyncs } from '@vitalspace/integrations';
+import { createDbClient, migrateDb, schema } from '@vitalspace/db';
+import { Server } from 'socket.io';
+import { io as createSocketClient } from 'socket.io-client';
 import { createApp } from './app';
+import { configureRealtime } from './realtime';
+import { createRuntimeApp } from './runtime';
 
 const DATABASE_URL =
   process.env.DATABASE_URL ?? 'postgres://vitalspace:vitalspace@localhost:5432/vitalspace';
@@ -125,6 +131,21 @@ describe('api auth and tenancy', () => {
 
     expect(createBranch.status).toBe(201);
     expect(createBranch.body.branch.slug).toBe('sale');
+
+    const auditRows = await db
+      .select()
+      .from(schema.auditLogs)
+      .where(eq(schema.auditLogs.tenantId, createTenant.body.tenant.id));
+    const outboxRows = await db
+      .select()
+      .from(schema.outboxEvents)
+      .where(eq(schema.outboxEvents.tenantId, createTenant.body.tenant.id));
+
+    expect(auditRows).toHaveLength(2);
+    expect(outboxRows).toHaveLength(2);
+    expect(outboxRows.map((row) => row.eventName)).toEqual(
+      expect.arrayContaining(['tenant.created', 'branch.created']),
+    );
   });
 
   it('rejects protected routes without valid authentication', async () => {
@@ -136,5 +157,196 @@ describe('api auth and tenancy', () => {
     });
 
     expect(response.status).toBe(401);
+  });
+
+  it('stores a Dezrez account, processes a sync request, and returns synced properties', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'property-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'property-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Property Estates',
+        slug: 'property-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    const configureDezrez = await request(app)
+      .post('/api/v1/integrations/dezrez/accounts')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId: createTenant.body.tenant.id,
+        name: 'Primary Dezrez',
+        settings: {
+          seedProperties: [
+            {
+              externalId: 'DRZ-500',
+              displayAddress: '5 Market Street, Manchester',
+              postcode: 'M1 1WR',
+              marketingStatus: 'for_sale',
+            },
+            {
+              externalId: 'DRZ-501',
+              displayAddress: '7 Market Street, Manchester',
+              postcode: 'M1 1WR',
+              marketingStatus: 'under_offer',
+            },
+          ],
+        },
+      });
+
+    expect(configureDezrez.status).toBe(201);
+
+    const sync = await request(app)
+      .post('/api/v1/integrations/dezrez/sync')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId: createTenant.body.tenant.id,
+      });
+
+    expect(sync.status).toBe(202);
+
+    const processed = await processPendingPropertySyncs({ db });
+    expect(processed).toEqual({
+      processedEvents: 1,
+      failedEvents: 0,
+      upsertedProperties: 2,
+    });
+
+    const properties = await request(app)
+      .get('/api/v1/properties')
+      .query({
+        tenantId: createTenant.body.tenant.id,
+      })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(properties.status).toBe(200);
+    expect(properties.body.properties).toHaveLength(2);
+    expect(properties.body.properties[0]).toMatchObject({
+      displayAddress: '5 Market Street, Manchester',
+      externalId: 'DRZ-500',
+    });
+    expect(properties.body.properties[1]).toMatchObject({
+      displayAddress: '7 Market Street, Manchester',
+      externalId: 'DRZ-501',
+    });
+  });
+
+  it('authenticates sockets with bearer tokens and broadcasts tenant-scoped events', async () => {
+    const server = createServer();
+    const io = new Server(server, {
+      cors: { origin: '*' },
+    });
+    configureRealtime(io, db);
+
+    const runtimeApp = createRuntimeApp({
+      db,
+      io,
+      oauthProviders: ['google'],
+    });
+    server.on('request', runtimeApp);
+
+    await request(runtimeApp).post('/api/v1/auth/signup').send({
+      email: 'socket-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(runtimeApp).post('/api/v1/auth/login').send({
+      email: 'socket-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(runtimeApp)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Socket Estates',
+        slug: 'socket-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    const configureDezrez = await request(runtimeApp)
+      .post('/api/v1/integrations/dezrez/accounts')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId: createTenant.body.tenant.id,
+        name: 'Socket Dezrez',
+        settings: {
+          seedProperties: [],
+        },
+      });
+
+    expect(configureDezrez.status).toBe(201);
+
+    await new Promise<void>((resolve) => {
+      server.listen(0, () => resolve());
+    });
+
+    const address = server.address();
+    if (!address || typeof address === 'string') {
+      throw new Error('server_address_not_available');
+    }
+
+    const socket = createSocketClient(`http://127.0.0.1:${address.port}`, {
+      auth: {
+        token: accessToken,
+      },
+      transports: ['websocket'],
+    });
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('socket_connect_timeout')), 3000);
+        socket.on('connect', () => {
+          clearTimeout(timeout);
+          resolve();
+        });
+        socket.on('connect_error', (error) => {
+          clearTimeout(timeout);
+          reject(error);
+        });
+      });
+
+      const eventPromise = new Promise<Record<string, unknown>>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('socket_event_timeout')), 3000);
+        socket.on('entity.changed', (event) => {
+          clearTimeout(timeout);
+          resolve(event as Record<string, unknown>);
+        });
+      });
+
+      const sync = await request(runtimeApp)
+        .post('/api/v1/integrations/dezrez/sync')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          tenantId: createTenant.body.tenant.id,
+        });
+
+      expect(sync.status).toBe(202);
+
+      const event = await eventPromise;
+      expect(event.tenantId).toBe(createTenant.body.tenant.id);
+      expect(event.entityType).toBe('property');
+      expect(event.mutationType).toBe('sync_requested');
+    } finally {
+      socket.close();
+      await new Promise<void>((resolve) => {
+        io.close(() => resolve());
+      });
+    }
   });
 });

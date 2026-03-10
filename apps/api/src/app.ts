@@ -7,13 +7,19 @@ import {
 } from '@vitalspace/auth';
 import type { EntityChangedEvent } from '@vitalspace/contracts';
 import {
-  type createDbClient,
-  schema,
-} from '@vitalspace/db';
+  dezrezIntegrationSettingsSchema,
+  propertySyncRequestPayloadSchema,
+} from '@vitalspace/contracts';
+import { type createDbClient, schema } from '@vitalspace/db';
 import { buildEntityChangedEvent, buildTenantRoom } from '@vitalspace/realtime';
-import { and, eq, gt, isNull } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { z } from 'zod';
+import {
+  hasTenantRole,
+  loadAuthContext,
+  type AuthenticatedContext,
+} from './auth-context';
 
 type DbClient = ReturnType<typeof createDbClient>['db'];
 
@@ -23,27 +29,11 @@ export type ApiAppDeps = {
   oauthProviders?: string[];
 };
 
-type AuthenticatedRole = {
-  tenantId: string | null;
-  key: string;
-};
-
-type AuthenticatedMembership = {
-  membershipId: string;
-  tenantId: string;
-  branchId: string | null;
-  roles: AuthenticatedRole[];
-};
-
-type AuthenticatedContext = {
-  userId: string;
-  email: string | null;
-  memberships: AuthenticatedMembership[];
-};
-
 type AuthenticatedRequest = Request & {
   auth?: AuthenticatedContext | null;
 };
+
+const COLLECTION_EVENT_ENTITY_ID = '00000000-0000-0000-0000-000000000000';
 
 const signupSchema = z.object({
   email: z.string().email(),
@@ -71,6 +61,16 @@ const createBranchSchema = z.object({
 });
 
 const propertySyncRequestSchema = z.object({
+  tenantId: z.string().uuid(),
+});
+
+const createDezrezAccountSchema = z.object({
+  tenantId: z.string().uuid(),
+  name: z.string().min(1).default('Dezrez'),
+  settings: dezrezIntegrationSettingsSchema,
+});
+
+const listPropertiesQuerySchema = z.object({
   tenantId: z.string().uuid(),
 });
 
@@ -120,93 +120,6 @@ async function recordMutation(args: {
   }
 }
 
-async function loadAuthContext(db: DbClient, token: string): Promise<AuthenticatedContext | null> {
-  const now = new Date();
-  const tokenHash = hashOpaqueToken(token);
-  const [session] = await db
-    .select()
-    .from(schema.sessions)
-    .where(
-      and(
-        eq(schema.sessions.sessionTokenHash, tokenHash),
-        isNull(schema.sessions.revokedAt),
-        gt(schema.sessions.expiresAt, now),
-      ),
-    )
-    .limit(1);
-
-  if (!session) {
-    return null;
-  }
-
-  const [user] = await db.select().from(schema.users).where(eq(schema.users.id, session.userId)).limit(1);
-  if (!user) {
-    return null;
-  }
-
-  const memberships = await db
-    .select({
-      membershipId: schema.memberships.id,
-      tenantId: schema.memberships.tenantId,
-      branchId: schema.memberships.branchId,
-      roleTenantId: schema.roles.tenantId,
-      roleKey: schema.roles.key,
-    })
-    .from(schema.memberships)
-    .leftJoin(
-      schema.membershipRoles,
-      eq(schema.membershipRoles.membershipId, schema.memberships.id),
-    )
-    .leftJoin(schema.roles, eq(schema.roles.id, schema.membershipRoles.roleId))
-    .where(
-      and(
-        eq(schema.memberships.userId, user.id),
-        eq(schema.memberships.status, 'active'),
-      ),
-    );
-
-  const groupedMemberships = new Map<string, AuthenticatedMembership>();
-  for (const membership of memberships) {
-    const existing = groupedMemberships.get(membership.membershipId);
-    if (existing) {
-      if (membership.roleKey) {
-        existing.roles.push({
-          tenantId: membership.roleTenantId,
-          key: membership.roleKey,
-        });
-      }
-      continue;
-    }
-
-    groupedMemberships.set(membership.membershipId, {
-      membershipId: membership.membershipId,
-      tenantId: membership.tenantId,
-      branchId: membership.branchId,
-      roles: membership.roleKey
-        ? [
-            {
-              tenantId: membership.roleTenantId,
-              key: membership.roleKey,
-            },
-          ]
-        : [],
-    });
-  }
-
-  await db
-    .update(schema.sessions)
-    .set({
-      lastSeenAt: now,
-    })
-    .where(eq(schema.sessions.id, session.id));
-
-  return {
-    userId: user.id,
-    email: user.email,
-    memberships: [...groupedMemberships.values()],
-  };
-}
-
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!(req as AuthenticatedRequest).auth) {
     return res.status(401).json({ error: 'unauthorized' });
@@ -223,12 +136,8 @@ function requireValue<T>(value: T | undefined, label: string): T {
   return value;
 }
 
-function hasTenantRole(auth: AuthenticatedContext, tenantId: string, roleKey: string) {
-  return auth.memberships.some(
-    (membership) =>
-      membership.tenantId === tenantId &&
-      membership.roles.some((role) => role.key === roleKey),
-  );
+function hasTenantMembership(auth: AuthenticatedContext, tenantId: string) {
+  return auth.memberships.some((membership) => membership.tenantId === tenantId);
 }
 
 export function createApp(deps: ApiAppDeps) {
@@ -489,6 +398,123 @@ export function createApp(deps: ApiAppDeps) {
     return res.status(201).json({ branch });
   });
 
+  app.post('/api/v1/integrations/dezrez/accounts', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = createDezrezAccountSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantRole(authReq.auth!, parsed.data.tenantId, 'tenant_admin')) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const settings = dezrezIntegrationSettingsSchema.parse(parsed.data.settings);
+    const [existingAccount] = await deps.db
+      .select()
+      .from(schema.integrationAccounts)
+      .where(
+        and(
+          eq(schema.integrationAccounts.tenantId, parsed.data.tenantId),
+          eq(schema.integrationAccounts.provider, 'dezrez'),
+        ),
+      )
+      .limit(1);
+
+    const mutationType = existingAccount ? 'updated' : 'created';
+    let integrationAccount;
+
+    if (existingAccount) {
+      const updatedAccounts = await deps.db
+        .update(schema.integrationAccounts)
+        .set({
+          name: parsed.data.name,
+          status: 'active',
+          settingsJson: settings,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.integrationAccounts.id, existingAccount.id))
+        .returning();
+      integrationAccount = requireValue(updatedAccounts[0], 'integration_account');
+    } else {
+      const createdAccounts = await deps.db
+        .insert(schema.integrationAccounts)
+        .values({
+          tenantId: parsed.data.tenantId,
+          provider: 'dezrez',
+          name: parsed.data.name,
+          status: 'active',
+          settingsJson: settings,
+        })
+        .returning();
+      integrationAccount = requireValue(createdAccounts[0], 'integration_account');
+    }
+
+    await recordMutation({
+      db: deps.db,
+      actorUserId: authReq.auth!.userId,
+      tenantId: parsed.data.tenantId,
+      entityType: 'integration_account',
+      entityId: integrationAccount.id,
+      action: `integration_account.${mutationType}`,
+      summary: `${existingAccount ? 'Updated' : 'Created'} Dezrez integration account`,
+      mutationType,
+      payload: {
+        provider: 'dezrez',
+        seedPropertyCount: settings.seedProperties.length,
+      },
+      publishEntityChangedEvent: deps.publishEntityChangedEvent,
+    });
+
+    return res.status(existingAccount ? 200 : 201).json({
+      integrationAccount: {
+        id: integrationAccount.id,
+        tenantId: integrationAccount.tenantId,
+        provider: integrationAccount.provider,
+        name: integrationAccount.name,
+        status: integrationAccount.status,
+        seedPropertyCount: settings.seedProperties.length,
+      },
+    });
+  });
+
+  app.get('/api/v1/properties', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = listPropertiesQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_query', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const properties = await deps.db
+      .select({
+        id: schema.properties.id,
+        branchId: schema.properties.branchId,
+        displayAddress: schema.properties.displayAddress,
+        postcode: schema.properties.postcode,
+        status: schema.properties.status,
+        marketingStatus: schema.properties.marketingStatus,
+        externalId: schema.externalReferences.externalId,
+      })
+      .from(schema.properties)
+      .leftJoin(
+        schema.externalReferences,
+        and(
+          eq(schema.externalReferences.tenantId, schema.properties.tenantId),
+          eq(schema.externalReferences.entityId, schema.properties.id),
+          eq(schema.externalReferences.provider, 'dezrez'),
+          eq(schema.externalReferences.entityType, 'property'),
+        ),
+      )
+      .where(eq(schema.properties.tenantId, parsed.data.tenantId))
+      .orderBy(asc(schema.properties.displayAddress));
+
+    return res.json({ properties });
+  });
+
   app.post('/api/v1/integrations/dezrez/sync', requireAuth, async (req: Request, res: Response) => {
     const authReq = req as AuthenticatedRequest;
     const parsed = propertySyncRequestSchema.safeParse(req.body);
@@ -500,21 +526,42 @@ export function createApp(deps: ApiAppDeps) {
       return res.status(403).json({ error: 'forbidden' });
     }
 
+    const [integrationAccount] = await deps.db
+      .select()
+      .from(schema.integrationAccounts)
+      .where(
+        and(
+          eq(schema.integrationAccounts.tenantId, parsed.data.tenantId),
+          eq(schema.integrationAccounts.provider, 'dezrez'),
+        ),
+      )
+      .limit(1);
+
+    if (!integrationAccount) {
+      return res.status(404).json({ error: 'integration_account_not_found' });
+    }
+
     const event = buildEntityChangedEvent({
       tenantId: parsed.data.tenantId,
       entityType: 'property',
-      entityId: '00000000-0000-0000-0000-000000000000',
+      entityId: COLLECTION_EVENT_ENTITY_ID,
       mutationType: 'sync_requested',
+      payload: {
+        integrationAccountId: integrationAccount.id,
+      },
     });
 
     await deps.db.insert(schema.outboxEvents).values({
       tenantId: parsed.data.tenantId,
       eventName: 'property.sync_requested',
       entityType: 'property',
-      entityId: '00000000-0000-0000-0000-000000000000',
+      entityId: COLLECTION_EVENT_ENTITY_ID,
       mutationType: 'sync_requested',
       channelKey: buildTenantRoom(parsed.data.tenantId),
-      payloadJson: null,
+      payloadJson: propertySyncRequestPayloadSchema.parse({
+        integrationAccountId: integrationAccount.id,
+        requestedByUserId: authReq.auth!.userId,
+      }),
     });
 
     deps.publishEntityChangedEvent?.(event);

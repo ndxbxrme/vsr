@@ -286,7 +286,14 @@ export const integrationAccounts = pgTable('integration_accounts', {
   credentialsJsonEncrypted: jsonb('credentials_json_encrypted'),
   settingsJson: jsonb('settings_json'),
   ...timestamps,
-});
+},
+  (table) => ({
+    integrationAccountTenantProviderIdx: uniqueIndex('integration_accounts_tenant_provider_idx').on(
+      table.tenantId,
+      table.provider,
+    ),
+  }),
+);
 
 export const webhookEvents = pgTable('webhook_events', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -336,6 +343,7 @@ export const externalReferences = pgTable(
   },
   (table) => ({
     externalRefIdx: uniqueIndex('external_references_provider_entity_external_idx').on(
+      table.tenantId,
       table.provider,
       table.entityType,
       table.externalId,

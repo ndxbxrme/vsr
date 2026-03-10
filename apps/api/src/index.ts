@@ -2,6 +2,7 @@ import { createServer } from 'node:http';
 import { loadApiConfig } from '@vitalspace/config';
 import { createDbClient } from '@vitalspace/db';
 import { Server } from 'socket.io';
+import { configureRealtime } from './realtime';
 import { createRuntimeApp } from './runtime';
 
 const config = loadApiConfig();
@@ -23,13 +24,7 @@ const app = createRuntimeApp({
 });
 server.removeAllListeners('request');
 server.on('request', app);
-
-io.on('connection', (socket) => {
-  const tenantId = socket.handshake.auth.tenantId;
-  if (typeof tenantId === 'string' && tenantId.length > 0) {
-    socket.join(`tenant:${tenantId}`);
-  }
-});
+configureRealtime(io, db);
 
 server.listen(config.port, () => {
   console.log(`@vitalspace/api listening on ${config.port}`);
