@@ -1,0 +1,42 @@
+import { z } from 'zod';
+
+const apiConfigSchema = z.object({
+  port: z.coerce.number().default(4000),
+  oauth: z.object({
+    providers: z.array(z.enum(['google'])).default([]),
+  }),
+});
+
+const webConfigSchema = z.object({
+  apiBaseUrl: z.string().default('http://localhost:4000/api/v1'),
+  apiOrigin: z.string().default('http://localhost:4000'),
+});
+
+const workerConfigSchema = z.object({
+  concurrency: z.coerce.number().default(5),
+});
+
+export function loadApiConfig() {
+  return apiConfigSchema.parse({
+    port: process.env.API_PORT,
+    oauth: {
+      providers: process.env.GOOGLE_CLIENT_ID ? ['google'] : [],
+    },
+  });
+}
+
+export function loadWebConfig(env: {
+  VITE_API_BASE_URL?: string;
+  VITE_API_ORIGIN?: string;
+}) {
+  return webConfigSchema.parse({
+    apiBaseUrl: env.VITE_API_BASE_URL,
+    apiOrigin: env.VITE_API_ORIGIN,
+  });
+}
+
+export function loadWorkerConfig() {
+  return workerConfigSchema.parse({
+    concurrency: process.env.WORKER_CONCURRENCY,
+  });
+}

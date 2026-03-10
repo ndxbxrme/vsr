@@ -1,0 +1,9 @@
+{
+  "extends": "../../packages/typescript-config/web.json",
+  "compilerOptions": {
+    "types": ["vite/client"],
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src/**/*.ts"]
+}

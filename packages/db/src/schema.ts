@@ -1,0 +1,263 @@
+import {
+  boolean,
+  index,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
+
+const timestamps = {
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+};
+
+export const users = pgTable(
+  'users',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    email: text('email'),
+    emailNormalized: text('email_normalized'),
+    firstName: text('first_name'),
+    lastName: text('last_name'),
+    displayName: text('display_name'),
+    phone: text('phone'),
+    isPlatformAdmin: boolean('is_platform_admin').notNull().default(false),
+    lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => ({
+    emailNormalizedIdx: uniqueIndex('users_email_normalized_idx').on(table.emailNormalized),
+  }),
+);
+
+export const credentials = pgTable(
+  'credentials',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => users.id),
+    passwordHash: text('password_hash').notNull(),
+    passwordSetAt: timestamp('password_set_at', { withTimezone: true }),
+    mustReset: boolean('must_reset').notNull().default(false),
+    ...timestamps,
+  },
+  (table) => ({
+    userIdx: uniqueIndex('credentials_user_id_idx').on(table.userId),
+  }),
+);
+
+export const oauthAccounts = pgTable(
+  'oauth_accounts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull().references(() => users.id),
+    provider: text('provider').notNull(),
+    providerUserId: text('provider_user_id').notNull(),
+    emailFromProvider: text('email_from_provider'),
+    accessTokenEncrypted: text('access_token_encrypted'),
+    refreshTokenEncrypted: text('refresh_token_encrypted'),
+    tokenExpiresAt: timestamp('token_expires_at', { withTimezone: true }),
+    profileJson: jsonb('profile_json'),
+    ...timestamps,
+  },
+  (table) => ({
+    providerIdx: uniqueIndex('oauth_accounts_provider_user_idx').on(
+      table.provider,
+      table.providerUserId,
+    ),
+  }),
+);
+
+export const tenants = pgTable(
+  'tenants',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    slug: text('slug').notNull(),
+    status: text('status').notNull().default('active'),
+    onboardingState: text('onboarding_state').notNull().default('created'),
+    ...timestamps,
+  },
+  (table) => ({
+    slugIdx: uniqueIndex('tenants_slug_idx').on(table.slug),
+  }),
+);
+
+export const branches = pgTable(
+  'branches',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    name: text('name').notNull(),
+    slug: text('slug').notNull(),
+    timezone: text('timezone'),
+    ...timestamps,
+  },
+  (table) => ({
+    tenantSlugIdx: uniqueIndex('branches_tenant_slug_idx').on(table.tenantId, table.slug),
+  }),
+);
+
+export const tenantDomains = pgTable(
+  'tenant_domains',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    domain: text('domain').notNull(),
+    domainType: text('domain_type').notNull(),
+    isPrimary: boolean('is_primary').notNull().default(false),
+    verificationStatus: text('verification_status').notNull().default('pending'),
+    verifiedAt: timestamp('verified_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => ({
+    domainIdx: uniqueIndex('tenant_domains_domain_idx').on(table.domain),
+  }),
+);
+
+export const memberships = pgTable(
+  'memberships',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    branchId: uuid('branch_id').references(() => branches.id),
+    userId: uuid('user_id').notNull().references(() => users.id),
+    status: text('status').notNull().default('active'),
+    joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
+    leftAt: timestamp('left_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => ({
+    membershipUniqueIdx: uniqueIndex('memberships_tenant_branch_user_idx').on(
+      table.tenantId,
+      table.branchId,
+      table.userId,
+    ),
+  }),
+);
+
+export const fileObjects = pgTable('file_objects', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+  storageProvider: text('storage_provider').notNull(),
+  storageKey: text('storage_key').notNull(),
+  originalName: text('original_name').notNull(),
+  contentType: text('content_type').notNull(),
+  sizeBytes: text('size_bytes').notNull(),
+  ...timestamps,
+});
+
+export const auditLogs = pgTable(
+  'audit_logs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').references(() => tenants.id),
+    actorUserId: uuid('actor_user_id').references(() => users.id),
+    actorType: text('actor_type').notNull(),
+    entityType: text('entity_type').notNull(),
+    entityId: uuid('entity_id').notNull(),
+    action: text('action').notNull(),
+    summary: text('summary').notNull(),
+    metadataJson: jsonb('metadata_json'),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    auditEntityIdx: index('audit_logs_entity_idx').on(
+      table.tenantId,
+      table.entityType,
+      table.entityId,
+    ),
+  }),
+);
+
+export const outboxEvents = pgTable(
+  'outbox_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').references(() => tenants.id),
+    eventName: text('event_name').notNull(),
+    entityType: text('entity_type').notNull(),
+    entityId: uuid('entity_id').notNull(),
+    mutationType: text('mutation_type').notNull(),
+    channelKey: text('channel_key').notNull(),
+    payloadJson: jsonb('payload_json'),
+    status: text('status').notNull().default('pending'),
+    availableAt: timestamp('available_at', { withTimezone: true }).notNull().defaultNow(),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+    failedAt: timestamp('failed_at', { withTimezone: true }),
+    errorMessage: text('error_message'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    outboxStatusIdx: index('outbox_events_status_idx').on(table.status, table.availableAt),
+  }),
+);
+
+export const integrationAccounts = pgTable('integration_accounts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+  provider: text('provider').notNull(),
+  name: text('name').notNull(),
+  status: text('status').notNull().default('active'),
+  credentialsJsonEncrypted: jsonb('credentials_json_encrypted'),
+  settingsJson: jsonb('settings_json'),
+  ...timestamps,
+});
+
+export const webhookEvents = pgTable('webhook_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').references(() => tenants.id),
+  integrationAccountId: uuid('integration_account_id').references(() => integrationAccounts.id),
+  provider: text('provider').notNull(),
+  eventType: text('event_type').notNull(),
+  signatureValid: boolean('signature_valid').notNull().default(false),
+  payloadJson: jsonb('payload_json').notNull(),
+  receivedAt: timestamp('received_at', { withTimezone: true }).notNull().defaultNow(),
+  processedAt: timestamp('processed_at', { withTimezone: true }),
+  processingStatus: text('processing_status').notNull().default('pending'),
+  errorMessage: text('error_message'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const properties = pgTable(
+  'properties',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    branchId: uuid('branch_id').references(() => branches.id),
+    displayAddress: text('display_address').notNull(),
+    postcode: text('postcode'),
+    status: text('status').notNull().default('active'),
+    marketingStatus: text('marketing_status'),
+    ...timestamps,
+  },
+  (table) => ({
+    propertyTenantStatusIdx: index('properties_tenant_status_idx').on(table.tenantId, table.status),
+  }),
+);
+
+export const externalReferences = pgTable(
+  'external_references',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').references(() => tenants.id),
+    provider: text('provider').notNull(),
+    entityType: text('entity_type').notNull(),
+    entityId: uuid('entity_id').notNull(),
+    externalType: text('external_type').notNull(),
+    externalId: text('external_id').notNull(),
+    metadataJson: jsonb('metadata_json'),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => ({
+    externalRefIdx: uniqueIndex('external_references_provider_entity_external_idx').on(
+      table.provider,
+      table.entityType,
+      table.externalId,
+    ),
+  }),
+);
