@@ -334,6 +334,16 @@ p {
   color: #8d2b0f;
 }
 
+.file-upload-panel {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.file-download-button {
+  margin-top: 8px;
+}
+
 .error-banner {
   margin: 0 0 18px;
   padding: 14px 16px;

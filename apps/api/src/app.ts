@@ -23,6 +23,14 @@ import {
   loadAuthContext,
   type AuthenticatedContext,
 } from './auth-context';
+import { loadStoredFile, persistUploadedFile } from './file-storage';
+import {
+  buildGoogleAuthorizationUrl,
+  exchangeGoogleCode,
+  maybeEncryptToken,
+  parseOAuthState,
+} from './oauth';
+import { resolveTenantFromHost } from './tenant-resolution';
 
 type DbClient = ReturnType<typeof createDbClient>['db'];
 
@@ -50,6 +58,15 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+const oauthStartQuerySchema = z.object({
+  redirectTo: z.string().url(),
+});
+
+const oauthCallbackQuerySchema = z.object({
+  code: z.string().min(1),
+  state: z.string().min(1),
+});
+
 const createTenantSchema = z.object({
   name: z.string().min(1),
   slug: z.string().min(1),
@@ -61,6 +78,14 @@ const createBranchSchema = z.object({
   tenantId: z.string().uuid(),
   name: z.string().min(1),
   slug: z.string().min(1),
+});
+
+const createTenantDomainSchema = z.object({
+  tenantId: z.string().uuid(),
+  domain: z.string().min(1),
+  domainType: z.enum(['subdomain', 'custom']),
+  isPrimary: z.boolean().default(false),
+  verificationStatus: z.enum(['pending', 'verified']).default('pending'),
 });
 
 const propertySyncRequestSchema = z.object({
@@ -97,8 +122,28 @@ const propertyParamsSchema = z.object({
   propertyId: z.string().uuid(),
 });
 
+const fileParamsSchema = z.object({
+  fileId: z.string().uuid(),
+});
+
 const tenantScopedQuerySchema = z.object({
   tenantId: z.string().uuid(),
+});
+
+const listFilesQuerySchema = z.object({
+  tenantId: z.string().uuid(),
+  entityType: z.string().min(1),
+  entityId: z.string().uuid(),
+});
+
+const uploadFileSchema = z.object({
+  tenantId: z.string().uuid(),
+  entityType: z.string().min(1),
+  entityId: z.string().uuid(),
+  label: z.string().min(1).optional(),
+  originalName: z.string().min(1),
+  contentType: z.string().min(1),
+  base64Data: z.string().min(1),
 });
 
 const webhookQuerySchema = z.object({
@@ -171,6 +216,31 @@ function requireValue<T>(value: T | undefined, label: string): T {
 
 function hasTenantMembership(auth: AuthenticatedContext, tenantId: string) {
   return auth.memberships.some((membership) => membership.tenantId === tenantId);
+}
+
+async function createSession(args: {
+  db: DbClient;
+  userId: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+}) {
+  const token = createOpaqueToken();
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
+  await args.db.insert(schema.sessions).values({
+    userId: args.userId,
+    sessionTokenHash: hashOpaqueToken(token),
+    ipAddress: args.ipAddress,
+    userAgent: args.userAgent,
+    expiresAt,
+  });
+  await args.db
+    .update(schema.users)
+    .set({
+      lastLoginAt: new Date(),
+    })
+    .where(eq(schema.users.id, args.userId));
+
+  return token;
 }
 
 async function loadPropertyRecord(args: {
@@ -290,10 +360,23 @@ export function createApp(deps: ApiAppDeps) {
   });
 
   app.get('/api/v1/bootstrap', (_req: Request, res: Response) => {
-    res.json({
+    void (async () => {
+      const resolvedTenant = await resolveTenantFromHost({
+        db: deps.db,
+        host: _req.header('x-forwarded-host') ?? _req.header('host'),
+      });
+
+      res.json({
       appName: 'VitalSpace',
       realtimeEnabled: true,
       oauthProviders: deps.oauthProviders ?? [],
+        resolvedTenant,
+      });
+    })().catch((error) => {
+      res.status(500).json({
+        error: 'bootstrap_failed',
+        message: error instanceof Error ? error.message : 'unknown_error',
+      });
     });
   });
 
@@ -415,22 +498,12 @@ export function createApp(deps: ApiAppDeps) {
       return res.status(401).json({ error: 'invalid_credentials' });
     }
 
-    const token = createOpaqueToken();
-    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24 * 30);
-    await deps.db.insert(schema.sessions).values({
+    const token = await createSession({
+      db: deps.db,
       userId: row.user.id,
-      sessionTokenHash: hashOpaqueToken(token),
-      ipAddress: req.ip,
+      ipAddress: req.ip ?? null,
       userAgent: req.header('user-agent') ?? null,
-      expiresAt,
     });
-
-    await deps.db
-      .update(schema.users)
-      .set({
-        lastLoginAt: new Date(),
-      })
-      .where(eq(schema.users.id, row.user.id));
 
     return res.json({
       accessToken: token,
@@ -440,6 +513,120 @@ export function createApp(deps: ApiAppDeps) {
         displayName: row.user.displayName,
       },
     });
+  });
+
+  app.get('/api/v1/auth/oauth/google/start', async (req: Request, res: Response) => {
+    if (!deps.oauthProviders?.includes('google')) {
+      return res.status(404).json({ error: 'provider_not_available' });
+    }
+
+    const parsed = oauthStartQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_query', details: parsed.error.flatten() });
+    }
+
+    const callbackUrl = new URL('/api/v1/auth/oauth/google/callback', `${req.protocol}://${req.get('host')}`);
+    return res.redirect(
+      buildGoogleAuthorizationUrl({
+        callbackUrl: callbackUrl.toString(),
+        redirectTo: parsed.data.redirectTo,
+      }),
+    );
+  });
+
+  app.get('/api/v1/auth/oauth/google/callback', async (req: Request, res: Response) => {
+    if (!deps.oauthProviders?.includes('google')) {
+      return res.status(404).json({ error: 'provider_not_available' });
+    }
+
+    const parsed = oauthCallbackQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_query', details: parsed.error.flatten() });
+    }
+
+    const state = parseOAuthState(parsed.data.state);
+    if (!state) {
+      return res.status(400).json({ error: 'invalid_oauth_state' });
+    }
+
+    const callbackUrl = new URL('/api/v1/auth/oauth/google/callback', `${req.protocol}://${req.get('host')}`);
+    const profile = await exchangeGoogleCode({
+      code: parsed.data.code,
+      callbackUrl: callbackUrl.toString(),
+    });
+
+    let [oauthAccount] = await deps.db
+      .select()
+      .from(schema.oauthAccounts)
+      .where(
+        and(
+          eq(schema.oauthAccounts.provider, 'google'),
+          eq(schema.oauthAccounts.providerUserId, profile.providerUserId),
+        ),
+      )
+      .limit(1);
+
+    let userId = oauthAccount?.userId ?? null;
+
+    if (!userId && profile.email) {
+      const [existingUser] = await deps.db
+        .select()
+        .from(schema.users)
+        .where(eq(schema.users.emailNormalized, profile.email))
+        .limit(1);
+      userId = existingUser?.id ?? null;
+    }
+
+    if (!userId) {
+      const createdUsers = await deps.db
+        .insert(schema.users)
+        .values({
+          email: profile.email,
+          emailNormalized: profile.email,
+          firstName: profile.firstName,
+          lastName: profile.lastName,
+          displayName: profile.displayName ?? profile.email ?? profile.providerUserId,
+        })
+        .returning();
+      userId = requireValue(createdUsers[0], 'oauth_user').id;
+    }
+
+    const oauthAccountPayload = {
+      userId,
+      provider: 'google' as const,
+      providerUserId: profile.providerUserId,
+      emailFromProvider: profile.email,
+      accessTokenEncrypted: maybeEncryptToken(profile.accessToken),
+      refreshTokenEncrypted: maybeEncryptToken(profile.refreshToken),
+      tokenExpiresAt: profile.expiresAt,
+      profileJson: profile.profile,
+      updatedAt: new Date(),
+    };
+
+    if (oauthAccount) {
+      await deps.db
+        .update(schema.oauthAccounts)
+        .set(oauthAccountPayload)
+        .where(eq(schema.oauthAccounts.id, oauthAccount.id));
+    } else {
+      const createdAccounts = await deps.db
+        .insert(schema.oauthAccounts)
+        .values(oauthAccountPayload)
+        .returning();
+      oauthAccount = requireValue(createdAccounts[0], 'oauth_account');
+    }
+
+    const token = await createSession({
+      db: deps.db,
+      userId,
+      ipAddress: req.ip ?? null,
+      userAgent: req.header('user-agent') ?? null,
+    });
+
+    const redirectUrl = new URL(state.redirectTo);
+    redirectUrl.searchParams.set('accessToken', token);
+    redirectUrl.searchParams.set('provider', 'google');
+    return res.redirect(redirectUrl.toString());
   });
 
   app.post('/api/v1/auth/logout', requireAuth, async (req: Request, res: Response) => {
@@ -465,6 +652,159 @@ export function createApp(deps: ApiAppDeps) {
       email: authReq.auth?.email,
       memberships: authReq.auth?.memberships ?? [],
     });
+  });
+
+  app.post('/api/v1/files', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = uploadFileSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const stored = await persistUploadedFile({
+      tenantId: parsed.data.tenantId,
+      originalName: parsed.data.originalName,
+      base64Data: parsed.data.base64Data,
+    });
+
+    const createdFiles = await deps.db
+      .insert(schema.fileObjects)
+      .values({
+        tenantId: parsed.data.tenantId,
+        storageProvider: stored.storageProvider,
+        storageKey: stored.storageKey,
+        originalName: parsed.data.originalName,
+        contentType: parsed.data.contentType,
+        sizeBytes: String(stored.sizeBytes),
+      })
+      .returning();
+    const fileObject = requireValue(createdFiles[0], 'file_object');
+
+    const createdAttachments = await deps.db
+      .insert(schema.fileAttachments)
+      .values({
+        tenantId: parsed.data.tenantId,
+        fileObjectId: fileObject.id,
+        entityType: parsed.data.entityType,
+        entityId: parsed.data.entityId,
+        label: parsed.data.label ?? null,
+      })
+      .returning();
+    const attachment = requireValue(createdAttachments[0], 'file_attachment');
+
+    await recordMutation({
+      db: deps.db,
+      actorUserId: authReq.auth!.userId,
+      tenantId: parsed.data.tenantId,
+      entityType: 'file_object',
+      entityId: fileObject.id,
+      action: 'file_object.uploaded',
+      summary: `Uploaded ${parsed.data.originalName}`,
+      mutationType: 'uploaded',
+      payload: {
+        entityType: parsed.data.entityType,
+        entityId: parsed.data.entityId,
+        originalName: fileObject.originalName,
+        contentType: fileObject.contentType,
+      },
+      publishEntityChangedEvent: deps.publishEntityChangedEvent,
+    });
+
+    return res.status(201).json({
+      file: {
+        id: fileObject.id,
+        tenantId: fileObject.tenantId,
+        entityType: attachment.entityType,
+        entityId: attachment.entityId,
+        label: attachment.label,
+        originalName: fileObject.originalName,
+        contentType: fileObject.contentType,
+        sizeBytes: Number(fileObject.sizeBytes),
+        createdAt: fileObject.createdAt,
+      },
+    });
+  });
+
+  app.get('/api/v1/files', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = listFilesQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_query', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const files = await deps.db
+      .select({
+        id: schema.fileObjects.id,
+        tenantId: schema.fileObjects.tenantId,
+        entityType: schema.fileAttachments.entityType,
+        entityId: schema.fileAttachments.entityId,
+        label: schema.fileAttachments.label,
+        originalName: schema.fileObjects.originalName,
+        contentType: schema.fileObjects.contentType,
+        sizeBytes: schema.fileObjects.sizeBytes,
+        createdAt: schema.fileObjects.createdAt,
+      })
+      .from(schema.fileAttachments)
+      .innerJoin(schema.fileObjects, eq(schema.fileObjects.id, schema.fileAttachments.fileObjectId))
+      .where(
+        and(
+          eq(schema.fileAttachments.tenantId, parsed.data.tenantId),
+          eq(schema.fileAttachments.entityType, parsed.data.entityType),
+          eq(schema.fileAttachments.entityId, parsed.data.entityId),
+        ),
+      )
+      .orderBy(asc(schema.fileObjects.createdAt));
+
+    return res.json({
+      files: files.map((file) => ({
+        ...file,
+        sizeBytes: Number(file.sizeBytes),
+      })),
+    });
+  });
+
+  app.get('/api/v1/files/:fileId/download', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsedQuery = tenantScopedQuerySchema.safeParse(req.query);
+    const parsedParams = fileParamsSchema.safeParse(req.params);
+    if (!parsedQuery.success || !parsedParams.success) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsedQuery.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const [fileObject] = await deps.db
+      .select()
+      .from(schema.fileObjects)
+      .where(
+        and(
+          eq(schema.fileObjects.id, parsedParams.data.fileId),
+          eq(schema.fileObjects.tenantId, parsedQuery.data.tenantId),
+        ),
+      )
+      .limit(1);
+
+    if (!fileObject) {
+      return res.status(404).json({ error: 'file_not_found' });
+    }
+
+    const buffer = await loadStoredFile(fileObject.storageKey);
+    res.setHeader('Content-Type', fileObject.contentType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${fileObject.originalName.replace(/"/g, '')}"`,
+    );
+    return res.send(buffer);
   });
 
   app.post('/api/v1/tenants', requireAuth, async (req: Request, res: Response) => {
@@ -576,6 +916,59 @@ export function createApp(deps: ApiAppDeps) {
     });
 
     return res.status(201).json({ branch });
+  });
+
+  app.post('/api/v1/tenant-domains', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = createTenantDomainSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantRole(authReq.auth!, parsed.data.tenantId, 'tenant_admin')) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const createdDomains = await deps.db
+      .insert(schema.tenantDomains)
+      .values({
+        tenantId: parsed.data.tenantId,
+        domain: parsed.data.domain.toLowerCase(),
+        domainType: parsed.data.domainType,
+        isPrimary: parsed.data.isPrimary,
+        verificationStatus: parsed.data.verificationStatus,
+        verifiedAt: parsed.data.verificationStatus === 'verified' ? new Date() : null,
+      })
+      .returning();
+    const domain = requireValue(createdDomains[0], 'tenant_domain');
+
+    await recordMutation({
+      db: deps.db,
+      actorUserId: authReq.auth!.userId,
+      tenantId: parsed.data.tenantId,
+      entityType: 'tenant_domain',
+      entityId: domain.id,
+      action: 'tenant_domain.created',
+      summary: `Created tenant domain ${domain.domain}`,
+      mutationType: 'created',
+      payload: {
+        domain: domain.domain,
+        domainType: domain.domainType,
+        verificationStatus: domain.verificationStatus,
+      },
+      publishEntityChangedEvent: deps.publishEntityChangedEvent,
+    });
+
+    return res.status(201).json({
+      domain: {
+        id: domain.id,
+        tenantId: domain.tenantId,
+        domain: domain.domain,
+        domainType: domain.domainType,
+        verificationStatus: domain.verificationStatus,
+        isPrimary: domain.isPrimary,
+      },
+    });
   });
 
   app.post('/api/v1/integrations/dezrez/accounts', requireAuth, async (req: Request, res: Response) => {

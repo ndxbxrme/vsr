@@ -130,6 +130,9 @@ importers:
       '@vitalspace/integrations':
         specifier: workspace:*
         version: link:../../packages/integrations
+      '@vitalspace/queue':
+        specifier: workspace:*
+        version: link:../../packages/queue
       '@vitalspace/realtime':
         specifier: workspace:*
         version: link:../../packages/realtime
@@ -183,6 +186,8 @@ importers:
       drizzle-orm:
         specifier: ^0.40.0
         version: 0.40.1(gel@2.2.0)(postgres@3.4.8)
+
+  packages/queue: {}
 
   packages/realtime:
     dependencies:

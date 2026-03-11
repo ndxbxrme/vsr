@@ -81,6 +81,8 @@ Based on the x-ray docs and source review:
 - AWS SQS-based workers for async jobs
 - Socket.IO-based realtime gateway
 
+Development and early milestone work may use a database-backed queue adapter behind the same queue contract, with SQS remaining the production target.
+
 ### Infrastructure
 
 - Frontend on S3 + CloudFront
@@ -315,6 +317,7 @@ The frontend should be one Vue application with route areas by product domain, n
 - Request handlers should stay thin.
 - Domain services own business rules.
 - Background jobs handle sync, reconciliation, notifications, imports, and fan-out.
+- Queue usage should go through a provider abstraction so local development can use a simple backend while production uses SQS.
 - A centralized realtime service should be called explicitly after successful mutations to emit typed change events.
 - Validation at API boundary and service boundary.
 - Every important mutation writes to an audit trail.

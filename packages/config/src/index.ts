@@ -15,6 +15,7 @@ const webConfigSchema = z.object({
 const workerConfigSchema = z.object({
   concurrency: z.coerce.number().default(5),
   pollIntervalMs: z.coerce.number().default(1000),
+  queueBackend: z.enum(['database', 'sqs']).default('database'),
 });
 
 export function loadApiConfig() {
@@ -40,5 +41,6 @@ export function loadWorkerConfig() {
   return workerConfigSchema.parse({
     concurrency: process.env.WORKER_CONCURRENCY,
     pollIntervalMs: process.env.WORKER_POLL_INTERVAL_MS,
+    queueBackend: process.env.QUEUE_BACKEND,
   });
 }

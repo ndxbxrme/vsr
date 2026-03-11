@@ -26,6 +26,7 @@ At the end of Milestone A, the new platform should support:
 - outbox event creation
 - realtime event broadcasting
 - worker and queue foundations
+- a queue abstraction package with a database-backed implementation and an SQS-ready seam
 - webhook ingestion foundations
 - a thin Dezrez-backed property slice proving that property-dependent workflows can be built on the platform
 - a simple property explorer and sync console for validating live read models in-browser
@@ -56,6 +57,7 @@ Milestone A is done when all of the following are true:
 - every important mutation path writes audit and outbox records
 - Socket.IO clients can authenticate and receive tenant-scoped change events
 - workers can consume queued jobs and webhook events
+- queue-backed worker execution is abstracted behind a provider interface so SQS can replace the local backend without reworking domain logic
 - the worker runs a repeatable polling cycle for webhook classification, integration job processing, and property sync execution
 - webhook intake persists raw events and classifies them into durable integration jobs
 - a tenant can store Dezrez credentials, trigger a sync, and view synchronized properties through the new API/UI
@@ -102,7 +104,7 @@ Suggested top-level layout:
 
 `apps/worker`
 
-- SQS consumers
+- queue consumers
 - notification jobs
 - outbox publisher
 - webhook processors
@@ -141,6 +143,12 @@ Suggested top-level layout:
 - Socket.IO event definitions
 - channel naming helpers
 - outbox-to-socket publishing helpers
+
+`packages/queue`
+
+- queue backend contract
+- database-backed queue executor
+- future SQS adapter seam
 
 `packages/test-helpers`
 
@@ -219,7 +227,7 @@ Initial e2e flows:
 Use Docker Compose for local dependencies:
 
 - Postgres
-- local SQS emulator or AWS-compatible queue emulator if useful
+- local SQS emulator or AWS-compatible queue emulator only when exercising the SQS backend directly
 - local file storage emulator only if it adds value; otherwise use local filesystem in dev and S3 abstraction in code
 
 ### CI
@@ -353,7 +361,7 @@ Maps to:
 Tasks:
 
 - worker app bootstrap
-- SQS queue abstraction
+- queue abstraction with database backend first and SQS backend later
 - outbox publisher worker
 - webhook intake endpoint and persistence
 - provider-agnostic integration job model
@@ -495,3 +503,21 @@ The first implementation backlog should roughly be:
 ## 12. Recommendation
 
 Start implementation with the monorepo, tests, schema foundations, and local auth. Then push straight into tenant context, outbox/realtime, and the thin Dezrez property slice. That combination gives the team a working platform skeleton plus real property data, which is the most useful place to start building the rest of the product.
+
+## 13. Status
+
+Milestone A is complete in the current repo state.
+
+Implemented closeout items:
+
+- local auth plus mocked Google OAuth/OIDC happy path
+- tenant domain resolution for local subdomains and verified custom domains
+- file upload, attachment metadata, and secure download endpoints
+- database-backed queue abstraction with worker integration and an SQS-ready seam
+- unit, API integration, and Playwright coverage for the implemented Milestone A flows
+
+Intentional deferments after Milestone A:
+
+- true SQS transport wiring
+- invite acceptance and password reset UX
+- richer settings/admin surfaces beyond the current explorer and operator tooling

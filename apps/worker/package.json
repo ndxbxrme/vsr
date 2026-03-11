@@ -12,6 +12,7 @@
     "@vitalspace/config": "workspace:*",
     "@vitalspace/db": "workspace:*",
     "@vitalspace/integrations": "workspace:*",
+    "@vitalspace/queue": "workspace:*",
     "@vitalspace/realtime": "workspace:*",
     "drizzle-orm": "^0.40.0"
   }

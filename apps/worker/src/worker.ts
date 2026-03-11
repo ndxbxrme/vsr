@@ -5,21 +5,35 @@ import {
   processPendingIntegrationJobs,
   processPendingPropertySyncs,
 } from '@vitalspace/integrations';
+import { executeQueueTasks, type QueueBackend } from '@vitalspace/queue';
 
 export async function runWorkerCycle(args: {
   databaseUrl: string;
+  queueBackend?: QueueBackend;
 }) {
   const { db, client } = createDbClient(args.databaseUrl);
 
   try {
-    const webhookResult = await processPendingDezrezWebhookEvents({ db });
-    const integrationJobResult = await processPendingIntegrationJobs({ db });
-    const propertySyncResult = await processPendingPropertySyncs({ db });
+    const execution = await executeQueueTasks({
+      backend: args.queueBackend ?? loadWorkerConfig().queueBackend,
+      tasks: {
+        webhookResult: () => processPendingDezrezWebhookEvents({ db }),
+        integrationJobResult: () => processPendingIntegrationJobs({ db }),
+        propertySyncResult: () => processPendingPropertySyncs({ db }),
+      },
+    });
 
     return {
-      webhookResult,
-      integrationJobResult,
-      propertySyncResult,
+      backend: execution.backend,
+      webhookResult: execution.results.webhookResult as Awaited<
+        ReturnType<typeof processPendingDezrezWebhookEvents>
+      >,
+      integrationJobResult: execution.results.integrationJobResult as Awaited<
+        ReturnType<typeof processPendingIntegrationJobs>
+      >,
+      propertySyncResult: execution.results.propertySyncResult as Awaited<
+        ReturnType<typeof processPendingPropertySyncs>
+      >,
     };
   } finally {
     await client.end();
@@ -29,13 +43,17 @@ export async function runWorkerCycle(args: {
 export function startWorkerLoop(args: {
   databaseUrl: string;
   pollIntervalMs?: number;
+  queueBackend?: QueueBackend;
 }) {
-  const pollIntervalMs = args.pollIntervalMs ?? loadWorkerConfig().pollIntervalMs;
+  const config = loadWorkerConfig();
+  const pollIntervalMs = args.pollIntervalMs ?? config.pollIntervalMs;
+  const queueBackend = args.queueBackend ?? config.queueBackend;
 
   const tick = async () => {
     try {
       const result = await runWorkerCycle({
         databaseUrl: args.databaseUrl,
+        queueBackend,
       });
       const processedCount =
         result.webhookResult.processedEvents +
@@ -44,7 +62,7 @@ export function startWorkerLoop(args: {
 
       if (processedCount > 0) {
         console.log(
-          `@vitalspace/worker cycle webhooks=${result.webhookResult.processedEvents} jobs=${result.integrationJobResult.completedJobs} syncs=${result.propertySyncResult.processedEvents}`,
+          `@vitalspace/worker backend=${result.backend} cycle webhooks=${result.webhookResult.processedEvents} jobs=${result.integrationJobResult.completedJobs} syncs=${result.propertySyncResult.processedEvents}`,
         );
       }
     } catch (error) {

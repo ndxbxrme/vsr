@@ -27,6 +27,7 @@ async function truncateAllTables() {
       "tenant_domains",
       "branches",
       "memberships",
+      "file_attachments",
       "file_objects",
       "audit_logs",
       "outbox_events",

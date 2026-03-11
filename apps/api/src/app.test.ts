@@ -23,6 +23,13 @@ const app = createApp({
   db,
   oauthProviders: ['google'],
 });
+let oauthProviderServer: ReturnType<typeof createServer> | null = null;
+let previousGoogleClientId: string | undefined;
+let previousGoogleClientSecret: string | undefined;
+let previousGoogleAuthUrl: string | undefined;
+let previousGoogleTokenUrl: string | undefined;
+let previousGoogleUserInfoUrl: string | undefined;
+let previousEncryptionKey: string | undefined;
 
 async function truncateAllTables() {
   await db.execute(sql`
@@ -37,6 +44,7 @@ async function truncateAllTables() {
       "tenant_domains",
       "branches",
       "memberships",
+      "file_attachments",
       "file_objects",
       "audit_logs",
       "outbox_events",
@@ -57,6 +65,83 @@ async function truncateAllTables() {
 describe('api auth and tenancy', () => {
   beforeAll(async () => {
     await migrateDb(DATABASE_URL);
+
+    oauthProviderServer = createServer((req, res) => {
+      const url = new URL(req.url ?? '/', 'http://127.0.0.1');
+
+      if (url.pathname === '/authorize') {
+        const redirectUri = url.searchParams.get('redirect_uri');
+        const state = url.searchParams.get('state');
+        if (!redirectUri || !state) {
+          res.writeHead(400).end('missing_redirect');
+          return;
+        }
+
+        const redirectUrl = new URL(redirectUri);
+        redirectUrl.searchParams.set('code', 'mock-google-code');
+        redirectUrl.searchParams.set('state', state);
+        res.writeHead(302, {
+          Location: redirectUrl.toString(),
+        });
+        res.end();
+        return;
+      }
+
+      if (url.pathname === '/token') {
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+        });
+        res.end(
+          JSON.stringify({
+            access_token: 'mock-google-access-token',
+            refresh_token: 'mock-google-refresh-token',
+            expires_in: 3600,
+          }),
+        );
+        return;
+      }
+
+      if (url.pathname === '/userinfo') {
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+        });
+        res.end(
+          JSON.stringify({
+            sub: 'google-user-123',
+            email: 'oauth-owner@example.com',
+            given_name: 'OAuth',
+            family_name: 'Owner',
+            name: 'OAuth Owner',
+          }),
+        );
+        return;
+      }
+
+      res.writeHead(404).end('not_found');
+    });
+
+    await new Promise<void>((resolve) => {
+      oauthProviderServer!.listen(0, '127.0.0.1', () => resolve());
+    });
+
+    const address = oauthProviderServer.address();
+    if (!address || typeof address === 'string') {
+      throw new Error('oauth_provider_address_not_available');
+    }
+
+    previousGoogleClientId = process.env.GOOGLE_CLIENT_ID;
+    previousGoogleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    previousGoogleAuthUrl = process.env.GOOGLE_AUTH_URL;
+    previousGoogleTokenUrl = process.env.GOOGLE_TOKEN_URL;
+    previousGoogleUserInfoUrl = process.env.GOOGLE_USERINFO_URL;
+    previousEncryptionKey = process.env.APP_ENCRYPTION_KEY;
+
+    process.env.GOOGLE_CLIENT_ID = 'mock-google-client-id';
+    process.env.GOOGLE_CLIENT_SECRET = 'mock-google-client-secret';
+    process.env.GOOGLE_AUTH_URL = `http://127.0.0.1:${address.port}/authorize`;
+    process.env.GOOGLE_TOKEN_URL = `http://127.0.0.1:${address.port}/token`;
+    process.env.GOOGLE_USERINFO_URL = `http://127.0.0.1:${address.port}/userinfo`;
+    process.env.APP_ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef';
   });
 
   beforeEach(async () => {
@@ -64,6 +149,17 @@ describe('api auth and tenancy', () => {
   });
 
   afterAll(async () => {
+    process.env.GOOGLE_CLIENT_ID = previousGoogleClientId;
+    process.env.GOOGLE_CLIENT_SECRET = previousGoogleClientSecret;
+    process.env.GOOGLE_AUTH_URL = previousGoogleAuthUrl;
+    process.env.GOOGLE_TOKEN_URL = previousGoogleTokenUrl;
+    process.env.GOOGLE_USERINFO_URL = previousGoogleUserInfoUrl;
+    process.env.APP_ENCRYPTION_KEY = previousEncryptionKey;
+    if (oauthProviderServer) {
+      await new Promise<void>((resolve) => {
+        oauthProviderServer!.close(() => resolve());
+      });
+    }
     await client.end();
   });
 
@@ -92,6 +188,144 @@ describe('api auth and tenancy', () => {
     expect(me.status).toBe(200);
     expect(me.body.email).toBe('owner@example.com');
     expect(me.body.memberships).toHaveLength(0);
+  });
+
+  it('completes a google oauth login and creates an oauth account plus session', async () => {
+    const start = await request(app)
+      .get('/api/v1/auth/oauth/google/start')
+      .query({
+        redirectTo: 'http://127.0.0.1:4321/oauth/callback',
+      });
+
+    expect(start.status).toBe(302);
+    expect(start.header.location).toContain('/authorize');
+
+    const authorizeUrl = new URL(start.header.location as string);
+    const authorize = await fetch(authorizeUrl, {
+      redirect: 'manual',
+    });
+
+    expect(authorize.status).toBe(302);
+    expect(authorize.headers.get('location')).toContain('/api/v1/auth/oauth/google/callback');
+
+    const callbackUrl = new URL(authorize.headers.get('location') as string);
+    const callback = await request(app).get(`${callbackUrl.pathname}${callbackUrl.search}`);
+
+    expect(callback.status).toBe(302);
+    const redirectUrl = new URL(callback.header.location as string);
+    expect(redirectUrl.origin).toBe('http://127.0.0.1:4321');
+    expect(redirectUrl.pathname).toBe('/oauth/callback');
+    expect(redirectUrl.searchParams.get('provider')).toBe('google');
+    expect(redirectUrl.searchParams.get('accessToken')).toBeTruthy();
+
+    const me = await request(app)
+      .get('/api/v1/me')
+      .set('Authorization', `Bearer ${redirectUrl.searchParams.get('accessToken')}`);
+
+    expect(me.status).toBe(200);
+    expect(me.body.email).toBe('oauth-owner@example.com');
+
+    const oauthAccounts = await db.select().from(schema.oauthAccounts);
+    expect(oauthAccounts).toHaveLength(1);
+    expect(oauthAccounts[0]).toMatchObject({
+      provider: 'google',
+      providerUserId: 'google-user-123',
+      emailFromProvider: 'oauth-owner@example.com',
+    });
+  });
+
+  it('resolves tenants from local subdomains in bootstrap', async () => {
+    const createTenant = await request(app)
+      .post('/api/v1/auth/signup')
+      .send({
+        email: 'subdomain-admin@example.com',
+        password: 'Secret123',
+      });
+
+    expect(createTenant.status).toBe(201);
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'subdomain-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const tenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Subdomain Estates',
+        slug: 'subdomain-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    expect(tenant.status).toBe(201);
+
+    const bootstrap = await request(app)
+      .get('/api/v1/bootstrap')
+      .set('Host', 'subdomain-estates.localhost:4220');
+
+    expect(bootstrap.status).toBe(200);
+    expect(bootstrap.body.resolvedTenant).toMatchObject({
+      id: tenant.body.tenant.id,
+      slug: 'subdomain-estates',
+      strategy: 'subdomain',
+    });
+  });
+
+  it('creates tenant domains and resolves verified custom domains in bootstrap', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'domain-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'domain-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Domain Estates',
+        slug: 'domain-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    const createDomain = await request(app)
+      .post('/api/v1/tenant-domains')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId: createTenant.body.tenant.id,
+        domain: 'brand.example.test',
+        domainType: 'custom',
+        verificationStatus: 'verified',
+        isPrimary: true,
+      });
+
+    expect(createDomain.status).toBe(201);
+    expect(createDomain.body.domain).toMatchObject({
+      domain: 'brand.example.test',
+      verificationStatus: 'verified',
+    });
+
+    const bootstrap = await request(app)
+      .get('/api/v1/bootstrap')
+      .set('Host', 'brand.example.test');
+
+    expect(bootstrap.status).toBe(200);
+    expect(bootstrap.body.resolvedTenant).toMatchObject({
+      id: createTenant.body.tenant.id,
+      slug: 'domain-estates',
+      strategy: 'custom_domain',
+      host: 'brand.example.test',
+    });
   });
 
   it('supports tenant and branch creation for an authenticated tenant admin', async () => {
@@ -155,6 +389,93 @@ describe('api auth and tenancy', () => {
     expect(outboxRows.map((row) => row.eventName)).toEqual(
       expect.arrayContaining(['tenant.created', 'branch.created']),
     );
+  });
+
+  it('uploads, lists, and downloads tenant files for an attached entity', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'files-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'files-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Files Estates',
+        slug: 'files-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    const [property] = await db
+      .insert(schema.properties)
+      .values({
+        tenantId: createTenant.body.tenant.id,
+        displayAddress: '1 File Lane',
+      })
+      .returning();
+
+    if (!property) {
+      throw new Error('file_property_not_created');
+    }
+
+    const upload = await request(app)
+      .post('/api/v1/files')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId: createTenant.body.tenant.id,
+        entityType: 'property',
+        entityId: property.id,
+        label: 'Memorandum',
+        originalName: 'memo.txt',
+        contentType: 'text/plain',
+        base64Data: Buffer.from('hello vitalspace', 'utf8').toString('base64'),
+      });
+
+    expect(upload.status).toBe(201);
+    expect(upload.body.file).toMatchObject({
+      tenantId: createTenant.body.tenant.id,
+      entityType: 'property',
+      entityId: property.id,
+      label: 'Memorandum',
+      originalName: 'memo.txt',
+      contentType: 'text/plain',
+      sizeBytes: 16,
+    });
+
+    const list = await request(app)
+      .get('/api/v1/files')
+      .query({
+        tenantId: createTenant.body.tenant.id,
+        entityType: 'property',
+        entityId: property.id,
+      })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(list.status).toBe(200);
+    expect(list.body.files).toHaveLength(1);
+    expect(list.body.files[0]).toMatchObject({
+      label: 'Memorandum',
+      originalName: 'memo.txt',
+    });
+
+    const download = await request(app)
+      .get(`/api/v1/files/${upload.body.file.id}/download`)
+      .query({
+        tenantId: createTenant.body.tenant.id,
+      })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(download.status).toBe(200);
+    expect(download.header['content-type']).toContain('text/plain');
+    expect(download.text).toBe('hello vitalspace');
   });
 
   it('rejects protected routes without valid authentication', async () => {

@@ -1,7 +1,26 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 
 const apiBaseUrl = computed(() => import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4220/api/v1');
+const apiOrigin = computed(() => import.meta.env.VITE_API_ORIGIN ?? new URL(apiBaseUrl.value).origin);
+const oauthProviders = ref<string[]>([]);
+const googleOauthUrl = computed(() => {
+  if (typeof window === 'undefined') {
+    return '#';
+  }
+
+  return `${apiOrigin.value}/api/v1/auth/oauth/google/start?redirectTo=${encodeURIComponent(`${window.location.origin}/oauth/callback`)}`;
+});
+
+onMounted(async () => {
+  const response = await fetch(`${apiBaseUrl.value}/bootstrap`);
+  if (!response.ok) {
+    return;
+  }
+
+  const body = (await response.json()) as { oauthProviders?: string[] };
+  oauthProviders.value = body.oauthProviders ?? [];
+});
 </script>
 
 <template>
@@ -15,6 +34,13 @@ const apiBaseUrl = computed(() => import.meta.env.VITE_API_BASE_URL ?? 'http://l
       </p>
       <div class="hero-actions">
         <RouterLink class="primary-link" to="/explorer">Open Property Explorer</RouterLink>
+        <a
+          v-if="oauthProviders.includes('google')"
+          class="ghost-button"
+          :href="googleOauthUrl"
+        >
+          Continue with Google
+        </a>
       </div>
       <p class="hero-meta">API base: {{ apiBaseUrl }}</p>
     </section>

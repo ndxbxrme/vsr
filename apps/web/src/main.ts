@@ -5,6 +5,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import App from './App.vue';
 import './style.css';
 import HomeView from './views/HomeView.vue';
+import OAuthCallbackView from './views/OAuthCallbackView.vue';
 import PropertyExplorerView from './views/PropertyExplorerView.vue';
 
 const queryClient = new QueryClient();
@@ -19,6 +20,10 @@ const router = createRouter({
     {
       path: '/explorer',
       component: PropertyExplorerView,
+    },
+    {
+      path: '/oauth/callback',
+      component: OAuthCallbackView,
     },
   ],
 });

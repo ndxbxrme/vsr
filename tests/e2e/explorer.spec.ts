@@ -246,4 +246,15 @@ test('loads seeded Dezrez data and updates through realtime invalidation', async
   await expect(page.getByText('Victor Viewer')).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('Vendor updated fixtures')).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('ViewingFeedback')).toBeVisible({ timeout: 20_000 });
+
+  await page.setInputFiles('#property-file-upload', {
+    name: 'memorandum.txt',
+    mimeType: 'text/plain',
+    buffer: Buffer.from('memorandum for testing', 'utf8'),
+  });
+  await page.getByRole('button', { name: 'Upload file' }).click();
+  await expect(page.getByText('memorandum.txt uploaded successfully.')).toBeVisible({
+    timeout: 20_000,
+  });
+  await expect(page.getByText('memorandum.txt')).toBeVisible({ timeout: 20_000 });
 });

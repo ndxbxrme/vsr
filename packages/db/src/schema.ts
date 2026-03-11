@@ -231,6 +231,32 @@ export const fileObjects = pgTable('file_objects', {
   ...timestamps,
 });
 
+export const fileAttachments = pgTable(
+  'file_attachments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    fileObjectId: uuid('file_object_id').notNull().references(() => fileObjects.id),
+    entityType: text('entity_type').notNull(),
+    entityId: uuid('entity_id').notNull(),
+    label: text('label'),
+    ...timestamps,
+  },
+  (table) => ({
+    fileAttachmentUniqueIdx: uniqueIndex('file_attachments_tenant_file_entity_idx').on(
+      table.tenantId,
+      table.fileObjectId,
+      table.entityType,
+      table.entityId,
+    ),
+    fileAttachmentEntityIdx: index('file_attachments_tenant_entity_idx').on(
+      table.tenantId,
+      table.entityType,
+      table.entityId,
+    ),
+  }),
+);
+
 export const auditLogs = pgTable(
   'audit_logs',
   {

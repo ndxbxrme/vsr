@@ -8,8 +8,9 @@ const databaseUrl =
 startWorkerLoop({
   databaseUrl,
   pollIntervalMs: config.pollIntervalMs,
+  queueBackend: config.queueBackend,
 });
 
 console.log(
-  `@vitalspace/worker ready with concurrency ${config.concurrency} and poll interval ${config.pollIntervalMs}ms`,
+  `@vitalspace/worker ready with concurrency ${config.concurrency}, poll interval ${config.pollIntervalMs}ms, queue backend ${config.queueBackend}`,
 );

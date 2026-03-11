@@ -64,6 +64,18 @@ type PropertyTimelineEvent = {
   occurredAt: string;
 };
 
+type PropertyFile = {
+  id: string;
+  tenantId: string;
+  entityType: string;
+  entityId: string;
+  label: string | null;
+  originalName: string;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: string;
+};
+
 type IntegrationStatus = {
   id: string;
   tenantId: string;
@@ -138,6 +150,9 @@ const retryState = ref<'idle' | 'retrying' | 'retried' | 'failed'>('idle');
 const retryMessage = ref('No retry attempted in this session.');
 const replayState = ref<'idle' | 'replaying' | 'replayed' | 'failed'>('idle');
 const replayMessage = ref('No webhook replay attempted in this session.');
+const fileUploadState = ref<'idle' | 'uploading' | 'uploaded' | 'failed'>('idle');
+const fileUploadMessage = ref('No file uploaded in this session.');
+const selectedUploadFile = ref<File | null>(null);
 let socket: Socket | null = null;
 
 watch(tenantId, (value) => {
@@ -275,6 +290,15 @@ const timelineQuery = useQuery({
     ),
 });
 
+const filesQuery = useQuery({
+  queryKey: ['property-files', tenantId, selectedPropertyId],
+  enabled: selectedPropertyReady,
+  queryFn: () =>
+    apiGet<{ files: PropertyFile[] }>(
+      `/files?tenantId=${encodeURIComponent(tenantId.value.trim())}&entityType=property&entityId=${selectedPropertyId.value}`,
+    ),
+});
+
 const propertyList = computed(() => propertiesQuery.data.value?.properties ?? []);
 const integrationStatus = computed(() => integrationStatusQuery.data.value?.integrationAccount ?? null);
 const integrationHistory = computed(() => integrationStatus.value?.history.recentActivity ?? []);
@@ -289,6 +313,7 @@ const propertyDetail = computed(() => propertyDetailQuery.data.value?.property ?
 const offers = computed(() => offersQuery.data.value?.offers ?? []);
 const viewings = computed(() => viewingsQuery.data.value?.viewings ?? []);
 const timelineEvents = computed(() => timelineQuery.data.value?.timelineEvents ?? []);
+const files = computed(() => filesQuery.data.value?.files ?? []);
 
 const primaryError = computed(() => {
   return (
@@ -297,7 +322,8 @@ const primaryError = computed(() => {
     propertyDetailQuery.error.value ??
     offersQuery.error.value ??
     viewingsQuery.error.value ??
-    timelineQuery.error.value
+    timelineQuery.error.value ??
+    filesQuery.error.value
   );
 });
 
@@ -345,7 +371,85 @@ function refreshAll() {
     offersQuery.refetch(),
     viewingsQuery.refetch(),
     timelineQuery.refetch(),
+    filesQuery.refetch(),
   ]);
+}
+
+async function fileToBase64(file: File) {
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result !== 'string' || !result.includes(',')) {
+        reject(new Error('file_read_failed'));
+        return;
+      }
+      resolve(result.split(',')[1] ?? '');
+    };
+    reader.onerror = () => reject(reader.error ?? new Error('file_read_failed'));
+    reader.readAsDataURL(file);
+  });
+}
+
+function handleFileSelection(event: Event) {
+  const input = event.target as HTMLInputElement;
+  selectedUploadFile.value = input.files?.[0] ?? null;
+}
+
+async function uploadSelectedFile() {
+  if (!selectedPropertyId.value || !selectedUploadFile.value) {
+    fileUploadState.value = 'failed';
+    fileUploadMessage.value = 'Pick a property and choose a file before uploading.';
+    return;
+  }
+
+  fileUploadState.value = 'uploading';
+  fileUploadMessage.value = `Uploading ${selectedUploadFile.value.name}...`;
+
+  try {
+    const base64Data = await fileToBase64(selectedUploadFile.value);
+    await apiPost<{ file: PropertyFile }>('/files', {
+      tenantId: tenantId.value.trim(),
+      entityType: 'property',
+      entityId: selectedPropertyId.value,
+      label: 'Explorer upload',
+      originalName: selectedUploadFile.value.name,
+      contentType: selectedUploadFile.value.type || 'application/octet-stream',
+      base64Data,
+    });
+    fileUploadState.value = 'uploaded';
+    fileUploadMessage.value = `${selectedUploadFile.value.name} uploaded successfully.`;
+    selectedUploadFile.value = null;
+    refreshAll();
+  } catch (error) {
+    fileUploadState.value = 'failed';
+    fileUploadMessage.value = error instanceof Error ? error.message : 'File upload failed.';
+  }
+}
+
+async function downloadFile(file: PropertyFile) {
+  const response = await fetch(
+    `${apiBaseUrl}/files/${file.id}/download?tenantId=${encodeURIComponent(tenantId.value.trim())}`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken.value.trim()}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(`download_failed_${response.status}`);
+  }
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = file.originalName;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
 }
 
 async function requestSync() {
@@ -478,7 +582,7 @@ function invalidateExplorerQueries(event: EntityChangedEvent) {
     });
   }
 
-  if (['offer', 'viewing', 'timeline_event', 'property'].includes(event.entityType)) {
+  if (['offer', 'viewing', 'timeline_event', 'property', 'file_object'].includes(event.entityType)) {
     void queryClient.invalidateQueries({
       queryKey: ['property-detail', tenantId, selectedPropertyId],
     });
@@ -490,6 +594,9 @@ function invalidateExplorerQueries(event: EntityChangedEvent) {
     });
     void queryClient.invalidateQueries({
       queryKey: ['property-timeline', tenantId, selectedPropertyId],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ['property-files', tenantId, selectedPropertyId],
     });
   }
 }
@@ -788,6 +895,40 @@ onBeforeUnmount(() => {
                     {{ formatDate(viewing.startsAt) }} • feedback {{ viewing.feedbackCount }} • notes
                     {{ viewing.notesCount }}
                   </small>
+                </li>
+              </ul>
+            </article>
+
+            <article class="info-card">
+              <div class="panel-heading">
+                <h3>Files</h3>
+                <span>{{ files.length }}</span>
+              </div>
+              <div class="file-upload-panel">
+                <input
+                  id="property-file-upload"
+                  type="file"
+                  @change="handleFileSelection"
+                />
+                <button
+                  class="ghost-button"
+                  type="button"
+                  :disabled="!selectedUploadFile || fileUploadState === 'uploading'"
+                  @click="uploadSelectedFile"
+                >
+                  {{ fileUploadState === 'uploading' ? 'Uploading…' : 'Upload file' }}
+                </button>
+                <small class="sync-copy" :class="`sync-${fileUploadState}`">{{ fileUploadMessage }}</small>
+              </div>
+              <p v-if="filesQuery.isLoading.value" class="muted-copy">Loading files…</p>
+              <ul v-else class="record-list">
+                <li v-for="file in files" :key="file.id" class="record-card">
+                  <strong>{{ file.originalName }}</strong>
+                  <span>{{ file.label ?? file.contentType }}</span>
+                  <small>{{ formatDate(file.createdAt) }} • {{ file.sizeBytes }} bytes</small>
+                  <button class="ghost-button file-download-button" type="button" @click="downloadFile(file)">
+                    Download
+                  </button>
                 </li>
               </ul>
             </article>
