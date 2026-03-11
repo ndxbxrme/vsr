@@ -384,6 +384,378 @@ export const properties = pgTable(
   }),
 );
 
+export const contacts = pgTable(
+  'contacts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    branchId: uuid('branch_id').references(() => branches.id),
+    contactType: text('contact_type').notNull().default('person'),
+    status: text('status').notNull().default('active'),
+    displayName: text('display_name').notNull(),
+    firstName: text('first_name'),
+    lastName: text('last_name'),
+    organizationName: text('organization_name'),
+    primaryEmail: text('primary_email'),
+    primaryPhone: text('primary_phone'),
+    metadataJson: jsonb('metadata_json'),
+    ...timestamps,
+  },
+  (table) => ({
+    contactTenantStatusIdx: index('contacts_tenant_status_idx').on(table.tenantId, table.status),
+    contactTenantNameIdx: index('contacts_tenant_name_idx').on(table.tenantId, table.displayName),
+  }),
+);
+
+export const workflowTemplates = pgTable(
+  'workflow_templates',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').references(() => tenants.id),
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    caseType: text('case_type'),
+    status: text('status').notNull().default('active'),
+    isSystem: boolean('is_system').notNull().default(false),
+    definitionJson: jsonb('definition_json'),
+    ...timestamps,
+  },
+  (table) => ({
+    workflowTemplateTenantKeyIdx: uniqueIndex('workflow_templates_tenant_key_idx').on(
+      table.tenantId,
+      table.key,
+    ),
+  }),
+);
+
+export const workflowStages = pgTable(
+  'workflow_stages',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workflowTemplateId: uuid('workflow_template_id')
+      .notNull()
+      .references(() => workflowTemplates.id),
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    stageOrder: integer('stage_order').notNull(),
+    isTerminal: boolean('is_terminal').notNull().default(false),
+    configJson: jsonb('config_json'),
+    ...timestamps,
+  },
+  (table) => ({
+    workflowStageTemplateKeyIdx: uniqueIndex('workflow_stages_template_key_idx').on(
+      table.workflowTemplateId,
+      table.key,
+    ),
+    workflowStageTemplateOrderIdx: uniqueIndex('workflow_stages_template_order_idx').on(
+      table.workflowTemplateId,
+      table.stageOrder,
+    ),
+  }),
+);
+
+export const cases = pgTable(
+  'cases',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    branchId: uuid('branch_id').references(() => branches.id),
+    propertyId: uuid('property_id').references(() => properties.id),
+    caseType: text('case_type').notNull(),
+    status: text('status').notNull().default('open'),
+    reference: text('reference'),
+    title: text('title').notNull(),
+    description: text('description'),
+    openedAt: timestamp('opened_at', { withTimezone: true }).notNull().defaultNow(),
+    closedAt: timestamp('closed_at', { withTimezone: true }),
+    metadataJson: jsonb('metadata_json'),
+    ...timestamps,
+  },
+  (table) => ({
+    caseTenantTypeStatusIdx: index('cases_tenant_type_status_idx').on(
+      table.tenantId,
+      table.caseType,
+      table.status,
+    ),
+    caseTenantPropertyIdx: index('cases_tenant_property_idx').on(table.tenantId, table.propertyId),
+    caseTenantReferenceIdx: uniqueIndex('cases_tenant_reference_idx').on(
+      table.tenantId,
+      table.reference,
+    ),
+  }),
+);
+
+export const caseParties = pgTable(
+  'case_parties',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    caseId: uuid('case_id').notNull().references(() => cases.id),
+    contactId: uuid('contact_id').references(() => contacts.id),
+    partyRole: text('party_role').notNull(),
+    displayName: text('display_name').notNull(),
+    email: text('email'),
+    phone: text('phone'),
+    isPrimary: boolean('is_primary').notNull().default(false),
+    metadataJson: jsonb('metadata_json'),
+    ...timestamps,
+  },
+  (table) => ({
+    casePartyTenantCaseIdx: index('case_parties_tenant_case_idx').on(table.tenantId, table.caseId),
+    casePartyTenantContactIdx: index('case_parties_tenant_contact_idx').on(
+      table.tenantId,
+      table.contactId,
+    ),
+  }),
+);
+
+export const caseNotes = pgTable(
+  'case_notes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    caseId: uuid('case_id').notNull().references(() => cases.id),
+    authorUserId: uuid('author_user_id').references(() => users.id),
+    noteType: text('note_type').notNull().default('internal'),
+    body: text('body').notNull(),
+    metadataJson: jsonb('metadata_json'),
+    ...timestamps,
+  },
+  (table) => ({
+    caseNoteTenantCaseIdx: index('case_notes_tenant_case_idx').on(table.tenantId, table.caseId),
+  }),
+);
+
+export const emailTemplates = pgTable(
+  'email_templates',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    subjectTemplate: text('subject_template').notNull(),
+    bodyTextTemplate: text('body_text_template').notNull(),
+    bodyHtmlTemplate: text('body_html_template'),
+    status: text('status').notNull().default('active'),
+    metadataJson: jsonb('metadata_json'),
+    ...timestamps,
+  },
+  (table) => ({
+    emailTemplateTenantKeyIdx: uniqueIndex('email_templates_tenant_key_idx').on(
+      table.tenantId,
+      table.key,
+    ),
+  }),
+);
+
+export const smsTemplates = pgTable(
+  'sms_templates',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    key: text('key').notNull(),
+    name: text('name').notNull(),
+    bodyTemplate: text('body_template').notNull(),
+    status: text('status').notNull().default('active'),
+    metadataJson: jsonb('metadata_json'),
+    ...timestamps,
+  },
+  (table) => ({
+    smsTemplateTenantKeyIdx: uniqueIndex('sms_templates_tenant_key_idx').on(
+      table.tenantId,
+      table.key,
+    ),
+  }),
+);
+
+export const communicationDispatches = pgTable(
+  'communication_dispatches',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    caseId: uuid('case_id').notNull().references(() => cases.id),
+    channel: text('channel').notNull(),
+    templateType: text('template_type').notNull(),
+    templateId: uuid('template_id').notNull(),
+    sentByUserId: uuid('sent_by_user_id').references(() => users.id),
+    recipientName: text('recipient_name'),
+    recipientEmail: text('recipient_email'),
+    recipientPhone: text('recipient_phone'),
+    subject: text('subject'),
+    body: text('body').notNull(),
+    status: text('status').notNull().default('sent'),
+    providerMessageId: text('provider_message_id'),
+    errorMessage: text('error_message'),
+    metadataJson: jsonb('metadata_json'),
+    sentAt: timestamp('sent_at', { withTimezone: true }).notNull().defaultNow(),
+    ...timestamps,
+  },
+  (table) => ({
+    communicationDispatchTenantCaseIdx: index('communication_dispatches_tenant_case_idx').on(
+      table.tenantId,
+      table.caseId,
+    ),
+    communicationDispatchTenantStatusIdx: index('communication_dispatches_tenant_status_idx').on(
+      table.tenantId,
+      table.status,
+    ),
+  }),
+);
+
+export const workflowInstances = pgTable(
+  'workflow_instances',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    caseId: uuid('case_id').notNull().references(() => cases.id),
+    workflowTemplateId: uuid('workflow_template_id')
+      .notNull()
+      .references(() => workflowTemplates.id),
+    currentWorkflowStageId: uuid('current_workflow_stage_id').references(() => workflowStages.id),
+    status: text('status').notNull().default('active'),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    metadataJson: jsonb('metadata_json'),
+    ...timestamps,
+  },
+  (table) => ({
+    workflowInstanceCaseIdx: uniqueIndex('workflow_instances_case_idx').on(table.caseId),
+    workflowInstanceTenantStatusIdx: index('workflow_instances_tenant_status_idx').on(
+      table.tenantId,
+      table.status,
+    ),
+  }),
+);
+
+export const workflowTransitionEvents = pgTable(
+  'workflow_transition_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    caseId: uuid('case_id').notNull().references(() => cases.id),
+    workflowInstanceId: uuid('workflow_instance_id')
+      .notNull()
+      .references(() => workflowInstances.id),
+    fromWorkflowStageId: uuid('from_workflow_stage_id').references(() => workflowStages.id),
+    toWorkflowStageId: uuid('to_workflow_stage_id').references(() => workflowStages.id),
+    actorUserId: uuid('actor_user_id').references(() => users.id),
+    transitionKey: text('transition_key').notNull(),
+    summary: text('summary').notNull(),
+    metadataJson: jsonb('metadata_json'),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    workflowTransitionTenantCaseOccurredIdx: index(
+      'workflow_transition_events_tenant_case_occurred_idx',
+    ).on(table.tenantId, table.caseId, table.occurredAt),
+    workflowTransitionInstanceIdx: index('workflow_transition_events_instance_idx').on(
+      table.workflowInstanceId,
+    ),
+  }),
+);
+
+export const salesCases = pgTable(
+  'sales_cases',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    caseId: uuid('case_id').notNull().references(() => cases.id),
+    askingPrice: integer('asking_price'),
+    agreedPrice: integer('agreed_price'),
+    saleStatus: text('sale_status').notNull().default('instruction'),
+    memorandumSentAt: timestamp('memorandum_sent_at', { withTimezone: true }),
+    targetExchangeAt: timestamp('target_exchange_at', { withTimezone: true }),
+    targetCompletionAt: timestamp('target_completion_at', { withTimezone: true }),
+    metadataJson: jsonb('metadata_json'),
+    ...timestamps,
+  },
+  (table) => ({
+    salesCaseCaseIdx: uniqueIndex('sales_cases_case_idx').on(table.caseId),
+    salesCaseTenantStatusIdx: index('sales_cases_tenant_status_idx').on(
+      table.tenantId,
+      table.saleStatus,
+    ),
+  }),
+);
+
+export const salesOffers = pgTable(
+  'sales_offers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    caseId: uuid('case_id').notNull().references(() => cases.id),
+    salesCaseId: uuid('sales_case_id').notNull().references(() => salesCases.id),
+    contactId: uuid('contact_id').references(() => contacts.id),
+    amount: integer('amount').notNull(),
+    status: text('status').notNull().default('submitted'),
+    submittedAt: timestamp('submitted_at', { withTimezone: true }).notNull().defaultNow(),
+    respondedAt: timestamp('responded_at', { withTimezone: true }),
+    notes: text('notes'),
+    metadataJson: jsonb('metadata_json'),
+    ...timestamps,
+  },
+  (table) => ({
+    salesOfferTenantCaseIdx: index('sales_offers_tenant_case_idx').on(table.tenantId, table.caseId),
+    salesOfferTenantStatusIdx: index('sales_offers_tenant_status_idx').on(
+      table.tenantId,
+      table.status,
+    ),
+  }),
+);
+
+export const lettingsCases = pgTable(
+  'lettings_cases',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    caseId: uuid('case_id').notNull().references(() => cases.id),
+    monthlyRent: integer('monthly_rent'),
+    depositAmount: integer('deposit_amount'),
+    lettingStatus: text('letting_status').notNull().default('application'),
+    agreedAt: timestamp('agreed_at', { withTimezone: true }),
+    moveInAt: timestamp('move_in_at', { withTimezone: true }),
+    agreedLetAt: timestamp('agreed_let_at', { withTimezone: true }),
+    metadataJson: jsonb('metadata_json'),
+    ...timestamps,
+  },
+  (table) => ({
+    lettingsCaseCaseIdx: uniqueIndex('lettings_cases_case_idx').on(table.caseId),
+    lettingsCaseTenantStatusIdx: index('lettings_cases_tenant_status_idx').on(
+      table.tenantId,
+      table.lettingStatus,
+    ),
+  }),
+);
+
+export const lettingsApplications = pgTable(
+  'lettings_applications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    caseId: uuid('case_id').notNull().references(() => cases.id),
+    lettingsCaseId: uuid('lettings_case_id').notNull().references(() => lettingsCases.id),
+    contactId: uuid('contact_id').references(() => contacts.id),
+    monthlyRentOffered: integer('monthly_rent_offered'),
+    status: text('status').notNull().default('submitted'),
+    submittedAt: timestamp('submitted_at', { withTimezone: true }).notNull().defaultNow(),
+    respondedAt: timestamp('responded_at', { withTimezone: true }),
+    notes: text('notes'),
+    metadataJson: jsonb('metadata_json'),
+    ...timestamps,
+  },
+  (table) => ({
+    lettingsApplicationTenantCaseIdx: index('lettings_applications_tenant_case_idx').on(
+      table.tenantId,
+      table.caseId,
+    ),
+    lettingsApplicationTenantStatusIdx: index('lettings_applications_tenant_status_idx').on(
+      table.tenantId,
+      table.status,
+    ),
+  }),
+);
+
 export const offers = pgTable(
   'offers',
   {

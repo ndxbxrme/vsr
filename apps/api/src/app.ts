@@ -8,10 +8,25 @@ import {
 } from '@vitalspace/auth';
 import type { EntityChangedEvent } from '@vitalspace/contracts';
 import {
+  createCaseNoteSchema,
+  createCasePartySchema,
+  createCaseSchema,
+  createEmailTemplateSchema,
+  createContactSchema,
+  createLettingsApplicationSchema,
+  createLettingsCaseSchema,
+  createSalesCaseSchema,
+  createSalesOfferSchema,
+  createSmsTemplateSchema,
+  createWorkflowTemplateSchema,
+  createWorkflowTransitionSchema,
   dezrezIntegrationCredentialsSchema,
   dezrezIntegrationSettingsSchema,
   dezrezWebhookPayloadSchema,
   propertySyncRequestPayloadSchema,
+  sendCaseCommunicationSchema,
+  updateLettingsCaseSchema,
+  updateSalesCaseSchema,
 } from '@vitalspace/contracts';
 import { type createDbClient, schema } from '@vitalspace/db';
 import { buildEntityChangedEvent, buildTenantRoom } from '@vitalspace/realtime';
@@ -23,13 +38,54 @@ import {
   loadAuthContext,
   type AuthenticatedContext,
 } from './auth-context';
+import {
+  addCaseNoteRecord,
+  addCasePartyRecord,
+  createCaseRecord,
+  createContactRecord,
+  createWorkflowTemplateRecord,
+  listCaseRecords,
+  listContacts,
+  listWorkflowTemplates,
+  loadCaseDetail,
+  loadCaseRecord,
+  transitionWorkflowInstance,
+} from './case-service';
+import {
+  createEmailTemplateRecord,
+  createSmsTemplateRecord,
+  listCaseCommunicationDispatches,
+  listEmailTemplates,
+  listSmsTemplates,
+  sendCaseCommunicationRecord,
+} from './communications-service';
 import { loadStoredFile, persistUploadedFile } from './file-storage';
+import {
+  createLettingsApplicationRecord,
+  createLettingsCaseRecord,
+  ensureLettingsCaseExists,
+  listLettingsApplications,
+  listLettingsCaseRecords,
+  loadLettingsCaseDetail,
+  loadLettingsDashboard,
+  updateLettingsCaseRecord,
+} from './lettings-service';
 import {
   buildGoogleAuthorizationUrl,
   exchangeGoogleCode,
   maybeEncryptToken,
   parseOAuthState,
 } from './oauth';
+import {
+  createSalesCaseRecord,
+  createSalesOfferRecord,
+  ensureSalesCaseExists,
+  listSalesCaseRecords,
+  listSalesOffers,
+  loadSalesCaseDetail,
+  loadSalesDashboard,
+  updateSalesCaseRecord,
+} from './sales-service';
 import { resolveTenantFromHost } from './tenant-resolution';
 
 type DbClient = ReturnType<typeof createDbClient>['db'];
@@ -126,8 +182,42 @@ const fileParamsSchema = z.object({
   fileId: z.string().uuid(),
 });
 
+const caseParamsSchema = z.object({
+  caseId: z.string().uuid(),
+});
+
 const tenantScopedQuerySchema = z.object({
   tenantId: z.string().uuid(),
+});
+
+const listContactsQuerySchema = z.object({
+  tenantId: z.string().uuid(),
+});
+
+const listCasesQuerySchema = z.object({
+  tenantId: z.string().uuid(),
+  caseType: z.enum(['sales', 'lettings']).optional(),
+  status: z.enum(['open', 'on_hold', 'completed', 'cancelled']).optional(),
+  branchId: z.string().uuid().optional(),
+});
+
+const listWorkflowTemplatesQuerySchema = z.object({
+  tenantId: z.string().uuid(),
+  caseType: z.enum(['sales', 'lettings']).optional(),
+});
+
+const listSalesCasesQuerySchema = z.object({
+  tenantId: z.string().uuid(),
+  status: z.enum(['open', 'on_hold', 'completed', 'cancelled']).optional(),
+  saleStatus: z.string().min(1).optional(),
+  branchId: z.string().uuid().optional(),
+});
+
+const listLettingsCasesQuerySchema = z.object({
+  tenantId: z.string().uuid(),
+  status: z.enum(['open', 'on_hold', 'completed', 'cancelled']).optional(),
+  lettingStatus: z.string().min(1).optional(),
+  branchId: z.string().uuid().optional(),
 });
 
 const listFilesQuerySchema = z.object({
@@ -145,6 +235,23 @@ const uploadFileSchema = z.object({
   contentType: z.string().min(1),
   base64Data: z.string().min(1),
 });
+
+const createWorkflowTemplateRequestSchema = createWorkflowTemplateSchema.extend({
+  tenantId: z.string().uuid(),
+});
+
+const createCaseRequestSchema = createCaseSchema;
+const createLettingsCaseRequestSchema = createLettingsCaseSchema;
+const updateLettingsCaseRequestSchema = updateLettingsCaseSchema;
+const createLettingsApplicationRequestSchema = createLettingsApplicationSchema;
+const createSalesCaseRequestSchema = createSalesCaseSchema;
+const updateSalesCaseRequestSchema = updateSalesCaseSchema;
+const createSalesOfferRequestSchema = createSalesOfferSchema;
+const createEmailTemplateRequestSchema = createEmailTemplateSchema;
+const createSmsTemplateRequestSchema = createSmsTemplateSchema;
+const sendCaseCommunicationRequestSchema = sendCaseCommunicationSchema;
+
+const createCaseTransitionRequestSchema = createWorkflowTransitionSchema;
 
 const webhookQuerySchema = z.object({
   provider: z.literal('dezrez').optional().default('dezrez'),
@@ -652,6 +759,1627 @@ export function createApp(deps: ApiAppDeps) {
       email: authReq.auth?.email,
       memberships: authReq.auth?.memberships ?? [],
     });
+  });
+
+  app.get('/api/v1/contacts', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = listContactsQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_query', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const contacts = await listContacts({
+      db: deps.db,
+      tenantId: parsed.data.tenantId,
+    });
+
+    return res.json({ contacts });
+  });
+
+  app.post('/api/v1/contacts', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = createContactSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const contact = await createContactRecord({
+      db: deps.db,
+      tenantId: parsed.data.tenantId,
+      contactType: parsed.data.contactType,
+      displayName: parsed.data.displayName,
+      ...(parsed.data.branchId !== undefined ? { branchId: parsed.data.branchId } : {}),
+      ...(parsed.data.firstName !== undefined ? { firstName: parsed.data.firstName } : {}),
+      ...(parsed.data.lastName !== undefined ? { lastName: parsed.data.lastName } : {}),
+      ...(parsed.data.organizationName !== undefined
+        ? { organizationName: parsed.data.organizationName }
+        : {}),
+      ...(parsed.data.primaryEmail !== undefined ? { primaryEmail: parsed.data.primaryEmail } : {}),
+      ...(parsed.data.primaryPhone !== undefined ? { primaryPhone: parsed.data.primaryPhone } : {}),
+      ...(parsed.data.metadata !== undefined ? { metadata: parsed.data.metadata } : {}),
+    });
+
+    await recordMutation({
+      db: deps.db,
+      actorUserId: authReq.auth!.userId,
+      tenantId: parsed.data.tenantId,
+      entityType: 'contact',
+      entityId: contact.id,
+      action: 'contact.created',
+      summary: `Created contact ${contact.displayName}`,
+      mutationType: 'created',
+      payload: {
+        contactType: contact.contactType,
+      },
+      publishEntityChangedEvent: deps.publishEntityChangedEvent,
+    });
+
+    return res.status(201).json({ contact });
+  });
+
+  app.get('/api/v1/workflow-templates', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = listWorkflowTemplatesQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_query', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const workflowTemplates = await listWorkflowTemplates({
+      db: deps.db,
+      tenantId: parsed.data.tenantId,
+      ...(parsed.data.caseType !== undefined ? { caseType: parsed.data.caseType } : {}),
+    });
+
+    return res.json({ workflowTemplates });
+  });
+
+  app.post('/api/v1/workflow-templates', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = createWorkflowTemplateRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantRole(authReq.auth!, parsed.data.tenantId, 'tenant_admin')) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const workflowTemplateBundle = await createWorkflowTemplateRecord({
+      db: deps.db,
+      tenantId: parsed.data.tenantId,
+      key: parsed.data.key,
+      name: parsed.data.name,
+      status: parsed.data.status,
+      isSystem: parsed.data.isSystem,
+      ...(parsed.data.caseType !== undefined ? { caseType: parsed.data.caseType } : {}),
+      ...(parsed.data.definition !== undefined ? { definition: parsed.data.definition } : {}),
+      stages: parsed.data.stages.map((stage) => ({
+        key: stage.key,
+        name: stage.name,
+        stageOrder: stage.stageOrder,
+        ...(stage.isTerminal !== undefined ? { isTerminal: stage.isTerminal } : {}),
+        ...(stage.config !== undefined ? { config: stage.config } : {}),
+      })),
+    });
+
+    await recordMutation({
+      db: deps.db,
+      actorUserId: authReq.auth!.userId,
+      tenantId: parsed.data.tenantId,
+      entityType: 'workflow_template',
+      entityId: workflowTemplateBundle.workflowTemplate.id,
+      action: 'workflow_template.created',
+      summary: `Created workflow template ${workflowTemplateBundle.workflowTemplate.name}`,
+      mutationType: 'created',
+      payload: {
+        caseType: workflowTemplateBundle.workflowTemplate.caseType,
+        stageCount: workflowTemplateBundle.workflowStages.length,
+      },
+      publishEntityChangedEvent: deps.publishEntityChangedEvent,
+    });
+
+    return res.status(201).json({
+      workflowTemplate: workflowTemplateBundle.workflowTemplate,
+      workflowStages: workflowTemplateBundle.workflowStages,
+    });
+  });
+
+  app.get('/api/v1/cases', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = listCasesQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_query', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const cases = await listCaseRecords({
+      db: deps.db,
+      tenantId: parsed.data.tenantId,
+      ...(parsed.data.caseType !== undefined ? { caseType: parsed.data.caseType } : {}),
+      ...(parsed.data.status !== undefined ? { status: parsed.data.status } : {}),
+      ...(parsed.data.branchId !== undefined ? { branchId: parsed.data.branchId } : {}),
+    });
+
+    return res.json({ cases });
+  });
+
+  app.post('/api/v1/cases', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = createCaseRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    try {
+      const createdCaseBundle = await createCaseRecord({
+        db: deps.db,
+        tenantId: parsed.data.tenantId,
+        caseType: parsed.data.caseType,
+        status: parsed.data.status,
+        title: parsed.data.title,
+        ...(parsed.data.branchId !== undefined ? { branchId: parsed.data.branchId } : {}),
+        ...(parsed.data.propertyId !== undefined ? { propertyId: parsed.data.propertyId } : {}),
+        ...(parsed.data.workflowTemplateId !== undefined
+          ? { workflowTemplateId: parsed.data.workflowTemplateId }
+          : {}),
+        ...(parsed.data.reference !== undefined ? { reference: parsed.data.reference } : {}),
+        ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
+        ...(parsed.data.metadata !== undefined ? { metadata: parsed.data.metadata } : {}),
+      });
+
+      await recordMutation({
+        db: deps.db,
+        actorUserId: authReq.auth!.userId,
+        tenantId: parsed.data.tenantId,
+        entityType: 'case',
+        entityId: createdCaseBundle.caseRecord.id,
+        action: 'case.created',
+        summary: `Created ${createdCaseBundle.caseRecord.caseType} case ${createdCaseBundle.caseRecord.title}`,
+        mutationType: 'created',
+        payload: {
+          caseType: createdCaseBundle.caseRecord.caseType,
+          propertyId: createdCaseBundle.caseRecord.propertyId,
+          workflowTemplateId: createdCaseBundle.workflowTemplate?.id ?? null,
+        },
+        publishEntityChangedEvent: deps.publishEntityChangedEvent,
+      });
+
+      return res.status(201).json({
+        case: createdCaseBundle.caseRecord,
+        workflow: createdCaseBundle.workflowInstance
+          ? {
+              instance: createdCaseBundle.workflowInstance,
+              template: createdCaseBundle.workflowTemplate,
+              stages: createdCaseBundle.workflowStages,
+            }
+          : null,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'workflow_template_case_type_mismatch') {
+        return res.status(400).json({ error: 'workflow_template_case_type_mismatch' });
+      }
+
+      if (error instanceof Error && error.message === 'workflow_template_not_found') {
+        return res.status(404).json({ error: 'workflow_template_not_found' });
+      }
+
+      throw error;
+    }
+  });
+
+  app.get('/api/v1/cases/:caseId', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsedParams = caseParamsSchema.safeParse(req.params);
+    const parsedQuery = tenantScopedQuerySchema.safeParse(req.query);
+    if (!parsedParams.success || !parsedQuery.success) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsedQuery.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const caseDetail = await loadCaseDetail({
+      db: deps.db,
+      tenantId: parsedQuery.data.tenantId,
+      caseId: parsedParams.data.caseId,
+    });
+
+    if (!caseDetail) {
+      return res.status(404).json({ error: 'case_not_found' });
+    }
+
+    return res.json({
+      case: caseDetail.caseRecord,
+      parties: caseDetail.parties,
+      notes: caseDetail.notes,
+      files: caseDetail.files,
+      communications: caseDetail.communications,
+      workflow: caseDetail.workflow,
+      timelineEntries: caseDetail.timelineEntries,
+    });
+  });
+
+  app.get('/api/v1/email-templates', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = tenantScopedQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_query', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const emailTemplates = await listEmailTemplates({
+      db: deps.db,
+      tenantId: parsed.data.tenantId,
+    });
+
+    return res.json({ emailTemplates });
+  });
+
+  app.post('/api/v1/email-templates', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = createEmailTemplateRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantRole(authReq.auth!, parsed.data.tenantId, 'tenant_admin')) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const emailTemplate = await createEmailTemplateRecord({
+      db: deps.db,
+      tenantId: parsed.data.tenantId,
+      key: parsed.data.key,
+      name: parsed.data.name,
+      subjectTemplate: parsed.data.subjectTemplate,
+      bodyTextTemplate: parsed.data.bodyTextTemplate,
+      ...(parsed.data.bodyHtmlTemplate !== undefined
+        ? { bodyHtmlTemplate: parsed.data.bodyHtmlTemplate }
+        : {}),
+      status: parsed.data.status,
+      ...(parsed.data.metadata !== undefined ? { metadata: parsed.data.metadata } : {}),
+    });
+
+    await recordMutation({
+      db: deps.db,
+      actorUserId: authReq.auth!.userId,
+      tenantId: parsed.data.tenantId,
+      entityType: 'email_template',
+      entityId: emailTemplate.id,
+      action: 'email_template.created',
+      summary: `Created email template ${emailTemplate.name}`,
+      mutationType: 'created',
+      payload: {
+        key: emailTemplate.key,
+        status: emailTemplate.status,
+      },
+      publishEntityChangedEvent: deps.publishEntityChangedEvent,
+    });
+
+    return res.status(201).json({ emailTemplate });
+  });
+
+  app.get('/api/v1/sms-templates', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = tenantScopedQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_query', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const smsTemplates = await listSmsTemplates({
+      db: deps.db,
+      tenantId: parsed.data.tenantId,
+    });
+
+    return res.json({ smsTemplates });
+  });
+
+  app.post('/api/v1/sms-templates', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = createSmsTemplateRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantRole(authReq.auth!, parsed.data.tenantId, 'tenant_admin')) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const smsTemplate = await createSmsTemplateRecord({
+      db: deps.db,
+      tenantId: parsed.data.tenantId,
+      key: parsed.data.key,
+      name: parsed.data.name,
+      bodyTemplate: parsed.data.bodyTemplate,
+      status: parsed.data.status,
+      ...(parsed.data.metadata !== undefined ? { metadata: parsed.data.metadata } : {}),
+    });
+
+    await recordMutation({
+      db: deps.db,
+      actorUserId: authReq.auth!.userId,
+      tenantId: parsed.data.tenantId,
+      entityType: 'sms_template',
+      entityId: smsTemplate.id,
+      action: 'sms_template.created',
+      summary: `Created SMS template ${smsTemplate.name}`,
+      mutationType: 'created',
+      payload: {
+        key: smsTemplate.key,
+        status: smsTemplate.status,
+      },
+      publishEntityChangedEvent: deps.publishEntityChangedEvent,
+    });
+
+    return res.status(201).json({ smsTemplate });
+  });
+
+  app.get(
+    '/api/v1/cases/:caseId/communications',
+    requireAuth,
+    async (req: Request, res: Response) => {
+      const authReq = req as AuthenticatedRequest;
+      const parsedParams = caseParamsSchema.safeParse(req.params);
+      const parsedQuery = tenantScopedQuerySchema.safeParse(req.query);
+      if (!parsedParams.success || !parsedQuery.success) {
+        return res.status(400).json({ error: 'invalid_request' });
+      }
+
+      if (!hasTenantMembership(authReq.auth!, parsedQuery.data.tenantId)) {
+        return res.status(403).json({ error: 'forbidden' });
+      }
+
+      const caseRecord = await loadCaseRecord({
+        db: deps.db,
+        tenantId: parsedQuery.data.tenantId,
+        caseId: parsedParams.data.caseId,
+      });
+
+      if (!caseRecord) {
+        return res.status(404).json({ error: 'case_not_found' });
+      }
+
+      const communications = await listCaseCommunicationDispatches({
+        db: deps.db,
+        tenantId: parsedQuery.data.tenantId,
+        caseId: parsedParams.data.caseId,
+      });
+
+      return res.json({ communications });
+    },
+  );
+
+  app.post(
+    '/api/v1/cases/:caseId/communications',
+    requireAuth,
+    async (req: Request, res: Response) => {
+      const authReq = req as AuthenticatedRequest;
+      const parsedParams = caseParamsSchema.safeParse(req.params);
+      const parsedBody = sendCaseCommunicationRequestSchema.safeParse(req.body);
+      if (!parsedParams.success || !parsedBody.success) {
+        return res.status(400).json({ error: 'invalid_request' });
+      }
+
+      if (parsedBody.data.caseId !== parsedParams.data.caseId) {
+        return res.status(400).json({ error: 'case_id_mismatch' });
+      }
+
+      if (parsedBody.data.channel !== parsedBody.data.templateType) {
+        return res.status(400).json({ error: 'channel_template_type_mismatch' });
+      }
+
+      if (!hasTenantMembership(authReq.auth!, parsedBody.data.tenantId)) {
+        return res.status(403).json({ error: 'forbidden' });
+      }
+
+      const caseRecord = await loadCaseRecord({
+        db: deps.db,
+        tenantId: parsedBody.data.tenantId,
+        caseId: parsedParams.data.caseId,
+      });
+
+      if (!caseRecord) {
+        return res.status(404).json({ error: 'case_not_found' });
+      }
+
+      try {
+        const result = await sendCaseCommunicationRecord({
+          db: deps.db,
+          tenantId: parsedBody.data.tenantId,
+          caseId: parsedParams.data.caseId,
+          channel: parsedBody.data.channel,
+          templateId: parsedBody.data.templateId,
+          templateType: parsedBody.data.templateType,
+          sentByUserId: authReq.auth!.userId,
+          ...(parsedBody.data.recipientName !== undefined
+            ? { recipientName: parsedBody.data.recipientName }
+            : {}),
+          ...(parsedBody.data.recipientEmail !== undefined
+            ? { recipientEmail: parsedBody.data.recipientEmail }
+            : {}),
+          ...(parsedBody.data.recipientPhone !== undefined
+            ? { recipientPhone: parsedBody.data.recipientPhone }
+            : {}),
+          variables: parsedBody.data.variables,
+          ...(parsedBody.data.metadata !== undefined ? { metadata: parsedBody.data.metadata } : {}),
+        });
+
+        await recordMutation({
+          db: deps.db,
+          actorUserId: authReq.auth!.userId,
+          tenantId: parsedBody.data.tenantId,
+          entityType: 'case',
+          entityId: parsedParams.data.caseId,
+          action: 'case.communication_sent',
+          summary: result.summary,
+          mutationType: 'updated',
+          payload: {
+            dispatchId: result.dispatch.id,
+            channel: result.dispatch.channel,
+            templateType: result.dispatch.templateType,
+            templateId: result.dispatch.templateId,
+            recipientEmail: result.dispatch.recipientEmail,
+            recipientPhone: result.dispatch.recipientPhone,
+          },
+          publishEntityChangedEvent: deps.publishEntityChangedEvent,
+        });
+
+        return res.status(201).json({ communication: result.dispatch });
+      } catch (error) {
+        if (error instanceof Error && error.message === 'recipient_email_required') {
+          return res.status(400).json({ error: 'recipient_email_required' });
+        }
+
+        if (error instanceof Error && error.message === 'recipient_phone_required') {
+          return res.status(400).json({ error: 'recipient_phone_required' });
+        }
+
+        if (error instanceof Error && error.message === 'email_template_not_found') {
+          return res.status(404).json({ error: 'email_template_not_found' });
+        }
+
+        if (error instanceof Error && error.message === 'sms_template_not_found') {
+          return res.status(404).json({ error: 'sms_template_not_found' });
+        }
+
+        throw error;
+      }
+    },
+  );
+
+  app.post('/api/v1/cases/:caseId/parties', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsedParams = caseParamsSchema.safeParse(req.params);
+    const parsedBody = createCasePartySchema.safeParse(req.body);
+    if (!parsedParams.success || !parsedBody.success) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+
+    if (parsedBody.data.caseId !== parsedParams.data.caseId) {
+      return res.status(400).json({ error: 'case_id_mismatch' });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsedBody.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const caseRecord = await loadCaseRecord({
+      db: deps.db,
+      tenantId: parsedBody.data.tenantId,
+      caseId: parsedParams.data.caseId,
+    });
+
+    if (!caseRecord) {
+      return res.status(404).json({ error: 'case_not_found' });
+    }
+
+    try {
+      const caseParty = await addCasePartyRecord({
+        db: deps.db,
+        tenantId: parsedBody.data.tenantId,
+        caseId: parsedParams.data.caseId,
+        partyRole: parsedBody.data.partyRole,
+        displayName: parsedBody.data.displayName,
+        isPrimary: parsedBody.data.isPrimary,
+        ...(parsedBody.data.contactId !== undefined ? { contactId: parsedBody.data.contactId } : {}),
+        ...(parsedBody.data.email !== undefined ? { email: parsedBody.data.email } : {}),
+        ...(parsedBody.data.phone !== undefined ? { phone: parsedBody.data.phone } : {}),
+        ...(parsedBody.data.metadata !== undefined ? { metadata: parsedBody.data.metadata } : {}),
+      });
+
+      await recordMutation({
+        db: deps.db,
+        actorUserId: authReq.auth!.userId,
+        tenantId: parsedBody.data.tenantId,
+        entityType: 'case_party',
+        entityId: caseParty.id,
+        action: 'case_party.created',
+        summary: `Added ${caseParty.partyRole} to case ${caseRecord.title}`,
+        mutationType: 'created',
+        payload: {
+          caseId: caseRecord.id,
+          contactId: caseParty.contactId,
+        },
+        publishEntityChangedEvent: deps.publishEntityChangedEvent,
+      });
+
+      return res.status(201).json({ caseParty });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'contact_not_found') {
+        return res.status(404).json({ error: 'contact_not_found' });
+      }
+
+      throw error;
+    }
+  });
+
+  app.post('/api/v1/cases/:caseId/notes', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsedParams = caseParamsSchema.safeParse(req.params);
+    const parsedBody = createCaseNoteSchema.safeParse(req.body);
+    if (!parsedParams.success || !parsedBody.success) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+
+    if (parsedBody.data.caseId !== parsedParams.data.caseId) {
+      return res.status(400).json({ error: 'case_id_mismatch' });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsedBody.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const caseRecord = await loadCaseRecord({
+      db: deps.db,
+      tenantId: parsedBody.data.tenantId,
+      caseId: parsedParams.data.caseId,
+    });
+
+    if (!caseRecord) {
+      return res.status(404).json({ error: 'case_not_found' });
+    }
+
+    const caseNote = await addCaseNoteRecord({
+      db: deps.db,
+      tenantId: parsedBody.data.tenantId,
+      caseId: parsedParams.data.caseId,
+      authorUserId: authReq.auth!.userId,
+      noteType: parsedBody.data.noteType,
+      body: parsedBody.data.body,
+      ...(parsedBody.data.metadata !== undefined ? { metadata: parsedBody.data.metadata } : {}),
+    });
+
+    await recordMutation({
+      db: deps.db,
+      actorUserId: authReq.auth!.userId,
+      tenantId: parsedBody.data.tenantId,
+      entityType: 'case_note',
+      entityId: caseNote.id,
+      action: 'case_note.created',
+      summary: `Added note to case ${caseRecord.title}`,
+      mutationType: 'created',
+      payload: {
+        caseId: caseRecord.id,
+        noteType: caseNote.noteType,
+      },
+      publishEntityChangedEvent: deps.publishEntityChangedEvent,
+    });
+
+    return res.status(201).json({ caseNote });
+  });
+
+  app.post('/api/v1/cases/:caseId/transitions', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsedParams = caseParamsSchema.safeParse(req.params);
+    const parsedBody = createCaseTransitionRequestSchema.safeParse(req.body);
+    if (!parsedParams.success || !parsedBody.success) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+
+    if (parsedBody.data.caseId !== parsedParams.data.caseId) {
+      return res.status(400).json({ error: 'case_id_mismatch' });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsedBody.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const caseRecord = await loadCaseRecord({
+      db: deps.db,
+      tenantId: parsedBody.data.tenantId,
+      caseId: parsedParams.data.caseId,
+    });
+
+    if (!caseRecord) {
+      return res.status(404).json({ error: 'case_not_found' });
+    }
+
+    try {
+      const transition = await transitionWorkflowInstance({
+        db: deps.db,
+        tenantId: parsedBody.data.tenantId,
+        caseId: parsedParams.data.caseId,
+        actorUserId: authReq.auth!.userId,
+        toStageKey: parsedBody.data.toStageKey,
+        ...(parsedBody.data.summary !== undefined ? { summary: parsedBody.data.summary } : {}),
+        ...(parsedBody.data.metadata !== undefined ? { metadata: parsedBody.data.metadata } : {}),
+      });
+
+      await recordMutation({
+        db: deps.db,
+        actorUserId: authReq.auth!.userId,
+        tenantId: parsedBody.data.tenantId,
+        entityType: 'workflow_instance',
+        entityId: transition.workflowInstanceId,
+        action: 'workflow_instance.transitioned',
+        summary: transition.transitionEvent.summary,
+        mutationType: 'updated',
+        payload: {
+          caseId: caseRecord.id,
+          fromStageId: transition.currentStage?.id ?? null,
+          toStageId: transition.targetStage.id,
+        },
+        publishEntityChangedEvent: deps.publishEntityChangedEvent,
+      });
+
+      return res.status(201).json({
+        transitionEvent: transition.transitionEvent,
+        targetStage: transition.targetStage,
+        completedAt: transition.completedAt,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'workflow_instance_not_found') {
+        return res.status(404).json({ error: 'workflow_instance_not_found' });
+      }
+
+      if (error instanceof Error && error.message === 'workflow_stage_not_found') {
+        return res.status(404).json({ error: 'workflow_stage_not_found' });
+      }
+
+      throw error;
+    }
+  });
+
+  app.get('/api/v1/sales/dashboard', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = tenantScopedQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_query', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const dashboard = await loadSalesDashboard({
+      db: deps.db,
+      tenantId: parsed.data.tenantId,
+    });
+
+    return res.json({ dashboard });
+  });
+
+  app.get('/api/v1/reports/sales-pipeline', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = tenantScopedQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_query', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const dashboard = await loadSalesDashboard({
+      db: deps.db,
+      tenantId: parsed.data.tenantId,
+    });
+
+    return res.json({
+      report: {
+        counts: dashboard.counts,
+        values: dashboard.values,
+        cases: dashboard.recentCases,
+        generatedAt: new Date().toISOString(),
+      },
+    });
+  });
+
+  app.get('/api/v1/sales/cases', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = listSalesCasesQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_query', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const cases = await listSalesCaseRecords({
+      db: deps.db,
+      tenantId: parsed.data.tenantId,
+      ...(parsed.data.status !== undefined ? { status: parsed.data.status } : {}),
+      ...(parsed.data.saleStatus !== undefined ? { saleStatus: parsed.data.saleStatus } : {}),
+      ...(parsed.data.branchId !== undefined ? { branchId: parsed.data.branchId } : {}),
+    });
+
+    return res.json({ cases });
+  });
+
+  app.post('/api/v1/sales/cases', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = createSalesCaseRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    try {
+      const createdSalesCaseBundle = await createSalesCaseRecord({
+        db: deps.db,
+        tenantId: parsed.data.tenantId,
+        title: parsed.data.title,
+        saleStatus: parsed.data.saleStatus,
+        ...(parsed.data.branchId !== undefined ? { branchId: parsed.data.branchId } : {}),
+        ...(parsed.data.propertyId !== undefined ? { propertyId: parsed.data.propertyId } : {}),
+        ...(parsed.data.workflowTemplateId !== undefined
+          ? { workflowTemplateId: parsed.data.workflowTemplateId }
+          : {}),
+        ...(parsed.data.reference !== undefined ? { reference: parsed.data.reference } : {}),
+        ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
+        ...(parsed.data.askingPrice !== undefined ? { askingPrice: parsed.data.askingPrice } : {}),
+        ...(parsed.data.agreedPrice !== undefined ? { agreedPrice: parsed.data.agreedPrice } : {}),
+        ...(parsed.data.memorandumSentAt !== undefined
+          ? { memorandumSentAt: new Date(parsed.data.memorandumSentAt) }
+          : {}),
+        ...(parsed.data.targetExchangeAt !== undefined
+          ? { targetExchangeAt: new Date(parsed.data.targetExchangeAt) }
+          : {}),
+        ...(parsed.data.targetCompletionAt !== undefined
+          ? { targetCompletionAt: new Date(parsed.data.targetCompletionAt) }
+          : {}),
+        ...(parsed.data.metadata !== undefined ? { metadata: parsed.data.metadata } : {}),
+      });
+
+      await recordMutation({
+        db: deps.db,
+        actorUserId: authReq.auth!.userId,
+        tenantId: parsed.data.tenantId,
+        entityType: 'sales_case',
+        entityId: createdSalesCaseBundle.salesCase.id,
+        action: 'sales_case.created',
+        summary: `Created sales case ${createdSalesCaseBundle.caseRecord.title}`,
+        mutationType: 'created',
+        payload: {
+          caseId: createdSalesCaseBundle.caseRecord.id,
+          saleStatus: createdSalesCaseBundle.salesCase.saleStatus,
+        },
+        publishEntityChangedEvent: deps.publishEntityChangedEvent,
+      });
+
+      return res.status(201).json({
+        case: createdSalesCaseBundle.caseRecord,
+        salesCase: createdSalesCaseBundle.salesCase,
+        workflow: createdSalesCaseBundle.workflowInstance
+          ? {
+              instance: createdSalesCaseBundle.workflowInstance,
+              template: createdSalesCaseBundle.workflowTemplate,
+              stages: createdSalesCaseBundle.workflowStages,
+            }
+          : null,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'workflow_template_case_type_mismatch') {
+        return res.status(400).json({ error: 'workflow_template_case_type_mismatch' });
+      }
+
+      if (error instanceof Error && error.message === 'workflow_template_not_found') {
+        return res.status(404).json({ error: 'workflow_template_not_found' });
+      }
+
+      throw error;
+    }
+  });
+
+  app.patch('/api/v1/sales/cases/:caseId', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsedParams = caseParamsSchema.safeParse(req.params);
+    const parsedBody = updateSalesCaseRequestSchema.safeParse(req.body);
+    if (!parsedParams.success || !parsedBody.success) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsedBody.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const salesCaseRef = await ensureSalesCaseExists({
+      db: deps.db,
+      tenantId: parsedBody.data.tenantId,
+      caseId: parsedParams.data.caseId,
+    });
+
+    if (!salesCaseRef) {
+      return res.status(404).json({ error: 'sales_case_not_found' });
+    }
+
+    const salesCase = await updateSalesCaseRecord({
+      db: deps.db,
+      tenantId: parsedBody.data.tenantId,
+      caseId: parsedParams.data.caseId,
+      ...(parsedBody.data.title !== undefined ? { title: parsedBody.data.title } : {}),
+      ...(parsedBody.data.description !== undefined
+        ? { description: parsedBody.data.description }
+        : {}),
+      ...(parsedBody.data.status !== undefined ? { status: parsedBody.data.status } : {}),
+      ...(parsedBody.data.askingPrice !== undefined ? { askingPrice: parsedBody.data.askingPrice } : {}),
+      ...(parsedBody.data.agreedPrice !== undefined ? { agreedPrice: parsedBody.data.agreedPrice } : {}),
+      ...(parsedBody.data.saleStatus !== undefined ? { saleStatus: parsedBody.data.saleStatus } : {}),
+      ...(parsedBody.data.memorandumSentAt !== undefined
+        ? {
+            memorandumSentAt: parsedBody.data.memorandumSentAt
+              ? new Date(parsedBody.data.memorandumSentAt)
+              : null,
+          }
+        : {}),
+      ...(parsedBody.data.targetExchangeAt !== undefined
+        ? {
+            targetExchangeAt: parsedBody.data.targetExchangeAt
+              ? new Date(parsedBody.data.targetExchangeAt)
+              : null,
+          }
+        : {}),
+      ...(parsedBody.data.targetCompletionAt !== undefined
+        ? {
+            targetCompletionAt: parsedBody.data.targetCompletionAt
+              ? new Date(parsedBody.data.targetCompletionAt)
+              : null,
+          }
+        : {}),
+      ...(parsedBody.data.metadata !== undefined ? { metadata: parsedBody.data.metadata } : {}),
+    });
+
+    await recordMutation({
+      db: deps.db,
+      actorUserId: authReq.auth!.userId,
+      tenantId: parsedBody.data.tenantId,
+      entityType: 'sales_case',
+      entityId: salesCase.id,
+      action: 'sales_case.updated',
+      summary: `Updated sales case ${salesCaseRef.caseRecord.title}`,
+      mutationType: 'updated',
+      payload: {
+        caseId: parsedParams.data.caseId,
+        saleStatus: salesCase.saleStatus,
+      },
+      publishEntityChangedEvent: deps.publishEntityChangedEvent,
+    });
+
+    return res.json({ salesCase });
+  });
+
+  app.get('/api/v1/sales/cases/:caseId', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsedParams = caseParamsSchema.safeParse(req.params);
+    const parsedQuery = tenantScopedQuerySchema.safeParse(req.query);
+    if (!parsedParams.success || !parsedQuery.success) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsedQuery.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const detail = await loadSalesCaseDetail({
+      db: deps.db,
+      tenantId: parsedQuery.data.tenantId,
+      caseId: parsedParams.data.caseId,
+    });
+
+    if (!detail) {
+      return res.status(404).json({ error: 'sales_case_not_found' });
+    }
+
+    return res.json({
+      case: detail.caseRecord,
+      salesCase: detail.salesCase,
+      salesOffers: detail.salesOffers,
+      parties: detail.parties,
+      notes: detail.notes,
+      files: detail.files,
+      communications: detail.communications,
+      workflow: detail.workflow,
+      timelineEntries: detail.timelineEntries,
+    });
+  });
+
+  app.get('/api/v1/sales/cases/:caseId/offers', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsedParams = caseParamsSchema.safeParse(req.params);
+    const parsedQuery = tenantScopedQuerySchema.safeParse(req.query);
+    if (!parsedParams.success || !parsedQuery.success) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsedQuery.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const salesCaseRef = await ensureSalesCaseExists({
+      db: deps.db,
+      tenantId: parsedQuery.data.tenantId,
+      caseId: parsedParams.data.caseId,
+    });
+
+    if (!salesCaseRef) {
+      return res.status(404).json({ error: 'sales_case_not_found' });
+    }
+
+    const salesOffers = await listSalesOffers({
+      db: deps.db,
+      tenantId: parsedQuery.data.tenantId,
+      caseId: parsedParams.data.caseId,
+    });
+
+    return res.json({ salesOffers });
+  });
+
+  app.post('/api/v1/sales/cases/:caseId/offers', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsedParams = caseParamsSchema.safeParse(req.params);
+    const parsedBody = createSalesOfferRequestSchema.safeParse(req.body);
+    if (!parsedParams.success || !parsedBody.success) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+
+    if (parsedBody.data.caseId !== parsedParams.data.caseId) {
+      return res.status(400).json({ error: 'case_id_mismatch' });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsedBody.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const salesCaseRef = await ensureSalesCaseExists({
+      db: deps.db,
+      tenantId: parsedBody.data.tenantId,
+      caseId: parsedParams.data.caseId,
+    });
+
+    if (!salesCaseRef) {
+      return res.status(404).json({ error: 'sales_case_not_found' });
+    }
+
+    try {
+      const salesOffer = await createSalesOfferRecord({
+        db: deps.db,
+        tenantId: parsedBody.data.tenantId,
+        caseId: parsedParams.data.caseId,
+        amount: parsedBody.data.amount,
+        status: parsedBody.data.status,
+        ...(parsedBody.data.contactId !== undefined ? { contactId: parsedBody.data.contactId } : {}),
+        ...(parsedBody.data.submittedAt !== undefined
+          ? { submittedAt: new Date(parsedBody.data.submittedAt) }
+          : {}),
+        ...(parsedBody.data.respondedAt !== undefined
+          ? {
+              respondedAt: parsedBody.data.respondedAt
+                ? new Date(parsedBody.data.respondedAt)
+                : null,
+            }
+          : {}),
+        ...(parsedBody.data.notes !== undefined ? { notes: parsedBody.data.notes } : {}),
+        ...(parsedBody.data.metadata !== undefined ? { metadata: parsedBody.data.metadata } : {}),
+      });
+
+      await recordMutation({
+        db: deps.db,
+        actorUserId: authReq.auth!.userId,
+        tenantId: parsedBody.data.tenantId,
+        entityType: 'sales_offer',
+        entityId: salesOffer.id,
+        action: 'sales_offer.created',
+        summary: `Added sales offer to case ${salesCaseRef.caseRecord.title}`,
+        mutationType: 'created',
+        payload: {
+          caseId: parsedParams.data.caseId,
+          amount: salesOffer.amount,
+          status: salesOffer.status,
+        },
+        publishEntityChangedEvent: deps.publishEntityChangedEvent,
+      });
+
+      return res.status(201).json({ salesOffer });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'contact_not_found') {
+        return res.status(404).json({ error: 'contact_not_found' });
+      }
+
+      if (error instanceof Error && error.message === 'sales_case_not_found') {
+        return res.status(404).json({ error: 'sales_case_not_found' });
+      }
+
+      throw error;
+    }
+  });
+
+  app.get('/api/v1/lettings/dashboard', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = tenantScopedQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_query', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const dashboard = await loadLettingsDashboard({
+      db: deps.db,
+      tenantId: parsed.data.tenantId,
+    });
+
+    return res.json({ dashboard });
+  });
+
+  app.get('/api/v1/reports/agreed-lets', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = tenantScopedQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_query', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const dashboard = await loadLettingsDashboard({
+      db: deps.db,
+      tenantId: parsed.data.tenantId,
+    });
+
+    return res.json({
+      report: {
+        counts: dashboard.counts,
+        values: dashboard.values,
+        agreedLets: dashboard.agreedLets,
+        generatedAt: new Date().toISOString(),
+      },
+    });
+  });
+
+  app.get('/api/v1/pilot-readiness', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = tenantScopedQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_query', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const [summary] = await deps.db
+      .select({
+        propertyCount: sql<number>`(
+          select count(*)
+          from ${schema.properties}
+          where ${schema.properties.tenantId} = ${parsed.data.tenantId}
+        )`,
+        emailTemplateCount: sql<number>`(
+          select count(*)
+          from ${schema.emailTemplates}
+          where ${schema.emailTemplates.tenantId} = ${parsed.data.tenantId}
+        )`,
+        smsTemplateCount: sql<number>`(
+          select count(*)
+          from ${schema.smsTemplates}
+          where ${schema.smsTemplates.tenantId} = ${parsed.data.tenantId}
+        )`,
+        salesWorkflowTemplateCount: sql<number>`(
+          select count(*)
+          from ${schema.workflowTemplates}
+          where ${schema.workflowTemplates.tenantId} = ${parsed.data.tenantId}
+            and ${schema.workflowTemplates.caseType} = 'sales'
+        )`,
+        lettingsWorkflowTemplateCount: sql<number>`(
+          select count(*)
+          from ${schema.workflowTemplates}
+          where ${schema.workflowTemplates.tenantId} = ${parsed.data.tenantId}
+            and ${schema.workflowTemplates.caseType} = 'lettings'
+        )`,
+        salesCaseCount: sql<number>`(
+          select count(*)
+          from ${schema.cases}
+          where ${schema.cases.tenantId} = ${parsed.data.tenantId}
+            and ${schema.cases.caseType} = 'sales'
+        )`,
+        lettingsCaseCount: sql<number>`(
+          select count(*)
+          from ${schema.cases}
+          where ${schema.cases.tenantId} = ${parsed.data.tenantId}
+            and ${schema.cases.caseType} = 'lettings'
+        )`,
+      })
+      .from(schema.tenants)
+      .where(eq(schema.tenants.id, parsed.data.tenantId))
+      .limit(1);
+
+    if (!summary) {
+      return res.status(404).json({ error: 'tenant_not_found' });
+    }
+
+    const readiness = {
+      counts: {
+        propertyCount: Number(summary.propertyCount ?? 0),
+        emailTemplateCount: Number(summary.emailTemplateCount ?? 0),
+        smsTemplateCount: Number(summary.smsTemplateCount ?? 0),
+        salesWorkflowTemplateCount: Number(summary.salesWorkflowTemplateCount ?? 0),
+        lettingsWorkflowTemplateCount: Number(summary.lettingsWorkflowTemplateCount ?? 0),
+        salesCaseCount: Number(summary.salesCaseCount ?? 0),
+        lettingsCaseCount: Number(summary.lettingsCaseCount ?? 0),
+      },
+    };
+
+    const checks = [
+      {
+        key: 'properties_seeded',
+        label: 'Properties synced or created',
+        status: readiness.counts.propertyCount > 0 ? 'ready' : 'missing',
+        detail:
+          readiness.counts.propertyCount > 0
+            ? `${readiness.counts.propertyCount} properties available for case linking.`
+            : 'Sync Dezrez or seed at least one property before pilot usage.',
+      },
+      {
+        key: 'sales_workflow_templates',
+        label: 'Sales workflow templates configured',
+        status: readiness.counts.salesWorkflowTemplateCount > 0 ? 'ready' : 'missing',
+        detail:
+          readiness.counts.salesWorkflowTemplateCount > 0
+            ? `${readiness.counts.salesWorkflowTemplateCount} sales workflow templates available.`
+            : 'Create at least one sales workflow template.',
+      },
+      {
+        key: 'lettings_workflow_templates',
+        label: 'Lettings workflow templates configured',
+        status: readiness.counts.lettingsWorkflowTemplateCount > 0 ? 'ready' : 'missing',
+        detail:
+          readiness.counts.lettingsWorkflowTemplateCount > 0
+            ? `${readiness.counts.lettingsWorkflowTemplateCount} lettings workflow templates available.`
+            : 'Create at least one lettings workflow template.',
+      },
+      {
+        key: 'communication_templates',
+        label: 'Email and SMS templates available',
+        status:
+          readiness.counts.emailTemplateCount > 0 && readiness.counts.smsTemplateCount > 0
+            ? 'ready'
+            : 'missing',
+        detail:
+          readiness.counts.emailTemplateCount > 0 && readiness.counts.smsTemplateCount > 0
+            ? `${readiness.counts.emailTemplateCount} email templates and ${readiness.counts.smsTemplateCount} SMS templates are ready.`
+            : 'Add at least one active email template and one SMS template.',
+      },
+      {
+        key: 'sales_flow_seeded',
+        label: 'Sales pilot path exercised',
+        status: readiness.counts.salesCaseCount > 0 ? 'ready' : 'missing',
+        detail:
+          readiness.counts.salesCaseCount > 0
+            ? `${readiness.counts.salesCaseCount} sales cases already exist in the new workspace.`
+            : 'Create at least one sales case before pilot day.',
+      },
+      {
+        key: 'lettings_flow_seeded',
+        label: 'Lettings pilot path exercised',
+        status: readiness.counts.lettingsCaseCount > 0 ? 'ready' : 'missing',
+        detail:
+          readiness.counts.lettingsCaseCount > 0
+            ? `${readiness.counts.lettingsCaseCount} lettings cases already exist in the new workspace.`
+            : 'Create at least one lettings case before pilot day.',
+      },
+      {
+        key: 'reporting_available',
+        label: 'Operational reports available',
+        status: 'ready',
+        detail: 'Sales pipeline and agreed lets reports are exposed through the new API and UI.',
+      },
+    ];
+
+    const pilotFlows = [
+      {
+        key: 'sales_case_progression',
+        label: 'Sales case progression',
+        status:
+          readiness.counts.propertyCount > 0 &&
+          readiness.counts.salesWorkflowTemplateCount > 0 &&
+          readiness.counts.salesCaseCount > 0
+            ? 'ready'
+            : 'needs_setup',
+        detail:
+          'Open a sales case, add an offer, add notes/files, send a communication, and complete a workflow move.',
+      },
+      {
+        key: 'lettings_agreed_let',
+        label: 'Lettings agreed let flow',
+        status:
+          readiness.counts.propertyCount > 0 &&
+          readiness.counts.lettingsWorkflowTemplateCount > 0 &&
+          readiness.counts.lettingsCaseCount > 0
+            ? 'ready'
+            : 'needs_setup',
+        detail:
+          'Open a lettings case, add an application, advance progression, and confirm the case appears in the agreed lets report.',
+      },
+    ];
+
+    return res.json({
+      readiness,
+      checks,
+      pilotFlows,
+      laterItems: [
+        'Birthdays and wider CRM screens remain out of Milestone B.',
+        'Client management, solicitors, and broader reporting are still later-phase work.',
+        'Milestone C should focus on pilot hardening, migration helpers, and integration depth rather than new modules.',
+      ],
+      generatedAt: new Date().toISOString(),
+    });
+  });
+
+  app.get('/api/v1/lettings/cases', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = listLettingsCasesQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_query', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const cases = await listLettingsCaseRecords({
+      db: deps.db,
+      tenantId: parsed.data.tenantId,
+      ...(parsed.data.status !== undefined ? { status: parsed.data.status } : {}),
+      ...(parsed.data.lettingStatus !== undefined
+        ? { lettingStatus: parsed.data.lettingStatus }
+        : {}),
+      ...(parsed.data.branchId !== undefined ? { branchId: parsed.data.branchId } : {}),
+    });
+
+    return res.json({ cases });
+  });
+
+  app.post('/api/v1/lettings/cases', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = createLettingsCaseRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    try {
+      const createdLettingsCaseBundle = await createLettingsCaseRecord({
+        db: deps.db,
+        tenantId: parsed.data.tenantId,
+        title: parsed.data.title,
+        lettingStatus: parsed.data.lettingStatus,
+        ...(parsed.data.branchId !== undefined ? { branchId: parsed.data.branchId } : {}),
+        ...(parsed.data.propertyId !== undefined ? { propertyId: parsed.data.propertyId } : {}),
+        ...(parsed.data.workflowTemplateId !== undefined
+          ? { workflowTemplateId: parsed.data.workflowTemplateId }
+          : {}),
+        ...(parsed.data.reference !== undefined ? { reference: parsed.data.reference } : {}),
+        ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
+        ...(parsed.data.monthlyRent !== undefined ? { monthlyRent: parsed.data.monthlyRent } : {}),
+        ...(parsed.data.depositAmount !== undefined
+          ? { depositAmount: parsed.data.depositAmount }
+          : {}),
+        ...(parsed.data.agreedAt !== undefined ? { agreedAt: new Date(parsed.data.agreedAt) } : {}),
+        ...(parsed.data.moveInAt !== undefined ? { moveInAt: new Date(parsed.data.moveInAt) } : {}),
+        ...(parsed.data.agreedLetAt !== undefined
+          ? { agreedLetAt: new Date(parsed.data.agreedLetAt) }
+          : {}),
+        ...(parsed.data.metadata !== undefined ? { metadata: parsed.data.metadata } : {}),
+      });
+
+      await recordMutation({
+        db: deps.db,
+        actorUserId: authReq.auth!.userId,
+        tenantId: parsed.data.tenantId,
+        entityType: 'lettings_case',
+        entityId: createdLettingsCaseBundle.lettingsCase.id,
+        action: 'lettings_case.created',
+        summary: `Created lettings case ${createdLettingsCaseBundle.caseRecord.title}`,
+        mutationType: 'created',
+        payload: {
+          caseId: createdLettingsCaseBundle.caseRecord.id,
+          lettingStatus: createdLettingsCaseBundle.lettingsCase.lettingStatus,
+        },
+        publishEntityChangedEvent: deps.publishEntityChangedEvent,
+      });
+
+      return res.status(201).json({
+        case: createdLettingsCaseBundle.caseRecord,
+        lettingsCase: createdLettingsCaseBundle.lettingsCase,
+        workflow: createdLettingsCaseBundle.workflowInstance
+          ? {
+              instance: createdLettingsCaseBundle.workflowInstance,
+              template: createdLettingsCaseBundle.workflowTemplate,
+              stages: createdLettingsCaseBundle.workflowStages,
+            }
+          : null,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'workflow_template_case_type_mismatch') {
+        return res.status(400).json({ error: 'workflow_template_case_type_mismatch' });
+      }
+
+      if (error instanceof Error && error.message === 'workflow_template_not_found') {
+        return res.status(404).json({ error: 'workflow_template_not_found' });
+      }
+
+      throw error;
+    }
+  });
+
+  app.patch('/api/v1/lettings/cases/:caseId', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsedParams = caseParamsSchema.safeParse(req.params);
+    const parsedBody = updateLettingsCaseRequestSchema.safeParse(req.body);
+    if (!parsedParams.success || !parsedBody.success) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsedBody.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const lettingsCaseRef = await ensureLettingsCaseExists({
+      db: deps.db,
+      tenantId: parsedBody.data.tenantId,
+      caseId: parsedParams.data.caseId,
+    });
+
+    if (!lettingsCaseRef) {
+      return res.status(404).json({ error: 'lettings_case_not_found' });
+    }
+
+    const lettingsCase = await updateLettingsCaseRecord({
+      db: deps.db,
+      tenantId: parsedBody.data.tenantId,
+      caseId: parsedParams.data.caseId,
+      ...(parsedBody.data.title !== undefined ? { title: parsedBody.data.title } : {}),
+      ...(parsedBody.data.description !== undefined
+        ? { description: parsedBody.data.description }
+        : {}),
+      ...(parsedBody.data.status !== undefined ? { status: parsedBody.data.status } : {}),
+      ...(parsedBody.data.monthlyRent !== undefined
+        ? { monthlyRent: parsedBody.data.monthlyRent }
+        : {}),
+      ...(parsedBody.data.depositAmount !== undefined
+        ? { depositAmount: parsedBody.data.depositAmount }
+        : {}),
+      ...(parsedBody.data.lettingStatus !== undefined
+        ? { lettingStatus: parsedBody.data.lettingStatus }
+        : {}),
+      ...(parsedBody.data.agreedAt !== undefined
+        ? {
+            agreedAt: parsedBody.data.agreedAt ? new Date(parsedBody.data.agreedAt) : null,
+          }
+        : {}),
+      ...(parsedBody.data.moveInAt !== undefined
+        ? {
+            moveInAt: parsedBody.data.moveInAt ? new Date(parsedBody.data.moveInAt) : null,
+          }
+        : {}),
+      ...(parsedBody.data.agreedLetAt !== undefined
+        ? {
+            agreedLetAt: parsedBody.data.agreedLetAt ? new Date(parsedBody.data.agreedLetAt) : null,
+          }
+        : {}),
+      ...(parsedBody.data.metadata !== undefined ? { metadata: parsedBody.data.metadata } : {}),
+    });
+
+    await recordMutation({
+      db: deps.db,
+      actorUserId: authReq.auth!.userId,
+      tenantId: parsedBody.data.tenantId,
+      entityType: 'lettings_case',
+      entityId: lettingsCase.id,
+      action: 'lettings_case.updated',
+      summary: `Updated lettings case ${lettingsCaseRef.caseRecord.title}`,
+      mutationType: 'updated',
+      payload: {
+        caseId: parsedParams.data.caseId,
+        lettingStatus: lettingsCase.lettingStatus,
+      },
+      publishEntityChangedEvent: deps.publishEntityChangedEvent,
+    });
+
+    return res.json({ lettingsCase });
+  });
+
+  app.get('/api/v1/lettings/cases/:caseId', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsedParams = caseParamsSchema.safeParse(req.params);
+    const parsedQuery = tenantScopedQuerySchema.safeParse(req.query);
+    if (!parsedParams.success || !parsedQuery.success) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsedQuery.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const detail = await loadLettingsCaseDetail({
+      db: deps.db,
+      tenantId: parsedQuery.data.tenantId,
+      caseId: parsedParams.data.caseId,
+    });
+
+    if (!detail) {
+      return res.status(404).json({ error: 'lettings_case_not_found' });
+    }
+
+    return res.json({
+      case: detail.caseRecord,
+      lettingsCase: detail.lettingsCase,
+      lettingsApplications: detail.lettingsApplications,
+      parties: detail.parties,
+      notes: detail.notes,
+      files: detail.files,
+      communications: detail.communications,
+      workflow: detail.workflow,
+      timelineEntries: detail.timelineEntries,
+    });
+  });
+
+  app.get('/api/v1/lettings/cases/:caseId/applications', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsedParams = caseParamsSchema.safeParse(req.params);
+    const parsedQuery = tenantScopedQuerySchema.safeParse(req.query);
+    if (!parsedParams.success || !parsedQuery.success) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsedQuery.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const lettingsCaseRef = await ensureLettingsCaseExists({
+      db: deps.db,
+      tenantId: parsedQuery.data.tenantId,
+      caseId: parsedParams.data.caseId,
+    });
+
+    if (!lettingsCaseRef) {
+      return res.status(404).json({ error: 'lettings_case_not_found' });
+    }
+
+    const lettingsApplications = await listLettingsApplications({
+      db: deps.db,
+      tenantId: parsedQuery.data.tenantId,
+      caseId: parsedParams.data.caseId,
+    });
+
+    return res.json({ lettingsApplications });
+  });
+
+  app.post('/api/v1/lettings/cases/:caseId/applications', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsedParams = caseParamsSchema.safeParse(req.params);
+    const parsedBody = createLettingsApplicationRequestSchema.safeParse(req.body);
+    if (!parsedParams.success || !parsedBody.success) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+
+    if (parsedBody.data.caseId !== parsedParams.data.caseId) {
+      return res.status(400).json({ error: 'case_id_mismatch' });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsedBody.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const lettingsCaseRef = await ensureLettingsCaseExists({
+      db: deps.db,
+      tenantId: parsedBody.data.tenantId,
+      caseId: parsedParams.data.caseId,
+    });
+
+    if (!lettingsCaseRef) {
+      return res.status(404).json({ error: 'lettings_case_not_found' });
+    }
+
+    try {
+      const lettingsApplication = await createLettingsApplicationRecord({
+        db: deps.db,
+        tenantId: parsedBody.data.tenantId,
+        caseId: parsedParams.data.caseId,
+        status: parsedBody.data.status,
+        ...(parsedBody.data.contactId !== undefined ? { contactId: parsedBody.data.contactId } : {}),
+        ...(parsedBody.data.monthlyRentOffered !== undefined
+          ? { monthlyRentOffered: parsedBody.data.monthlyRentOffered }
+          : {}),
+        ...(parsedBody.data.submittedAt !== undefined
+          ? { submittedAt: new Date(parsedBody.data.submittedAt) }
+          : {}),
+        ...(parsedBody.data.respondedAt !== undefined
+          ? {
+              respondedAt: parsedBody.data.respondedAt
+                ? new Date(parsedBody.data.respondedAt)
+                : null,
+            }
+          : {}),
+        ...(parsedBody.data.notes !== undefined ? { notes: parsedBody.data.notes } : {}),
+        ...(parsedBody.data.metadata !== undefined ? { metadata: parsedBody.data.metadata } : {}),
+      });
+
+      await recordMutation({
+        db: deps.db,
+        actorUserId: authReq.auth!.userId,
+        tenantId: parsedBody.data.tenantId,
+        entityType: 'lettings_application',
+        entityId: lettingsApplication.id,
+        action: 'lettings_application.created',
+        summary: `Added lettings application to case ${lettingsCaseRef.caseRecord.title}`,
+        mutationType: 'created',
+        payload: {
+          caseId: parsedParams.data.caseId,
+          monthlyRentOffered: lettingsApplication.monthlyRentOffered,
+          status: lettingsApplication.status,
+        },
+        publishEntityChangedEvent: deps.publishEntityChangedEvent,
+      });
+
+      return res.status(201).json({ lettingsApplication });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'contact_not_found') {
+        return res.status(404).json({ error: 'contact_not_found' });
+      }
+
+      if (error instanceof Error && error.message === 'lettings_case_not_found') {
+        return res.status(404).json({ error: 'lettings_case_not_found' });
+      }
+
+      throw error;
+    }
   });
 
   app.post('/api/v1/files', requireAuth, async (req: Request, res: Response) => {

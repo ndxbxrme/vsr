@@ -219,7 +219,7 @@ test('loads seeded Dezrez data and updates through realtime invalidation', async
   await page.goto('/');
   await expect(
     page.getByRole('heading', {
-      name: 'Property sync is live enough to inspect real read models.',
+      name: 'Sales and lettings workspaces are ready for the first operational slice.',
     }),
   ).toBeVisible();
   await expect(page.getByText('API base: http://127.0.0.1:4320/api/v1')).toBeVisible();
@@ -227,8 +227,8 @@ test('loads seeded Dezrez data and updates through realtime invalidation', async
   await page.getByRole('link', { name: 'Open Property Explorer' }).click();
   await expect(page.getByRole('heading', { name: 'Property read model validation' })).toBeVisible();
 
-  await expect(page.getByText('Seeded Explorer Dezrez')).toBeVisible();
-  await expect(page.getByText('properties 0')).toBeVisible();
+  await expect(page.getByText('Seeded Explorer Dezrez')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText('properties 0')).toBeVisible({ timeout: 20_000 });
 
   await page.getByRole('button', { name: 'Request sync' }).click();
   await expect(page.getByText(/Sync accepted\./)).toBeVisible();

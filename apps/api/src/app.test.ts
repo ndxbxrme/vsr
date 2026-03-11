@@ -52,6 +52,21 @@ async function truncateAllTables() {
       "webhook_events",
       "integration_jobs",
       "properties",
+      "contacts",
+      "workflow_transition_events",
+      "workflow_instances",
+      "workflow_stages",
+      "workflow_templates",
+      "communication_dispatches",
+      "sms_templates",
+      "email_templates",
+      "case_notes",
+      "case_parties",
+      "cases",
+      "sales_offers",
+      "sales_cases",
+      "lettings_applications",
+      "lettings_cases",
       "offers",
       "viewings",
       "timeline_events",
@@ -476,6 +491,1120 @@ describe('api auth and tenancy', () => {
     expect(download.status).toBe(200);
     expect(download.header['content-type']).toContain('text/plain');
     expect(download.text).toBe('hello vitalspace');
+  });
+
+  it('creates shared contacts, workflow templates, and cases with parties, notes, files, and transitions', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'cases-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'cases-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Case Estates',
+        slug: 'case-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    const tenantId = createTenant.body.tenant.id as string;
+    const branchId = createTenant.body.branch.id as string;
+
+    const [property] = await db
+      .insert(schema.properties)
+      .values({
+        tenantId,
+        branchId,
+        displayAddress: '22 Shared Core Avenue',
+        postcode: 'M4 1AA',
+        marketingStatus: 'for_sale',
+      })
+      .returning();
+
+    if (!property) {
+      throw new Error('case_property_not_created');
+    }
+
+    const createContact = await request(app)
+      .post('/api/v1/contacts')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        branchId,
+        contactType: 'person',
+        displayName: 'Jane Seller',
+        firstName: 'Jane',
+        lastName: 'Seller',
+        primaryEmail: 'jane.seller@example.com',
+      });
+
+    expect(createContact.status).toBe(201);
+
+    const createWorkflowTemplate = await request(app)
+      .post('/api/v1/workflow-templates')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        key: 'sales-default',
+        name: 'Sales Default',
+        caseType: 'sales',
+        stages: [
+          {
+            key: 'instruction',
+            name: 'Instruction',
+            stageOrder: 0,
+          },
+          {
+            key: 'memo_sent',
+            name: 'Memo Sent',
+            stageOrder: 1,
+          },
+          {
+            key: 'completed',
+            name: 'Completed',
+            stageOrder: 2,
+            isTerminal: true,
+          },
+        ],
+      });
+
+    expect(createWorkflowTemplate.status).toBe(201);
+    expect(createWorkflowTemplate.body.workflowStages).toHaveLength(3);
+
+    const createCase = await request(app)
+      .post('/api/v1/cases')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        branchId,
+        propertyId: property.id,
+        workflowTemplateId: createWorkflowTemplate.body.workflowTemplate.id,
+        caseType: 'sales',
+        reference: 'SALE-001',
+        title: '22 Shared Core Avenue Sale',
+        description: 'Initial sales case for shared core testing',
+      });
+
+    expect(createCase.status).toBe(201);
+    expect(createCase.body.case).toMatchObject({
+      tenantId,
+      propertyId: property.id,
+      caseType: 'sales',
+      status: 'open',
+      reference: 'SALE-001',
+    });
+    expect(createCase.body.workflow.instance.currentWorkflowStageId).toBeTruthy();
+
+    const caseId = createCase.body.case.id as string;
+
+    const addParty = await request(app)
+      .post(`/api/v1/cases/${caseId}/parties`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        caseId,
+        contactId: createContact.body.contact.id,
+        partyRole: 'seller',
+        displayName: 'Jane Seller',
+        email: 'jane.seller@example.com',
+        isPrimary: true,
+      });
+
+    expect(addParty.status).toBe(201);
+    expect(addParty.body.caseParty).toMatchObject({
+      partyRole: 'seller',
+      contactId: createContact.body.contact.id,
+      isPrimary: true,
+    });
+
+    const addNote = await request(app)
+      .post(`/api/v1/cases/${caseId}/notes`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        caseId,
+        noteType: 'internal',
+        body: 'Initial memo prepared for the seller.',
+      });
+
+    expect(addNote.status).toBe(201);
+    expect(addNote.body.caseNote.noteType).toBe('internal');
+
+    const upload = await request(app)
+      .post('/api/v1/files')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        entityType: 'case',
+        entityId: caseId,
+        label: 'Sales Memo',
+        originalName: 'sales-memo.txt',
+        contentType: 'text/plain',
+        base64Data: Buffer.from('shared case file', 'utf8').toString('base64'),
+      });
+
+    expect(upload.status).toBe(201);
+
+    const transition = await request(app)
+      .post(`/api/v1/cases/${caseId}/transitions`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        caseId,
+        toStageKey: 'completed',
+        summary: 'Case completed successfully',
+      });
+
+    expect(transition.status).toBe(201);
+    expect(transition.body.targetStage).toMatchObject({
+      key: 'completed',
+      isTerminal: true,
+    });
+
+    const workflowTemplates = await request(app)
+      .get('/api/v1/workflow-templates')
+      .query({
+        tenantId,
+        caseType: 'sales',
+      })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(workflowTemplates.status).toBe(200);
+    expect(workflowTemplates.body.workflowTemplates).toHaveLength(1);
+
+    const contacts = await request(app)
+      .get('/api/v1/contacts')
+      .query({
+        tenantId,
+      })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(contacts.status).toBe(200);
+    expect(contacts.body.contacts).toHaveLength(1);
+
+    const cases = await request(app)
+      .get('/api/v1/cases')
+      .query({
+        tenantId,
+        caseType: 'sales',
+      })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(cases.status).toBe(200);
+    expect(cases.body.cases).toHaveLength(1);
+    expect(cases.body.cases[0]).toMatchObject({
+      id: caseId,
+      status: 'completed',
+      propertyDisplayAddress: '22 Shared Core Avenue',
+      currentStageKey: 'completed',
+    });
+
+    const detail = await request(app)
+      .get(`/api/v1/cases/${caseId}`)
+      .query({
+        tenantId,
+      })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(detail.status).toBe(200);
+    expect(detail.body.case).toMatchObject({
+      id: caseId,
+      status: 'completed',
+      propertyDisplayAddress: '22 Shared Core Avenue',
+    });
+    expect(detail.body.parties).toHaveLength(1);
+    expect(detail.body.notes).toHaveLength(1);
+    expect(detail.body.files).toHaveLength(1);
+    expect(detail.body.workflow).toMatchObject({
+      status: 'completed',
+      currentStageKey: 'completed',
+      templateKey: 'sales-default',
+    });
+    expect(detail.body.timelineEntries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: 'case_note',
+          body: 'Initial memo prepared for the seller.',
+        }),
+        expect.objectContaining({
+          source: 'workflow_transition',
+          body: 'Case completed successfully',
+        }),
+        expect.objectContaining({
+          source: 'audit',
+          title: 'case.created',
+        }),
+      ]),
+    );
+  });
+
+  it('creates communication templates and sends case-aware email and SMS dispatches', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'comms-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'comms-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Comms Estates',
+        slug: 'comms-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    const tenantId = createTenant.body.tenant.id as string;
+    const branchId = createTenant.body.branch.id as string;
+
+    const [property] = await db
+      .insert(schema.properties)
+      .values({
+        tenantId,
+        branchId,
+        displayAddress: '44 Template Street',
+        postcode: 'M1 2AB',
+      })
+      .returning();
+
+    if (!property) {
+      throw new Error('communications_property_not_created');
+    }
+
+    const createCase = await request(app)
+      .post('/api/v1/cases')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        branchId,
+        propertyId: property.id,
+        caseType: 'sales',
+        reference: 'COMMS-001',
+        title: '44 Template Street Sale',
+      });
+
+    expect(createCase.status).toBe(201);
+
+    const caseId = createCase.body.case.id as string;
+
+    const createEmailTemplate = await request(app)
+      .post('/api/v1/email-templates')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        key: 'sales-memo',
+        name: 'Sales Memo',
+        subjectTemplate: 'Update for {{case.reference}}',
+        bodyTextTemplate:
+          'Case {{case.title}} at {{property.displayAddress}} is now assigned to {{agent.name}}.',
+      });
+
+    expect(createEmailTemplate.status).toBe(201);
+    expect(createEmailTemplate.body.emailTemplate).toMatchObject({
+      key: 'sales-memo',
+      status: 'active',
+    });
+
+    const createSmsTemplate = await request(app)
+      .post('/api/v1/sms-templates')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        key: 'sales-sms',
+        name: 'Sales SMS',
+        bodyTemplate: 'Case {{case.reference}} for {{property.postcode}} is with {{agent.name}}.',
+      });
+
+    expect(createSmsTemplate.status).toBe(201);
+    expect(createSmsTemplate.body.smsTemplate).toMatchObject({
+      key: 'sales-sms',
+      status: 'active',
+    });
+
+    const emailTemplates = await request(app)
+      .get('/api/v1/email-templates')
+      .query({ tenantId })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(emailTemplates.status).toBe(200);
+    expect(emailTemplates.body.emailTemplates).toHaveLength(1);
+
+    const smsTemplates = await request(app)
+      .get('/api/v1/sms-templates')
+      .query({ tenantId })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(smsTemplates.status).toBe(200);
+    expect(smsTemplates.body.smsTemplates).toHaveLength(1);
+
+    const sendEmail = await request(app)
+      .post(`/api/v1/cases/${caseId}/communications`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        caseId,
+        channel: 'email',
+        templateType: 'email',
+        templateId: createEmailTemplate.body.emailTemplate.id,
+        recipientName: 'Jane Seller',
+        recipientEmail: 'jane.seller@example.com',
+        variables: {
+          'agent.name': 'Casey Operator',
+        },
+      });
+
+    expect(sendEmail.status).toBe(201);
+    expect(sendEmail.body.communication).toMatchObject({
+      channel: 'email',
+      recipientEmail: 'jane.seller@example.com',
+      subject: 'Update for COMMS-001',
+    });
+    expect(sendEmail.body.communication.body).toContain('44 Template Street');
+    expect(sendEmail.body.communication.body).toContain('Casey Operator');
+
+    const sendSms = await request(app)
+      .post(`/api/v1/cases/${caseId}/communications`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        caseId,
+        channel: 'sms',
+        templateType: 'sms',
+        templateId: createSmsTemplate.body.smsTemplate.id,
+        recipientName: 'Jane Seller',
+        recipientPhone: '07123456789',
+        variables: {
+          'agent.name': 'Casey Operator',
+        },
+      });
+
+    expect(sendSms.status).toBe(201);
+    expect(sendSms.body.communication).toMatchObject({
+      channel: 'sms',
+      recipientPhone: '07123456789',
+    });
+    expect(sendSms.body.communication.body).toContain('COMMS-001');
+    expect(sendSms.body.communication.body).toContain('Casey Operator');
+
+    const communications = await request(app)
+      .get(`/api/v1/cases/${caseId}/communications`)
+      .query({ tenantId })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(communications.status).toBe(200);
+    expect(communications.body.communications).toHaveLength(2);
+    expect(communications.body.communications).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          channel: 'email',
+          recipientEmail: 'jane.seller@example.com',
+        }),
+        expect.objectContaining({
+          channel: 'sms',
+          recipientPhone: '07123456789',
+        }),
+      ]),
+    );
+
+    const detail = await request(app)
+      .get(`/api/v1/cases/${caseId}`)
+      .query({ tenantId })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(detail.status).toBe(200);
+    expect(detail.body.communications).toHaveLength(2);
+    expect(detail.body.timelineEntries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: 'communication',
+          title: 'email.sent',
+        }),
+        expect.objectContaining({
+          source: 'communication',
+          title: 'sms.sent',
+        }),
+        expect.objectContaining({
+          source: 'audit',
+          title: 'case.communication_sent',
+        }),
+      ]),
+    );
+  });
+
+  it('creates and manages sales cases, offers, and dashboard metrics', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'sales-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'sales-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Sales Estates',
+        slug: 'sales-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    const tenantId = createTenant.body.tenant.id as string;
+    const branchId = createTenant.body.branch.id as string;
+
+    const [property] = await db
+      .insert(schema.properties)
+      .values({
+        tenantId,
+        branchId,
+        displayAddress: '31 Pipeline Road',
+        postcode: 'M2 4AB',
+        marketingStatus: 'for_sale',
+      })
+      .returning();
+
+    if (!property) {
+      throw new Error('sales_property_not_created');
+    }
+
+    const createWorkflowTemplate = await request(app)
+      .post('/api/v1/workflow-templates')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        key: 'sales-pipeline',
+        name: 'Sales Pipeline',
+        caseType: 'sales',
+        stages: [
+          {
+            key: 'instruction',
+            name: 'Instruction',
+            stageOrder: 0,
+          },
+          {
+            key: 'conveyancing',
+            name: 'Conveyancing',
+            stageOrder: 1,
+          },
+          {
+            key: 'completed',
+            name: 'Completed',
+            stageOrder: 2,
+            isTerminal: true,
+          },
+        ],
+      });
+
+    expect(createWorkflowTemplate.status).toBe(201);
+
+    const createBuyer = await request(app)
+      .post('/api/v1/contacts')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        branchId,
+        displayName: 'Alex Buyer',
+        firstName: 'Alex',
+        lastName: 'Buyer',
+        primaryEmail: 'alex.buyer@example.com',
+      });
+
+    expect(createBuyer.status).toBe(201);
+
+    const createSalesCase = await request(app)
+      .post('/api/v1/sales/cases')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        branchId,
+        propertyId: property.id,
+        workflowTemplateId: createWorkflowTemplate.body.workflowTemplate.id,
+        reference: 'SALES-001',
+        title: '31 Pipeline Road Sale',
+        description: 'Sales workflow test case',
+        askingPrice: 325000,
+        saleStatus: 'instruction',
+      });
+
+    expect(createSalesCase.status).toBe(201);
+    expect(createSalesCase.body.salesCase).toMatchObject({
+      saleStatus: 'instruction',
+      askingPrice: 325000,
+    });
+
+    const caseId = createSalesCase.body.case.id as string;
+
+    const updateSalesCase = await request(app)
+      .patch(`/api/v1/sales/cases/${caseId}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        saleStatus: 'conveyancing',
+        agreedPrice: 320000,
+        targetCompletionAt: '2026-04-01T09:00:00.000Z',
+      });
+
+    expect(updateSalesCase.status).toBe(200);
+    expect(updateSalesCase.body.salesCase).toMatchObject({
+      saleStatus: 'conveyancing',
+      agreedPrice: 320000,
+    });
+
+    const addOffer = await request(app)
+      .post(`/api/v1/sales/cases/${caseId}/offers`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        caseId,
+        contactId: createBuyer.body.contact.id,
+        amount: 322500,
+        status: 'accepted',
+        notes: 'Buyer approved after second viewing',
+      });
+
+    expect(addOffer.status).toBe(201);
+    expect(addOffer.body.salesOffer).toMatchObject({
+      amount: 322500,
+      status: 'accepted',
+      contactId: createBuyer.body.contact.id,
+    });
+
+    const transition = await request(app)
+      .post(`/api/v1/cases/${caseId}/transitions`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        caseId,
+        toStageKey: 'completed',
+        summary: 'Sale completed',
+      });
+
+    expect(transition.status).toBe(201);
+
+    const salesCases = await request(app)
+      .get('/api/v1/sales/cases')
+      .query({
+        tenantId,
+      })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(salesCases.status).toBe(200);
+    expect(salesCases.body.cases).toHaveLength(1);
+    expect(salesCases.body.cases[0]).toMatchObject({
+      id: caseId,
+      saleStatus: 'offer_accepted',
+      agreedPrice: 322500,
+      currentStageKey: 'completed',
+      propertyDisplayAddress: '31 Pipeline Road',
+    });
+
+    const salesOffers = await request(app)
+      .get(`/api/v1/sales/cases/${caseId}/offers`)
+      .query({
+        tenantId,
+      })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(salesOffers.status).toBe(200);
+    expect(salesOffers.body.salesOffers).toHaveLength(1);
+    expect(salesOffers.body.salesOffers[0]).toMatchObject({
+      amount: 322500,
+      status: 'accepted',
+      contactDisplayName: 'Alex Buyer',
+    });
+
+    const detail = await request(app)
+      .get(`/api/v1/sales/cases/${caseId}`)
+      .query({
+        tenantId,
+      })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(detail.status).toBe(200);
+    expect(detail.body.salesCase).toMatchObject({
+      saleStatus: 'offer_accepted',
+      agreedPrice: 322500,
+    });
+    expect(detail.body.salesOffers).toHaveLength(1);
+    expect(detail.body.workflow).toMatchObject({
+      currentStageKey: 'completed',
+    });
+
+    const dashboard = await request(app)
+      .get('/api/v1/sales/dashboard')
+      .query({
+        tenantId,
+      })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(dashboard.status).toBe(200);
+    expect(dashboard.body.dashboard.counts).toMatchObject({
+      totalCases: 1,
+      completedCases: 1,
+      offerAcceptedCases: 1,
+      totalOffers: 1,
+      acceptedOffers: 1,
+    });
+    expect(dashboard.body.dashboard.values).toMatchObject({
+      totalOfferValue: 322500,
+      acceptedOfferValue: 322500,
+    });
+    expect(dashboard.body.dashboard.recentCases[0]).toMatchObject({
+      id: caseId,
+      saleStatus: 'offer_accepted',
+    });
+
+    const salesPipelineReport = await request(app)
+      .get('/api/v1/reports/sales-pipeline')
+      .query({
+        tenantId,
+      })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(salesPipelineReport.status).toBe(200);
+    expect(salesPipelineReport.body.report.counts).toMatchObject({
+      totalCases: 1,
+      offerAcceptedCases: 1,
+      acceptedOffers: 1,
+    });
+    expect(salesPipelineReport.body.report.values).toMatchObject({
+      acceptedOfferValue: 322500,
+    });
+    expect(salesPipelineReport.body.report.cases[0]).toMatchObject({
+      id: caseId,
+      saleStatus: 'offer_accepted',
+    });
+  });
+
+  it('creates and manages lettings cases, applications, and agreed-let reporting', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'lettings-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'lettings-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Lettings Estates',
+        slug: 'lettings-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    const tenantId = createTenant.body.tenant.id as string;
+    const branchId = createTenant.body.branch.id as string;
+
+    const [property] = await db
+      .insert(schema.properties)
+      .values({
+        tenantId,
+        branchId,
+        displayAddress: '44 Rental Lane',
+        postcode: 'M3 3AB',
+        marketingStatus: 'to_let',
+      })
+      .returning();
+
+    if (!property) {
+      throw new Error('lettings_property_not_created');
+    }
+
+    const createWorkflowTemplate = await request(app)
+      .post('/api/v1/workflow-templates')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        key: 'lettings-pipeline',
+        name: 'Lettings Pipeline',
+        caseType: 'lettings',
+        stages: [
+          {
+            key: 'application',
+            name: 'Application',
+            stageOrder: 0,
+          },
+          {
+            key: 'agreed_let',
+            name: 'Agreed Let',
+            stageOrder: 1,
+          },
+          {
+            key: 'completed',
+            name: 'Completed',
+            stageOrder: 2,
+            isTerminal: true,
+          },
+        ],
+      });
+
+    expect(createWorkflowTemplate.status).toBe(201);
+
+    const createApplicant = await request(app)
+      .post('/api/v1/contacts')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        branchId,
+        displayName: 'Terry Tenant',
+        firstName: 'Terry',
+        lastName: 'Tenant',
+        primaryEmail: 'terry.tenant@example.com',
+      });
+
+    expect(createApplicant.status).toBe(201);
+
+    const createLettingsCase = await request(app)
+      .post('/api/v1/lettings/cases')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        branchId,
+        propertyId: property.id,
+        workflowTemplateId: createWorkflowTemplate.body.workflowTemplate.id,
+        reference: 'LET-001',
+        title: '44 Rental Lane Letting',
+        description: 'Lettings workflow test case',
+        monthlyRent: 1650,
+        depositAmount: 1900,
+        lettingStatus: 'application',
+      });
+
+    expect(createLettingsCase.status).toBe(201);
+    expect(createLettingsCase.body.lettingsCase).toMatchObject({
+      lettingStatus: 'application',
+      monthlyRent: 1650,
+      depositAmount: 1900,
+    });
+
+    const caseId = createLettingsCase.body.case.id as string;
+
+    const updateLettingsCase = await request(app)
+      .patch(`/api/v1/lettings/cases/${caseId}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        lettingStatus: 'move_in',
+        moveInAt: '2026-04-10T09:00:00.000Z',
+      });
+
+    expect(updateLettingsCase.status).toBe(200);
+    expect(updateLettingsCase.body.lettingsCase).toMatchObject({
+      lettingStatus: 'move_in',
+    });
+
+    const addApplication = await request(app)
+      .post(`/api/v1/lettings/cases/${caseId}/applications`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        caseId,
+        contactId: createApplicant.body.contact.id,
+        monthlyRentOffered: 1675,
+        status: 'accepted',
+        notes: 'Applicant accepted after references',
+      });
+
+    expect(addApplication.status).toBe(201);
+    expect(addApplication.body.lettingsApplication).toMatchObject({
+      monthlyRentOffered: 1675,
+      status: 'accepted',
+      contactId: createApplicant.body.contact.id,
+    });
+
+    const transition = await request(app)
+      .post(`/api/v1/cases/${caseId}/transitions`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        caseId,
+        toStageKey: 'completed',
+        summary: 'Tenancy completed',
+      });
+
+    expect(transition.status).toBe(201);
+
+    const lettingsCases = await request(app)
+      .get('/api/v1/lettings/cases')
+      .query({
+        tenantId,
+      })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(lettingsCases.status).toBe(200);
+    expect(lettingsCases.body.cases).toHaveLength(1);
+    expect(lettingsCases.body.cases[0]).toMatchObject({
+      id: caseId,
+      lettingStatus: 'application_accepted',
+      monthlyRent: 1675,
+      currentStageKey: 'completed',
+      propertyDisplayAddress: '44 Rental Lane',
+    });
+
+    const lettingsApplications = await request(app)
+      .get(`/api/v1/lettings/cases/${caseId}/applications`)
+      .query({
+        tenantId,
+      })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(lettingsApplications.status).toBe(200);
+    expect(lettingsApplications.body.lettingsApplications).toHaveLength(1);
+    expect(lettingsApplications.body.lettingsApplications[0]).toMatchObject({
+      monthlyRentOffered: 1675,
+      status: 'accepted',
+      contactDisplayName: 'Terry Tenant',
+    });
+
+    const detail = await request(app)
+      .get(`/api/v1/lettings/cases/${caseId}`)
+      .query({
+        tenantId,
+      })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(detail.status).toBe(200);
+    expect(detail.body.lettingsCase).toMatchObject({
+      lettingStatus: 'application_accepted',
+      monthlyRent: 1675,
+    });
+    expect(detail.body.lettingsApplications).toHaveLength(1);
+    expect(detail.body.workflow).toMatchObject({
+      currentStageKey: 'completed',
+    });
+
+    const dashboard = await request(app)
+      .get('/api/v1/lettings/dashboard')
+      .query({
+        tenantId,
+      })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(dashboard.status).toBe(200);
+    expect(dashboard.body.dashboard.counts).toMatchObject({
+      totalCases: 1,
+      completedCases: 1,
+      agreedLets: 1,
+      totalApplications: 1,
+      acceptedApplications: 1,
+    });
+    expect(dashboard.body.dashboard.values).toMatchObject({
+      totalRentOffered: 1675,
+    });
+    expect(dashboard.body.dashboard.agreedLets[0]).toMatchObject({
+      caseId,
+      propertyDisplayAddress: '44 Rental Lane',
+      monthlyRent: 1675,
+      lettingStatus: 'application_accepted',
+    });
+
+    const agreedLetsReport = await request(app)
+      .get('/api/v1/reports/agreed-lets')
+      .query({
+        tenantId,
+      })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(agreedLetsReport.status).toBe(200);
+    expect(agreedLetsReport.body.report.counts).toMatchObject({
+      totalCases: 1,
+      agreedLets: 1,
+      acceptedApplications: 1,
+    });
+    expect(agreedLetsReport.body.report.values).toMatchObject({
+      totalRentOffered: 1675,
+    });
+    expect(agreedLetsReport.body.report.agreedLets[0]).toMatchObject({
+      caseId,
+      propertyDisplayAddress: '44 Rental Lane',
+      monthlyRent: 1675,
+      lettingStatus: 'application_accepted',
+    });
+  });
+
+  it('returns a tenant pilot readiness snapshot for side-by-side rollout checks', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'pilot-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'pilot-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Pilot Estates',
+        slug: 'pilot-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    const tenantId = createTenant.body.tenant.id as string;
+
+    await db.insert(schema.properties).values({
+      tenantId,
+      displayAddress: '90 Pilot Road',
+      postcode: 'M1 9AA',
+      marketingStatus: 'for_sale',
+    });
+
+    await db.insert(schema.emailTemplates).values({
+      tenantId,
+      key: 'pilot-email',
+      name: 'Pilot Email',
+      subjectTemplate: 'Pilot {{case.reference}}',
+      bodyTextTemplate: 'Pilot email body',
+    });
+
+    await db.insert(schema.smsTemplates).values({
+      tenantId,
+      key: 'pilot-sms',
+      name: 'Pilot SMS',
+      bodyTemplate: 'Pilot SMS body',
+    });
+
+    const [salesWorkflowTemplate] = await db
+      .insert(schema.workflowTemplates)
+      .values({
+        tenantId,
+        key: 'pilot-sales',
+        name: 'Pilot Sales',
+        caseType: 'sales',
+        status: 'active',
+        isSystem: false,
+      })
+      .returning();
+
+    const [lettingsWorkflowTemplate] = await db
+      .insert(schema.workflowTemplates)
+      .values({
+        tenantId,
+        key: 'pilot-lettings',
+        name: 'Pilot Lettings',
+        caseType: 'lettings',
+        status: 'active',
+        isSystem: false,
+      })
+      .returning();
+
+    if (!salesWorkflowTemplate || !lettingsWorkflowTemplate) {
+      throw new Error('pilot_workflow_templates_not_created');
+    }
+
+    const [salesCase] = await db
+      .insert(schema.cases)
+      .values({
+        tenantId,
+        caseType: 'sales',
+        status: 'open',
+        title: 'Pilot sales case',
+      })
+      .returning();
+
+    const [lettingsCase] = await db
+      .insert(schema.cases)
+      .values({
+        tenantId,
+        caseType: 'lettings',
+        status: 'open',
+        title: 'Pilot lettings case',
+      })
+      .returning();
+
+    if (!salesCase || !lettingsCase) {
+      throw new Error('pilot_cases_not_created');
+    }
+
+    await db.insert(schema.salesCases).values({
+      tenantId,
+      caseId: salesCase.id,
+      saleStatus: 'instruction',
+    });
+
+    await db.insert(schema.lettingsCases).values({
+      tenantId,
+      caseId: lettingsCase.id,
+      lettingStatus: 'application',
+    });
+
+    const readiness = await request(app)
+      .get('/api/v1/pilot-readiness')
+      .query({
+        tenantId,
+      })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(readiness.status).toBe(200);
+    expect(readiness.body.readiness.counts).toMatchObject({
+      propertyCount: 1,
+      emailTemplateCount: 1,
+      smsTemplateCount: 1,
+      salesWorkflowTemplateCount: 1,
+      lettingsWorkflowTemplateCount: 1,
+      salesCaseCount: 1,
+      lettingsCaseCount: 1,
+    });
+    expect(readiness.body.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'properties_seeded',
+          status: 'ready',
+        }),
+        expect.objectContaining({
+          key: 'communication_templates',
+          status: 'ready',
+        }),
+      ]),
+    );
+    expect(readiness.body.pilotFlows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'sales_case_progression',
+          status: 'ready',
+        }),
+        expect.objectContaining({
+          key: 'lettings_agreed_let',
+          status: 'ready',
+        }),
+      ]),
+    );
+    expect(readiness.body.laterItems).toContain(
+      'Birthdays and wider CRM screens remain out of Milestone B.',
+    );
   });
 
   it('rejects protected routes without valid authentication', async () => {

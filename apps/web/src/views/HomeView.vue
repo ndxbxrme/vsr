@@ -27,13 +27,21 @@ onMounted(async () => {
   <main class="marketing-shell">
     <section class="hero-panel">
       <p class="eyebrow">VitalSpace Remake</p>
-      <h1>Property sync is live enough to inspect real read models.</h1>
+      <h1>Sales and lettings workspaces are ready for the first operational slice.</h1>
       <p class="hero-copy">
-        The platform now normalizes Dezrez property, offer, viewing, and timeline data into shared
-        app tables. The next step is validating that shape in the browser.
+        The platform now has shared cases, workflow progression, communications, files, and
+        reporting primitives. The next step is proving staff can work real sales and lettings
+        flows in the browser.
       </p>
       <div class="hero-actions">
-        <RouterLink class="primary-link" to="/explorer">Open Property Explorer</RouterLink>
+        <RouterLink class="primary-link" to="/workspace/sales">Open Sales Workspace</RouterLink>
+        <RouterLink class="ghost-button" to="/workspace/lettings">
+          Open Lettings Workspace
+        </RouterLink>
+        <RouterLink class="ghost-button" to="/pilot-readiness">
+          Open Pilot Readiness
+        </RouterLink>
+        <RouterLink class="ghost-button" to="/explorer">Open Property Explorer</RouterLink>
         <a
           v-if="oauthProviders.includes('google')"
           class="ghost-button"
@@ -49,17 +57,17 @@ onMounted(async () => {
       <article class="status-card">
         <h2>What This Slice Proves</h2>
         <ul>
-          <li>Tenant-scoped property list and detail reads</li>
-          <li>Offers, viewings, and timeline exposed as first-class API resources</li>
-          <li>Frontend validation without adding more provider-specific sync complexity</li>
+          <li>Tenant-scoped sales and lettings dashboards, lists, and detail flows</li>
+          <li>Case actions for notes, communications, files, offers, applications, and workflow</li>
+          <li>Operational reporting visible in the same workspace staff use day to day</li>
         </ul>
       </article>
       <article class="status-card">
         <h2>Next After This</h2>
         <ul>
-          <li>Refine the read models based on real usage</li>
-          <li>Add richer role/property/owner enrichment only where the UI proves it is needed</li>
-          <li>Bring realtime invalidation into the explorer and then into the actual workspace UI</li>
+          <li>Run side-by-side pilot flows and close the blocking parity gaps only</li>
+          <li>Harden the sales and lettings workspaces with feedback from real users</li>
+          <li>Move deeper into reporting, migration tooling, and provider hardening</li>
         </ul>
       </article>
     </section>

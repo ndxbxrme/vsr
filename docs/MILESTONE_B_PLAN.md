@@ -324,21 +324,22 @@ This order is deliberate:
 
 ### Batch 5
 
-- implement communications templates and send actions
-- wire workflow-triggered communication hooks
-- implement essential operational reports
+- implement tenant-scoped email and SMS template CRUD
+- add case-aware communication sends and dispatch logging
+- expose communications in case detail and timeline APIs with integration coverage
 
 ### Batch 6
 
-- build frontend sales and lettings workspaces
-- add file upload and attachment usage inside cases
-- add Playwright coverage for end-to-end operational flows
+- build a shared frontend workspace shell for sales and lettings
+- add case actions for notes, files, communications, offers, applications, and workflow moves
+- implement the sales pipeline and agreed lets operational reports
+- add Playwright coverage for sales and lettings operational flows plus realtime invalidation
 
 ### Batch 7
 
-- run first pilot parity sweep
-- close blocking gaps only
-- prepare Milestone C handoff for integration hardening and migration work
+- expose a tenant-scoped pilot readiness snapshot and operator view
+- record the first parity sweep result and confirm no Milestone B blockers remain
+- prepare Milestone C handoff for pilot hardening, integration depth, and migration helpers
 
 ## 13. Risks Specific to Milestone B
 
