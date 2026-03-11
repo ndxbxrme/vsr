@@ -1,43 +1,26 @@
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query';
 import { createPinia } from 'pinia';
-import { io } from 'socket.io-client';
-import { createApp, h, resolveComponent } from 'vue';
+import { createApp } from 'vue';
 import { createRouter, createWebHistory } from 'vue-router';
+import App from './App.vue';
+import './style.css';
+import HomeView from './views/HomeView.vue';
+import PropertyExplorerView from './views/PropertyExplorerView.vue';
 
-const config = {
-  apiBaseUrl: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:4220/api/v1',
-  apiOrigin: import.meta.env.VITE_API_ORIGIN ?? 'http://localhost:4220',
-};
 const queryClient = new QueryClient();
-
-const routes = [
-  {
-    path: '/',
-    component: {
-      render: () =>
-        h('main', { class: 'page' }, [
-          h('h1', 'VitalSpace'),
-          h('p', `API: ${config.apiBaseUrl}`),
-          h('p', 'Milestone A foundation is in place.'),
-        ]),
-    },
-  },
-];
 
 const router = createRouter({
   history: createWebHistory(),
-  routes,
+  routes: [
+    {
+      path: '/',
+      component: HomeView,
+    },
+    {
+      path: '/explorer',
+      component: PropertyExplorerView,
+    },
+  ],
 });
 
-const socket = io(config.apiOrigin, {
-  autoConnect: false,
-});
-
-const Root = {
-  setup() {
-    socket.connect();
-    return () => h(resolveComponent('RouterView'));
-  },
-};
-
-createApp(Root).use(createPinia()).use(router).use(VueQueryPlugin, { queryClient }).mount('#app');
+createApp(App).use(createPinia()).use(router).use(VueQueryPlugin, { queryClient }).mount('#app');

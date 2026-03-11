@@ -28,6 +28,13 @@ At the end of Milestone A, the new platform should support:
 - worker and queue foundations
 - webhook ingestion foundations
 - a thin Dezrez-backed property slice proving that property-dependent workflows can be built on the platform
+- a simple property explorer and sync console for validating live read models in-browser
+- integration status visibility showing configuration state and last successful sync data
+- basic operator diagnostics for recent webhook, job, and sync-request failures
+- retry controls for failed sync requests and failed integration jobs
+- webhook replay controls for reclassifying stored failed webhook events
+- a recent activity feed in the explorer so operators can inspect webhook, job, and sync history without checking logs
+- a seeded Playwright explorer flow that covers tenant setup, sync request, webhook-driven refresh, and realtime UI invalidation
 
 ## 3. Milestone A Non-Goals
 
@@ -49,8 +56,10 @@ Milestone A is done when all of the following are true:
 - every important mutation path writes audit and outbox records
 - Socket.IO clients can authenticate and receive tenant-scoped change events
 - workers can consume queued jobs and webhook events
+- the worker runs a repeatable polling cycle for webhook classification, integration job processing, and property sync execution
 - webhook intake persists raw events and classifies them into durable integration jobs
 - a tenant can store Dezrez credentials, trigger a sync, and view synchronized properties through the new API/UI
+- Dezrez property, offer, viewing, and timeline refreshes normalize into shared internal tables rather than provider-specific caches
 - unit, API integration, and Playwright e2e tests run in CI
 
 ## 5. Recommended Monorepo Shape
@@ -269,6 +278,9 @@ Tasks:
   - `webhook_events`
   - `integration_jobs`
   - `properties`
+  - `offers`
+  - `viewings`
+  - `timeline_events`
   - `external_references`
 
 Maps to:
@@ -379,8 +391,10 @@ Tasks:
 - implement `/event` Dezrez webhook intake against the generic webhook pipeline
 - classify incoming Dezrez webhooks into durable refresh jobs
 - fetch and persist a property list into `properties` plus `external_references`
+- normalize Dezrez offers, viewings, and role events into shared `offers`, `viewings`, and `timeline_events` tables
 - expose a minimal property list API
 - build a simple property list screen in the admin/app shell
+- add a simple sync console so tenant admins can request a Dezrez sync from the browser
 - emit property sync change events via outbox and realtime
 - cover this slice with unit, integration, and Playwright tests
 
@@ -389,6 +403,7 @@ Success criteria:
 - a tenant admin can configure Dezrez
 - a sync can be triggered safely
 - properties appear in the UI
+- provider event refreshes land in shared app models, not provider-specific blobs
 - realtime events flow correctly when property data changes
 
 Maps to:

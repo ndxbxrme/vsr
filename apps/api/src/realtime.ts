@@ -1,6 +1,9 @@
+import type { EntityChangedEvent } from '@vitalspace/contracts';
 import type { createDbClient } from '@vitalspace/db';
+import { schema } from '@vitalspace/db';
 import { buildTenantRoom } from '@vitalspace/realtime';
 import type { Socket, Server } from 'socket.io';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 import { loadAuthContext } from './auth-context';
 
 type DbClient = ReturnType<typeof createDbClient>['db'];
@@ -56,4 +59,55 @@ export function configureRealtime(io: Server, db: DbClient) {
       joinedTenants.add(membership.tenantId);
     }
   });
+}
+
+export async function publishPendingOutboxEvents(args: {
+  db: DbClient;
+  io: Server;
+  limit?: number;
+}) {
+  const pendingEvents = await args.db
+    .select()
+    .from(schema.outboxEvents)
+    .where(
+      and(
+        isNull(schema.outboxEvents.publishedAt),
+        eq(schema.outboxEvents.status, 'pending'),
+      ),
+    )
+    .orderBy(asc(schema.outboxEvents.createdAt))
+    .limit(args.limit ?? 50);
+
+  let publishedCount = 0;
+
+  for (const outboxEvent of pendingEvents) {
+    if (!outboxEvent.tenantId) {
+      continue;
+    }
+
+    const event: EntityChangedEvent = {
+      tenantId: outboxEvent.tenantId,
+      entityType: outboxEvent.entityType,
+      entityId: outboxEvent.entityId,
+      mutationType: outboxEvent.mutationType,
+      payload:
+        outboxEvent.payloadJson && typeof outboxEvent.payloadJson === 'object'
+          ? (outboxEvent.payloadJson as Record<string, unknown>)
+          : undefined,
+      occurredAt: outboxEvent.createdAt.toISOString(),
+    };
+
+    args.io.to(buildTenantRoom(outboxEvent.tenantId)).emit('entity.changed', event);
+
+    await args.db
+      .update(schema.outboxEvents)
+      .set({
+        publishedAt: new Date(),
+      })
+      .where(eq(schema.outboxEvents.id, outboxEvent.id));
+
+    publishedCount += 1;
+  }
+
+  return { publishedCount };
 }

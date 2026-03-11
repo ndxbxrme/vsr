@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@vitalspace/auth": "workspace:*",
     "@vitalspace/contracts": "workspace:*",
     "@vitalspace/db": "workspace:*",
     "@vitalspace/realtime": "workspace:*",

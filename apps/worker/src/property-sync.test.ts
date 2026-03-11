@@ -7,6 +7,7 @@ import {
   processPendingPropertySyncs,
 } from '@vitalspace/integrations';
 import { buildTenantRoom } from '@vitalspace/realtime';
+import { runWorkerCycle } from './worker';
 
 const DATABASE_URL =
   process.env.DATABASE_URL ?? 'postgres://vitalspace:vitalspace@localhost:5432/vitalspace';
@@ -33,6 +34,9 @@ async function truncateAllTables() {
       "webhook_events",
       "integration_jobs",
       "properties",
+      "offers",
+      "viewings",
+      "timeline_events",
       "external_references",
       "tenants",
       "users"
@@ -258,5 +262,413 @@ describe('processPendingPropertySyncs', () => {
 
     expect(propertySyncRequests).toHaveLength(1);
     expect(propertySyncRequests[0]?.tenantId).toBe(tenant.id);
+  });
+
+  it('normalizes seeded Dezrez offers and viewings into first-class tables', async () => {
+    const [tenant] = await db
+      .insert(schema.tenants)
+      .values({
+        name: 'Offer Viewing Estates',
+        slug: 'offer-viewing-estates',
+      })
+      .returning();
+    if (!tenant) {
+      throw new Error('tenant_not_created');
+    }
+
+    const [property] = await db
+      .insert(schema.properties)
+      .values({
+        tenantId: tenant.id,
+        displayAddress: '1 Albert Square, Manchester',
+        postcode: 'M2 5DB',
+      })
+      .returning();
+    if (!property) {
+      throw new Error('property_not_created');
+    }
+
+    await db.insert(schema.externalReferences).values({
+      tenantId: tenant.id,
+      provider: 'dezrez',
+      entityType: 'property',
+      entityId: property.id,
+      externalType: 'property_role',
+      externalId: '30026645',
+      metadataJson: {
+        propertyId: '3671906',
+      },
+      lastSeenAt: new Date(),
+    });
+
+    const [integrationAccount] = await db
+      .insert(schema.integrationAccounts)
+      .values({
+        tenantId: tenant.id,
+        provider: 'dezrez',
+        name: 'Normalized Dezrez',
+        settingsJson: {
+          mode: 'seed',
+          seedProperties: [],
+          seedOffersByRoleId: {
+            '30026645': [
+              {
+                Id: 91001,
+                MarketingRoleId: 30026645,
+                DateTime: '2026-03-10T10:00:00.000Z',
+                Value: 275000,
+                ApplicantGroup: {
+                  PrimaryMember: {
+                    ContactName: 'Alex Buyer',
+                    PrimaryEmail: 'alex@example.com',
+                  },
+                  Grade: {
+                    Name: 'Hot Buyer',
+                  },
+                },
+                Response: {
+                  ResponseType: {
+                    Name: 'Accepted',
+                  },
+                },
+              },
+            ],
+          },
+          seedViewingsByRoleId: {
+            '30026645': [
+              {
+                Id: 82001,
+                MarketingRoleId: 30026645,
+                StartDate: '2026-03-11T14:30:00.000Z',
+              },
+            ],
+          },
+          seedViewingDetailsByRoleId: {
+            '30026645': [
+              {
+                Id: 82001,
+                MarketingRoleId: 30026645,
+                StartDate: '2026-03-11T14:30:00.000Z',
+                EventStatus: {
+                  Name: 'Completed',
+                },
+                Grade: {
+                  Name: 'First Time Buyer',
+                },
+                MainContact: {
+                  name: 'Jamie Viewer',
+                  email: 'jamie@example.com',
+                },
+                Feedback: [{ Id: 1 }],
+                Notes: [{ Id: 1 }, { Id: 2 }],
+              },
+            ],
+          },
+        },
+      })
+      .returning();
+    if (!integrationAccount) {
+      throw new Error('integration_account_not_created');
+    }
+
+    await db.insert(schema.integrationJobs).values([
+      {
+        tenantId: tenant.id,
+        integrationAccountId: integrationAccount.id,
+        provider: 'dezrez',
+        jobType: 'offer.role.refresh',
+        entityType: 'property_role',
+        entityExternalId: '30026645',
+        dedupeKey: 'offer-role-refresh-30026645',
+        payloadJson: {
+          webhookEventId: '00000000-0000-0000-0000-000000000000',
+          eventName: 'Offer',
+          propertyId: '3671906',
+          propertyRoleId: '30026645',
+          rootEntityId: null,
+          rawEvent: {
+            EventName: 'Offer',
+            PropertyRoleId: '30026645',
+          },
+        },
+      },
+      {
+        tenantId: tenant.id,
+        integrationAccountId: integrationAccount.id,
+        provider: 'dezrez',
+        jobType: 'viewing.role.refresh',
+        entityType: 'property_role',
+        entityExternalId: '30026645',
+        dedupeKey: 'viewing-role-refresh-30026645',
+        payloadJson: {
+          webhookEventId: '00000000-0000-0000-0000-000000000000',
+          eventName: 'ViewingFeedback',
+          propertyId: '3671906',
+          propertyRoleId: '30026645',
+          rootEntityId: null,
+          rawEvent: {
+            EventName: 'ViewingFeedback',
+            PropertyRoleId: '30026645',
+          },
+        },
+      },
+    ]);
+
+    const result = await processPendingIntegrationJobs({ db });
+    expect(result).toEqual({
+      completedJobs: 2,
+      failedJobs: 0,
+    });
+
+    const offers = await db.select().from(schema.offers);
+    const viewings = await db.select().from(schema.viewings);
+
+    expect(offers).toHaveLength(1);
+    expect(offers[0]).toMatchObject({
+      tenantId: tenant.id,
+      propertyId: property.id,
+      externalId: '91001',
+      applicantName: 'Alex Buyer',
+      applicantEmail: 'alex@example.com',
+      applicantGrade: 'Hot Buyer',
+      amount: 275000,
+      status: 'Accepted',
+    });
+
+    expect(viewings).toHaveLength(1);
+    expect(viewings[0]).toMatchObject({
+      tenantId: tenant.id,
+      propertyId: property.id,
+      externalId: '82001',
+      applicantName: 'Jamie Viewer',
+      applicantEmail: 'jamie@example.com',
+      applicantGrade: 'First Time Buyer',
+      eventStatus: 'Completed',
+      feedbackCount: 1,
+      notesCount: 2,
+    });
+  });
+
+  it('normalizes seeded Dezrez timeline events into shared timeline rows', async () => {
+    const [tenant] = await db
+      .insert(schema.tenants)
+      .values({
+        name: 'Timeline Estates',
+        slug: 'timeline-estates',
+      })
+      .returning();
+    if (!tenant) {
+      throw new Error('tenant_not_created');
+    }
+
+    const [property] = await db
+      .insert(schema.properties)
+      .values({
+        tenantId: tenant.id,
+        displayAddress: '9 Deansgate, Manchester',
+        postcode: 'M3 1AZ',
+      })
+      .returning();
+    if (!property) {
+      throw new Error('property_not_created');
+    }
+
+    await db.insert(schema.externalReferences).values({
+      tenantId: tenant.id,
+      provider: 'dezrez',
+      entityType: 'property',
+      entityId: property.id,
+      externalType: 'property_role',
+      externalId: '30029999',
+      metadataJson: {
+        propertyId: '3999001',
+      },
+      lastSeenAt: new Date(),
+    });
+
+    const [integrationAccount] = await db
+      .insert(schema.integrationAccounts)
+      .values({
+        tenantId: tenant.id,
+        provider: 'dezrez',
+        name: 'Timeline Dezrez',
+        settingsJson: {
+          mode: 'seed',
+          seedProperties: [],
+          seedEventsByRoleId: {
+            '30029999': [
+              {
+                Id: 70001,
+                MarketingRoleId: 30029999,
+                DateTime: '2026-03-12T09:15:00.000Z',
+                Title: 'Offer chased',
+                Description: 'Buyer solicitor asked for an update.',
+                EventType: {
+                  Name: 'Note',
+                  SystemName: 'note',
+                },
+                Negotiator: {
+                  ContactName: 'Case Handler',
+                  PrimaryEmail: 'handler@example.com',
+                },
+              },
+              {
+                Id: 70002,
+                MarketingRoleId: 30029999,
+                DateTime: '2026-03-12T11:00:00.000Z',
+                Subject: 'Mailout',
+                Body: 'Property sent to applicants.',
+                EventType: {
+                  Name: 'Mailout',
+                  SystemName: 'mailout',
+                },
+              },
+            ],
+          },
+        },
+      })
+      .returning();
+    if (!integrationAccount) {
+      throw new Error('integration_account_not_created');
+    }
+
+    await db.insert(schema.integrationJobs).values({
+      tenantId: tenant.id,
+      integrationAccountId: integrationAccount.id,
+      provider: 'dezrez',
+      jobType: 'timeline.role.refresh',
+      entityType: 'property_role',
+      entityExternalId: '30029999',
+      dedupeKey: 'timeline-role-refresh-30029999',
+      payloadJson: {
+        webhookEventId: '00000000-0000-0000-0000-000000000000',
+        eventName: 'GenericEvent',
+        propertyId: '3999001',
+        propertyRoleId: '30029999',
+        rootEntityId: null,
+        rawEvent: {
+          EventName: 'GenericEvent',
+          PropertyRoleId: '30029999',
+        },
+      },
+    });
+
+    const result = await processPendingIntegrationJobs({ db });
+    expect(result).toEqual({
+      completedJobs: 1,
+      failedJobs: 0,
+    });
+
+    const timelineEvents = await db.select().from(schema.timelineEvents);
+    const realtimeEvents = await db
+      .select()
+      .from(schema.outboxEvents)
+      .where(eq(schema.outboxEvents.eventName, 'timeline.refreshed'));
+
+    expect(timelineEvents).toHaveLength(2);
+    expect(timelineEvents[0]).toMatchObject({
+      tenantId: tenant.id,
+      subjectType: 'property',
+      subjectId: property.id,
+      provider: 'dezrez',
+      externalId: '70001',
+      propertyRoleExternalId: '30029999',
+      eventType: 'note',
+      title: 'Offer chased',
+      body: 'Buyer solicitor asked for an update.',
+      actorType: 'external_user',
+    });
+    expect(timelineEvents[1]).toMatchObject({
+      tenantId: tenant.id,
+      subjectId: property.id,
+      externalId: '70002',
+      eventType: 'mailout',
+      title: 'Mailout',
+      body: 'Property sent to applicants.',
+      actorType: 'external_system',
+    });
+    expect(realtimeEvents).toHaveLength(1);
+    expect(realtimeEvents[0]?.payloadJson).toMatchObject({
+      propertyRoleExternalId: '30029999',
+      count: 2,
+    });
+  });
+
+  it('runs the webhook to job to property sync chain in one worker cycle', async () => {
+    const [tenant] = await db
+      .insert(schema.tenants)
+      .values({
+        name: 'Cycle Estates',
+        slug: 'cycle-estates',
+      })
+      .returning();
+    if (!tenant) {
+      throw new Error('tenant_not_created');
+    }
+
+    const [integrationAccount] = await db
+      .insert(schema.integrationAccounts)
+      .values({
+        tenantId: tenant.id,
+        provider: 'dezrez',
+        name: 'Cycle Dezrez',
+        settingsJson: {
+          mode: 'seed',
+          seedProperties: [
+            {
+              externalId: 'role-cycle-1',
+              propertyId: 'property-cycle-1',
+              displayAddress: '100 Deansgate, Manchester',
+              postcode: 'M3 2BB',
+              marketingStatus: 'for_sale',
+            },
+          ],
+        },
+      })
+      .returning();
+    if (!integrationAccount) {
+      throw new Error('integration_account_not_created');
+    }
+
+    await db.insert(schema.webhookEvents).values({
+      tenantId: tenant.id,
+      integrationAccountId: integrationAccount.id,
+      provider: 'dezrez',
+      eventType: 'InstructionToSell',
+      signatureValid: true,
+      payloadJson: {
+        EventName: 'InstructionToSell',
+        PropertyId: 'property-cycle-1',
+        PropertyRoleId: 'role-cycle-1',
+        RootEntityId: 'event-cycle-1',
+      },
+      processingStatus: 'pending',
+    });
+
+    const result = await runWorkerCycle({
+      databaseUrl: DATABASE_URL,
+    });
+
+    expect(result.webhookResult).toEqual({
+      processedEvents: 1,
+      failedEvents: 0,
+      createdJobs: 1,
+    });
+    expect(result.integrationJobResult).toEqual({
+      completedJobs: 1,
+      failedJobs: 0,
+    });
+    expect(result.propertySyncResult).toEqual({
+      processedEvents: 1,
+      failedEvents: 0,
+      upsertedProperties: 1,
+    });
+
+    const properties = await db
+      .select()
+      .from(schema.properties)
+      .where(eq(schema.properties.tenantId, tenant.id));
+    expect(properties).toHaveLength(1);
+    expect(properties[0]?.displayAddress).toBe('100 Deansgate, Manchester');
   });
 });

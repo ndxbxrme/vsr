@@ -1,5 +1,6 @@
 import {
   createOpaqueToken,
+  encryptJsonPayload,
   hashOpaqueToken,
   hashPassword,
   normalizeEmail,
@@ -7,13 +8,14 @@ import {
 } from '@vitalspace/auth';
 import type { EntityChangedEvent } from '@vitalspace/contracts';
 import {
+  dezrezIntegrationCredentialsSchema,
   dezrezIntegrationSettingsSchema,
   dezrezWebhookPayloadSchema,
   propertySyncRequestPayloadSchema,
 } from '@vitalspace/contracts';
 import { type createDbClient, schema } from '@vitalspace/db';
 import { buildEntityChangedEvent, buildTenantRoom } from '@vitalspace/realtime';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, sql } from 'drizzle-orm';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import { z } from 'zod';
 import {
@@ -65,13 +67,37 @@ const propertySyncRequestSchema = z.object({
   tenantId: z.string().uuid(),
 });
 
+const retrySyncRequestSchema = z.object({
+  tenantId: z.string().uuid(),
+  outboxEventId: z.string().uuid().optional(),
+});
+
+const retryIntegrationJobSchema = z.object({
+  tenantId: z.string().uuid(),
+  integrationJobId: z.string().uuid().optional(),
+});
+
+const replayWebhookSchema = z.object({
+  tenantId: z.string().uuid(),
+  webhookEventId: z.string().uuid().optional(),
+});
+
 const createDezrezAccountSchema = z.object({
   tenantId: z.string().uuid(),
   name: z.string().min(1).default('Dezrez'),
   settings: dezrezIntegrationSettingsSchema,
+  credentials: dezrezIntegrationCredentialsSchema.optional(),
 });
 
 const listPropertiesQuerySchema = z.object({
+  tenantId: z.string().uuid(),
+});
+
+const propertyParamsSchema = z.object({
+  propertyId: z.string().uuid(),
+});
+
+const tenantScopedQuerySchema = z.object({
   tenantId: z.string().uuid(),
 });
 
@@ -112,6 +138,7 @@ async function recordMutation(args: {
       mutationType: args.mutationType,
       channelKey: buildTenantRoom(args.tenantId),
       payloadJson: args.payload ?? null,
+      publishedAt: args.publishEntityChangedEvent ? new Date() : null,
     });
 
     args.publishEntityChangedEvent?.(
@@ -144,6 +171,51 @@ function requireValue<T>(value: T | undefined, label: string): T {
 
 function hasTenantMembership(auth: AuthenticatedContext, tenantId: string) {
   return auth.memberships.some((membership) => membership.tenantId === tenantId);
+}
+
+async function loadPropertyRecord(args: {
+  db: DbClient;
+  tenantId: string;
+  propertyId: string;
+}) {
+  const [property] = await args.db
+    .select({
+      id: schema.properties.id,
+      tenantId: schema.properties.tenantId,
+      branchId: schema.properties.branchId,
+      displayAddress: schema.properties.displayAddress,
+      postcode: schema.properties.postcode,
+      status: schema.properties.status,
+      marketingStatus: schema.properties.marketingStatus,
+      externalId: schema.externalReferences.externalId,
+      provider: schema.externalReferences.provider,
+      propertyExternalMetadata: schema.externalReferences.metadataJson,
+      createdAt: schema.properties.createdAt,
+      updatedAt: schema.properties.updatedAt,
+    })
+    .from(schema.properties)
+    .leftJoin(
+      schema.externalReferences,
+      and(
+        eq(schema.externalReferences.tenantId, schema.properties.tenantId),
+        eq(schema.externalReferences.entityId, schema.properties.id),
+        eq(schema.externalReferences.provider, 'dezrez'),
+        eq(schema.externalReferences.entityType, 'property'),
+      ),
+    )
+    .where(
+      and(
+        eq(schema.properties.tenantId, args.tenantId),
+        eq(schema.properties.id, args.propertyId),
+      ),
+    )
+    .limit(1);
+
+  return property ?? null;
+}
+
+function hasNonEmptyCredentials(credentials: Record<string, unknown>) {
+  return Object.values(credentials).some((value) => value !== undefined && value !== null && value !== '');
 }
 
 async function resolveIntegrationAccount(args: {
@@ -186,6 +258,18 @@ async function resolveIntegrationAccount(args: {
 
 export function createApp(deps: ApiAppDeps) {
   const app = express();
+
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+    res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(204);
+    }
+
+    return next();
+  });
 
   app.use(express.json());
 
@@ -506,6 +590,15 @@ export function createApp(deps: ApiAppDeps) {
     }
 
     const settings = dezrezIntegrationSettingsSchema.parse(parsed.data.settings);
+    const credentials = dezrezIntegrationCredentialsSchema.parse(parsed.data.credentials ?? {});
+    const encryptionSecret = process.env.APP_ENCRYPTION_KEY;
+    if (hasNonEmptyCredentials(credentials) && !encryptionSecret) {
+      return res.status(500).json({ error: 'app_encryption_key_not_configured' });
+    }
+
+    const storedCredentials = hasNonEmptyCredentials(credentials)
+      ? encryptJsonPayload(credentials, encryptionSecret!)
+      : null;
     const [existingAccount] = await deps.db
       .select()
       .from(schema.integrationAccounts)
@@ -526,6 +619,7 @@ export function createApp(deps: ApiAppDeps) {
         .set({
           name: parsed.data.name,
           status: 'active',
+          credentialsJsonEncrypted: storedCredentials,
           settingsJson: settings,
           updatedAt: new Date(),
         })
@@ -540,6 +634,7 @@ export function createApp(deps: ApiAppDeps) {
           provider: 'dezrez',
           name: parsed.data.name,
           status: 'active',
+          credentialsJsonEncrypted: storedCredentials,
           settingsJson: settings,
         })
         .returning();
@@ -557,6 +652,7 @@ export function createApp(deps: ApiAppDeps) {
       mutationType,
       payload: {
         provider: 'dezrez',
+        mode: settings.mode,
         seedPropertyCount: settings.seedProperties.length,
       },
       publishEntityChangedEvent: deps.publishEntityChangedEvent,
@@ -569,8 +665,577 @@ export function createApp(deps: ApiAppDeps) {
         provider: integrationAccount.provider,
         name: integrationAccount.name,
         status: integrationAccount.status,
+        mode: settings.mode,
+        hasCredentials:
+          Boolean(credentials.apiKey) || Boolean(credentials.clientId && credentials.clientSecret),
         seedPropertyCount: settings.seedProperties.length,
       },
+    });
+  });
+
+  app.get('/api/v1/integrations/dezrez/accounts', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = tenantScopedQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_query', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const [integrationAccount] = await deps.db
+      .select()
+      .from(schema.integrationAccounts)
+      .where(
+        and(
+          eq(schema.integrationAccounts.tenantId, parsed.data.tenantId),
+          eq(schema.integrationAccounts.provider, 'dezrez'),
+        ),
+      )
+      .limit(1);
+
+    if (!integrationAccount) {
+      return res.json({ integrationAccount: null });
+    }
+
+    const settings = dezrezIntegrationSettingsSchema.parse(integrationAccount.settingsJson ?? {});
+    const [propertyCountRow, pendingWebhookCountRow, pendingIntegrationJobCountRow, pendingSyncCountRow] =
+      await Promise.all([
+        deps.db
+          .select({ count: sql<number>`count(*)` })
+          .from(schema.properties)
+          .where(eq(schema.properties.tenantId, parsed.data.tenantId)),
+        deps.db
+          .select({ count: sql<number>`count(*)` })
+          .from(schema.webhookEvents)
+          .where(
+            and(
+              eq(schema.webhookEvents.tenantId, parsed.data.tenantId),
+              eq(schema.webhookEvents.provider, 'dezrez'),
+              eq(schema.webhookEvents.processingStatus, 'pending'),
+            ),
+          ),
+        deps.db
+          .select({ count: sql<number>`count(*)` })
+          .from(schema.integrationJobs)
+          .where(
+            and(
+              eq(schema.integrationJobs.tenantId, parsed.data.tenantId),
+              eq(schema.integrationJobs.provider, 'dezrez'),
+              eq(schema.integrationJobs.status, 'pending'),
+            ),
+          ),
+        deps.db
+          .select({ count: sql<number>`count(*)` })
+          .from(schema.outboxEvents)
+          .where(
+            and(
+              eq(schema.outboxEvents.tenantId, parsed.data.tenantId),
+              eq(schema.outboxEvents.eventName, 'property.sync_requested'),
+              eq(schema.outboxEvents.status, 'pending'),
+            ),
+          ),
+      ]);
+
+    const [
+      lastSyncRequested,
+      lastSyncCompleted,
+      latestWebhookReceived,
+      lastWebhookError,
+      lastIntegrationJobError,
+      lastSyncRequestError,
+      recentWebhooks,
+      recentIntegrationJobs,
+      recentSyncRequests,
+      recentSyncCompletions,
+    ] = await Promise.all([
+      deps.db
+        .select({
+          createdAt: schema.outboxEvents.createdAt,
+          publishedAt: schema.outboxEvents.publishedAt,
+          status: schema.outboxEvents.status,
+        })
+        .from(schema.outboxEvents)
+        .where(
+          and(
+            eq(schema.outboxEvents.tenantId, parsed.data.tenantId),
+            eq(schema.outboxEvents.eventName, 'property.sync_requested'),
+          ),
+        )
+        .orderBy(desc(schema.outboxEvents.createdAt))
+        .limit(1),
+      deps.db
+        .select({
+          createdAt: schema.outboxEvents.createdAt,
+          payloadJson: schema.outboxEvents.payloadJson,
+        })
+        .from(schema.outboxEvents)
+        .where(
+          and(
+            eq(schema.outboxEvents.tenantId, parsed.data.tenantId),
+            eq(schema.outboxEvents.eventName, 'property.sync_completed'),
+            eq(schema.outboxEvents.entityId, integrationAccount.id),
+          ),
+        )
+        .orderBy(desc(schema.outboxEvents.createdAt))
+        .limit(1),
+      deps.db
+        .select({
+          receivedAt: schema.webhookEvents.receivedAt,
+          eventType: schema.webhookEvents.eventType,
+          processingStatus: schema.webhookEvents.processingStatus,
+        })
+        .from(schema.webhookEvents)
+        .where(
+          and(
+            eq(schema.webhookEvents.tenantId, parsed.data.tenantId),
+            eq(schema.webhookEvents.provider, 'dezrez'),
+          ),
+        )
+        .orderBy(desc(schema.webhookEvents.receivedAt))
+        .limit(1),
+      deps.db
+        .select({
+          id: schema.webhookEvents.id,
+          receivedAt: schema.webhookEvents.receivedAt,
+          eventType: schema.webhookEvents.eventType,
+          errorMessage: schema.webhookEvents.errorMessage,
+        })
+        .from(schema.webhookEvents)
+        .where(
+          and(
+            eq(schema.webhookEvents.tenantId, parsed.data.tenantId),
+            eq(schema.webhookEvents.provider, 'dezrez'),
+            eq(schema.webhookEvents.processingStatus, 'failed'),
+          ),
+        )
+        .orderBy(desc(schema.webhookEvents.receivedAt))
+        .limit(1),
+      deps.db
+        .select({
+          id: schema.integrationJobs.id,
+          failedAt: schema.integrationJobs.failedAt,
+          jobType: schema.integrationJobs.jobType,
+          entityExternalId: schema.integrationJobs.entityExternalId,
+          errorMessage: schema.integrationJobs.errorMessage,
+        })
+        .from(schema.integrationJobs)
+        .where(
+          and(
+            eq(schema.integrationJobs.tenantId, parsed.data.tenantId),
+            eq(schema.integrationJobs.provider, 'dezrez'),
+            eq(schema.integrationJobs.status, 'failed'),
+          ),
+        )
+        .orderBy(desc(schema.integrationJobs.failedAt))
+        .limit(1),
+      deps.db
+        .select({
+          id: schema.outboxEvents.id,
+          createdAt: schema.outboxEvents.createdAt,
+          errorMessage: schema.outboxEvents.errorMessage,
+        })
+        .from(schema.outboxEvents)
+        .where(
+          and(
+            eq(schema.outboxEvents.tenantId, parsed.data.tenantId),
+            eq(schema.outboxEvents.eventName, 'property.sync_requested'),
+            eq(schema.outboxEvents.status, 'failed'),
+          ),
+        )
+        .orderBy(desc(schema.outboxEvents.createdAt))
+        .limit(1),
+      deps.db
+        .select({
+          id: schema.webhookEvents.id,
+          eventType: schema.webhookEvents.eventType,
+          processingStatus: schema.webhookEvents.processingStatus,
+          receivedAt: schema.webhookEvents.receivedAt,
+          errorMessage: schema.webhookEvents.errorMessage,
+        })
+        .from(schema.webhookEvents)
+        .where(
+          and(
+            eq(schema.webhookEvents.tenantId, parsed.data.tenantId),
+            eq(schema.webhookEvents.provider, 'dezrez'),
+          ),
+        )
+        .orderBy(desc(schema.webhookEvents.receivedAt))
+        .limit(5),
+      deps.db
+        .select({
+          id: schema.integrationJobs.id,
+          jobType: schema.integrationJobs.jobType,
+          status: schema.integrationJobs.status,
+          entityExternalId: schema.integrationJobs.entityExternalId,
+          availableAt: schema.integrationJobs.availableAt,
+          lockedAt: schema.integrationJobs.lockedAt,
+          completedAt: schema.integrationJobs.completedAt,
+          failedAt: schema.integrationJobs.failedAt,
+          errorMessage: schema.integrationJobs.errorMessage,
+        })
+        .from(schema.integrationJobs)
+        .where(
+          and(
+            eq(schema.integrationJobs.tenantId, parsed.data.tenantId),
+            eq(schema.integrationJobs.provider, 'dezrez'),
+          ),
+        )
+        .orderBy(
+          desc(
+            sql`coalesce(${schema.integrationJobs.failedAt}, ${schema.integrationJobs.completedAt}, ${schema.integrationJobs.lockedAt}, ${schema.integrationJobs.availableAt}, ${schema.integrationJobs.createdAt})`,
+          ),
+        )
+        .limit(5),
+      deps.db
+        .select({
+          id: schema.outboxEvents.id,
+          status: schema.outboxEvents.status,
+          createdAt: schema.outboxEvents.createdAt,
+          publishedAt: schema.outboxEvents.publishedAt,
+          errorMessage: schema.outboxEvents.errorMessage,
+        })
+        .from(schema.outboxEvents)
+        .where(
+          and(
+            eq(schema.outboxEvents.tenantId, parsed.data.tenantId),
+            eq(schema.outboxEvents.eventName, 'property.sync_requested'),
+          ),
+        )
+        .orderBy(desc(schema.outboxEvents.createdAt))
+        .limit(5),
+      deps.db
+        .select({
+          id: schema.outboxEvents.id,
+          status: schema.outboxEvents.status,
+          createdAt: schema.outboxEvents.createdAt,
+          publishedAt: schema.outboxEvents.publishedAt,
+          payloadJson: schema.outboxEvents.payloadJson,
+        })
+        .from(schema.outboxEvents)
+        .where(
+          and(
+            eq(schema.outboxEvents.tenantId, parsed.data.tenantId),
+            eq(schema.outboxEvents.eventName, 'property.sync_completed'),
+            eq(schema.outboxEvents.entityId, integrationAccount.id),
+          ),
+        )
+        .orderBy(desc(schema.outboxEvents.createdAt))
+        .limit(5),
+    ]);
+
+    const recentActivity = [
+      ...recentWebhooks.map((webhook) => ({
+        id: webhook.id,
+        source: 'webhook' as const,
+        status: webhook.processingStatus,
+        occurredAt: webhook.receivedAt.toISOString(),
+        title: webhook.eventType,
+        subtitle: null,
+        errorMessage: webhook.errorMessage,
+      })),
+      ...recentIntegrationJobs.map((job) => ({
+        id: job.id,
+        source: 'integration_job' as const,
+        status: job.status,
+        occurredAt:
+          job.failedAt?.toISOString() ??
+          job.completedAt?.toISOString() ??
+          job.lockedAt?.toISOString() ??
+          job.availableAt.toISOString(),
+        title: job.jobType,
+        subtitle: job.entityExternalId,
+        errorMessage: job.errorMessage,
+      })),
+      ...recentSyncRequests.map((event) => ({
+        id: event.id,
+        source: 'sync_request' as const,
+        status: event.status,
+        occurredAt: event.createdAt.toISOString(),
+        title: 'Property sync requested',
+        subtitle: event.publishedAt ? `published ${event.publishedAt.toISOString()}` : null,
+        errorMessage: event.errorMessage,
+      })),
+      ...recentSyncCompletions.map((event) => {
+        const payload =
+          typeof event.payloadJson === 'object' && event.payloadJson
+            ? (event.payloadJson as Record<string, unknown>)
+            : null;
+        const propertyCount =
+          payload && typeof payload.propertyCount !== 'undefined'
+            ? Number(payload.propertyCount ?? 0)
+            : null;
+        return {
+          id: event.id,
+          source: 'sync_completion' as const,
+          status: event.status,
+          occurredAt: event.createdAt.toISOString(),
+          title: 'Property sync completed',
+          subtitle:
+            propertyCount === null ? null : `${propertyCount} properties refreshed`,
+          errorMessage: null,
+        };
+      }),
+    ]
+      .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
+      .slice(0, 12);
+
+    return res.json({
+      integrationAccount: {
+        id: integrationAccount.id,
+        tenantId: integrationAccount.tenantId,
+        provider: integrationAccount.provider,
+        name: integrationAccount.name,
+        status: integrationAccount.status,
+        mode: settings.mode,
+        hasCredentials: Boolean(integrationAccount.credentialsJsonEncrypted),
+        seedPropertyCount: settings.seedProperties.length,
+        propertyCount: Number(propertyCountRow[0]?.count ?? 0),
+        pendingWebhookCount: Number(pendingWebhookCountRow[0]?.count ?? 0),
+        pendingIntegrationJobCount: Number(pendingIntegrationJobCountRow[0]?.count ?? 0),
+        pendingPropertySyncCount: Number(pendingSyncCountRow[0]?.count ?? 0),
+        lastSyncRequestedAt: lastSyncRequested[0]?.createdAt ?? null,
+        lastSyncRequestedPublishedAt: lastSyncRequested[0]?.publishedAt ?? null,
+        lastSyncRequestedStatus: lastSyncRequested[0]?.status ?? null,
+        lastSyncCompletedAt: lastSyncCompleted[0]?.createdAt ?? null,
+        lastSyncCompletedPropertyCount:
+          typeof lastSyncCompleted[0]?.payloadJson === 'object' &&
+          lastSyncCompleted[0]?.payloadJson &&
+          'propertyCount' in lastSyncCompleted[0].payloadJson
+            ? Number((lastSyncCompleted[0].payloadJson as Record<string, unknown>).propertyCount ?? 0)
+            : null,
+        latestWebhookReceivedAt: latestWebhookReceived[0]?.receivedAt ?? null,
+        latestWebhookStatus: latestWebhookReceived[0]?.processingStatus ?? null,
+        diagnostics: {
+          lastWebhookError: lastWebhookError[0]
+            ? {
+                id: lastWebhookError[0].id,
+                receivedAt: lastWebhookError[0].receivedAt,
+                eventType: lastWebhookError[0].eventType,
+                errorMessage: lastWebhookError[0].errorMessage,
+              }
+            : null,
+          lastIntegrationJobError: lastIntegrationJobError[0]
+            ? {
+                id: lastIntegrationJobError[0].id,
+                failedAt: lastIntegrationJobError[0].failedAt,
+                jobType: lastIntegrationJobError[0].jobType,
+                entityExternalId: lastIntegrationJobError[0].entityExternalId,
+                errorMessage: lastIntegrationJobError[0].errorMessage,
+              }
+            : null,
+          lastSyncRequestError: lastSyncRequestError[0]
+            ? {
+                id: lastSyncRequestError[0].id,
+                createdAt: lastSyncRequestError[0].createdAt,
+                errorMessage: lastSyncRequestError[0].errorMessage,
+              }
+            : null,
+        },
+        history: {
+          recentActivity,
+        },
+        updatedAt: integrationAccount.updatedAt,
+      },
+    });
+  });
+
+  app.post('/api/v1/integrations/dezrez/retry-sync-request', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = retrySyncRequestSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantRole(authReq.auth!, parsed.data.tenantId, 'tenant_admin')) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const failedQuery = deps.db
+      .select()
+      .from(schema.outboxEvents)
+      .where(
+        and(
+          eq(schema.outboxEvents.tenantId, parsed.data.tenantId),
+          eq(schema.outboxEvents.eventName, 'property.sync_requested'),
+          eq(schema.outboxEvents.status, 'failed'),
+          parsed.data.outboxEventId
+            ? eq(schema.outboxEvents.id, parsed.data.outboxEventId)
+            : sql`true`,
+        ),
+      )
+      .orderBy(desc(schema.outboxEvents.createdAt))
+      .limit(1);
+    const [failedSyncRequest] = await failedQuery;
+
+    if (!failedSyncRequest) {
+      return res.status(404).json({ error: 'failed_sync_request_not_found' });
+    }
+
+    const updatedRows = await deps.db
+      .update(schema.outboxEvents)
+      .set({
+        status: 'pending',
+        availableAt: new Date(),
+        publishedAt: null,
+        failedAt: null,
+        errorMessage: null,
+      })
+      .where(eq(schema.outboxEvents.id, failedSyncRequest.id))
+      .returning();
+    const retriedSyncRequest = requireValue(updatedRows[0], 'retried_sync_request');
+
+    await recordMutation({
+      db: deps.db,
+      actorUserId: authReq.auth!.userId,
+      tenantId: parsed.data.tenantId,
+      entityType: 'integration_account',
+      entityId: retriedSyncRequest.entityId,
+      action: 'integration_account.sync_request_retried',
+      summary: 'Retried failed Dezrez property sync request',
+      mutationType: 'updated',
+      payload: {
+        outboxEventId: retriedSyncRequest.id,
+      },
+      publishEntityChangedEvent: deps.publishEntityChangedEvent,
+    });
+
+    return res.json({
+      retried: true,
+      outboxEventId: retriedSyncRequest.id,
+    });
+  });
+
+  app.post('/api/v1/integrations/dezrez/retry-job', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = retryIntegrationJobSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantRole(authReq.auth!, parsed.data.tenantId, 'tenant_admin')) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const [failedJob] = await deps.db
+      .select()
+      .from(schema.integrationJobs)
+      .where(
+        and(
+          eq(schema.integrationJobs.tenantId, parsed.data.tenantId),
+          eq(schema.integrationJobs.provider, 'dezrez'),
+          eq(schema.integrationJobs.status, 'failed'),
+          parsed.data.integrationJobId
+            ? eq(schema.integrationJobs.id, parsed.data.integrationJobId)
+            : sql`true`,
+        ),
+      )
+      .orderBy(desc(schema.integrationJobs.failedAt))
+      .limit(1);
+
+    if (!failedJob) {
+      return res.status(404).json({ error: 'failed_integration_job_not_found' });
+    }
+
+    const updatedRows = await deps.db
+      .update(schema.integrationJobs)
+      .set({
+        status: 'pending',
+        availableAt: new Date(),
+        lockedAt: null,
+        completedAt: null,
+        failedAt: null,
+        errorMessage: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.integrationJobs.id, failedJob.id))
+      .returning();
+    const retriedJob = requireValue(updatedRows[0], 'retried_integration_job');
+
+    await recordMutation({
+      db: deps.db,
+      actorUserId: authReq.auth!.userId,
+      tenantId: parsed.data.tenantId,
+      entityType: 'integration_job',
+      entityId: retriedJob.id,
+      action: 'integration_job.retried',
+      summary: `Retried failed ${retriedJob.jobType} integration job`,
+      mutationType: 'updated',
+      payload: {
+        integrationJobId: retriedJob.id,
+        jobType: retriedJob.jobType,
+      },
+      publishEntityChangedEvent: deps.publishEntityChangedEvent,
+    });
+
+    return res.json({
+      retried: true,
+      integrationJobId: retriedJob.id,
+    });
+  });
+
+  app.post('/api/v1/integrations/dezrez/replay-webhook', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = replayWebhookSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantRole(authReq.auth!, parsed.data.tenantId, 'tenant_admin')) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const [failedWebhook] = await deps.db
+      .select()
+      .from(schema.webhookEvents)
+      .where(
+        and(
+          eq(schema.webhookEvents.tenantId, parsed.data.tenantId),
+          eq(schema.webhookEvents.provider, 'dezrez'),
+          eq(schema.webhookEvents.processingStatus, 'failed'),
+          parsed.data.webhookEventId
+            ? eq(schema.webhookEvents.id, parsed.data.webhookEventId)
+            : sql`true`,
+        ),
+      )
+      .orderBy(desc(schema.webhookEvents.receivedAt))
+      .limit(1);
+
+    if (!failedWebhook) {
+      return res.status(404).json({ error: 'failed_webhook_not_found' });
+    }
+
+    const updatedRows = await deps.db
+      .update(schema.webhookEvents)
+      .set({
+        processingStatus: 'pending',
+        processedAt: null,
+        errorMessage: null,
+      })
+      .where(eq(schema.webhookEvents.id, failedWebhook.id))
+      .returning();
+    const replayedWebhook = requireValue(updatedRows[0], 'replayed_webhook');
+
+    await recordMutation({
+      db: deps.db,
+      actorUserId: authReq.auth!.userId,
+      tenantId: parsed.data.tenantId,
+      entityType: 'integration_account',
+      entityId: replayedWebhook.integrationAccountId ?? COLLECTION_EVENT_ENTITY_ID,
+      action: 'integration_account.webhook_replayed',
+      summary: `Replayed failed Dezrez webhook ${replayedWebhook.eventType}`,
+      mutationType: 'updated',
+      payload: {
+        webhookEventId: replayedWebhook.id,
+        eventType: replayedWebhook.eventType,
+      },
+      publishEntityChangedEvent: deps.publishEntityChangedEvent,
+    });
+
+    return res.json({
+      replayed: true,
+      webhookEventId: replayedWebhook.id,
     });
   });
 
@@ -609,6 +1274,219 @@ export function createApp(deps: ApiAppDeps) {
       .orderBy(asc(schema.properties.displayAddress));
 
     return res.json({ properties });
+  });
+
+  app.get('/api/v1/properties/:propertyId', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsedQuery = tenantScopedQuerySchema.safeParse(req.query);
+    const parsedParams = propertyParamsSchema.safeParse(req.params);
+    if (!parsedQuery.success || !parsedParams.success) {
+      return res.status(400).json({
+        error: 'invalid_request',
+        details: {
+          query: parsedQuery.success ? null : parsedQuery.error.flatten(),
+          params: parsedParams.success ? null : parsedParams.error.flatten(),
+        },
+      });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsedQuery.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const property = await loadPropertyRecord({
+      db: deps.db,
+      tenantId: parsedQuery.data.tenantId,
+      propertyId: parsedParams.data.propertyId,
+    });
+
+    if (!property) {
+      return res.status(404).json({ error: 'property_not_found' });
+    }
+
+    const [offers, viewings, timelineEvents] = await Promise.all([
+      deps.db
+        .select({ id: schema.offers.id })
+        .from(schema.offers)
+        .where(
+          and(
+            eq(schema.offers.tenantId, parsedQuery.data.tenantId),
+            eq(schema.offers.propertyId, property.id),
+          ),
+        ),
+      deps.db
+        .select({ id: schema.viewings.id })
+        .from(schema.viewings)
+        .where(
+          and(
+            eq(schema.viewings.tenantId, parsedQuery.data.tenantId),
+            eq(schema.viewings.propertyId, property.id),
+          ),
+        ),
+      deps.db
+        .select({ id: schema.timelineEvents.id })
+        .from(schema.timelineEvents)
+        .where(
+          and(
+            eq(schema.timelineEvents.tenantId, parsedQuery.data.tenantId),
+            eq(schema.timelineEvents.subjectType, 'property'),
+            eq(schema.timelineEvents.subjectId, property.id),
+          ),
+        ),
+    ]);
+
+    return res.json({
+      property: {
+        ...property,
+        counts: {
+          offers: offers.length,
+          viewings: viewings.length,
+          timelineEvents: timelineEvents.length,
+        },
+      },
+    });
+  });
+
+  app.get('/api/v1/properties/:propertyId/offers', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsedQuery = tenantScopedQuerySchema.safeParse(req.query);
+    const parsedParams = propertyParamsSchema.safeParse(req.params);
+    if (!parsedQuery.success || !parsedParams.success) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsedQuery.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const property = await loadPropertyRecord({
+      db: deps.db,
+      tenantId: parsedQuery.data.tenantId,
+      propertyId: parsedParams.data.propertyId,
+    });
+    if (!property) {
+      return res.status(404).json({ error: 'property_not_found' });
+    }
+
+    const offers = await deps.db
+      .select({
+        id: schema.offers.id,
+        externalId: schema.offers.externalId,
+        propertyRoleExternalId: schema.offers.propertyRoleExternalId,
+        applicantName: schema.offers.applicantName,
+        applicantEmail: schema.offers.applicantEmail,
+        applicantGrade: schema.offers.applicantGrade,
+        amount: schema.offers.amount,
+        status: schema.offers.status,
+        offeredAt: schema.offers.offeredAt,
+        createdAt: schema.offers.createdAt,
+        updatedAt: schema.offers.updatedAt,
+      })
+      .from(schema.offers)
+      .where(
+        and(
+          eq(schema.offers.tenantId, parsedQuery.data.tenantId),
+          eq(schema.offers.propertyId, property.id),
+        ),
+      )
+      .orderBy(desc(schema.offers.offeredAt), desc(schema.offers.createdAt));
+
+    return res.json({ offers });
+  });
+
+  app.get('/api/v1/properties/:propertyId/viewings', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsedQuery = tenantScopedQuerySchema.safeParse(req.query);
+    const parsedParams = propertyParamsSchema.safeParse(req.params);
+    if (!parsedQuery.success || !parsedParams.success) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsedQuery.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const property = await loadPropertyRecord({
+      db: deps.db,
+      tenantId: parsedQuery.data.tenantId,
+      propertyId: parsedParams.data.propertyId,
+    });
+    if (!property) {
+      return res.status(404).json({ error: 'property_not_found' });
+    }
+
+    const viewings = await deps.db
+      .select({
+        id: schema.viewings.id,
+        externalId: schema.viewings.externalId,
+        propertyRoleExternalId: schema.viewings.propertyRoleExternalId,
+        applicantName: schema.viewings.applicantName,
+        applicantEmail: schema.viewings.applicantEmail,
+        applicantGrade: schema.viewings.applicantGrade,
+        eventStatus: schema.viewings.eventStatus,
+        feedbackCount: schema.viewings.feedbackCount,
+        notesCount: schema.viewings.notesCount,
+        startsAt: schema.viewings.startsAt,
+        createdAt: schema.viewings.createdAt,
+        updatedAt: schema.viewings.updatedAt,
+      })
+      .from(schema.viewings)
+      .where(
+        and(
+          eq(schema.viewings.tenantId, parsedQuery.data.tenantId),
+          eq(schema.viewings.propertyId, property.id),
+        ),
+      )
+      .orderBy(desc(schema.viewings.startsAt), desc(schema.viewings.createdAt));
+
+    return res.json({ viewings });
+  });
+
+  app.get('/api/v1/properties/:propertyId/timeline', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsedQuery = tenantScopedQuerySchema.safeParse(req.query);
+    const parsedParams = propertyParamsSchema.safeParse(req.params);
+    if (!parsedQuery.success || !parsedParams.success) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsedQuery.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const property = await loadPropertyRecord({
+      db: deps.db,
+      tenantId: parsedQuery.data.tenantId,
+      propertyId: parsedParams.data.propertyId,
+    });
+    if (!property) {
+      return res.status(404).json({ error: 'property_not_found' });
+    }
+
+    const timelineEvents = await deps.db
+      .select({
+        id: schema.timelineEvents.id,
+        externalId: schema.timelineEvents.externalId,
+        propertyRoleExternalId: schema.timelineEvents.propertyRoleExternalId,
+        eventType: schema.timelineEvents.eventType,
+        title: schema.timelineEvents.title,
+        body: schema.timelineEvents.body,
+        actorType: schema.timelineEvents.actorType,
+        metadataJson: schema.timelineEvents.metadataJson,
+        occurredAt: schema.timelineEvents.occurredAt,
+        createdAt: schema.timelineEvents.createdAt,
+      })
+      .from(schema.timelineEvents)
+      .where(
+        and(
+          eq(schema.timelineEvents.tenantId, parsedQuery.data.tenantId),
+          eq(schema.timelineEvents.subjectType, 'property'),
+          eq(schema.timelineEvents.subjectId, property.id),
+        ),
+      )
+      .orderBy(desc(schema.timelineEvents.occurredAt), desc(schema.timelineEvents.createdAt));
+
+    return res.json({ timelineEvents });
   });
 
   app.post('/api/v1/integrations/dezrez/sync', requireAuth, async (req: Request, res: Response) => {
@@ -658,6 +1536,7 @@ export function createApp(deps: ApiAppDeps) {
         integrationAccountId: integrationAccount.id,
         requestedByUserId: authReq.auth!.userId,
       }),
+      publishedAt: deps.publishEntityChangedEvent ? new Date() : null,
     });
 
     deps.publishEntityChangedEvent?.(event);

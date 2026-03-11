@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   createOpaqueToken,
+  decryptJsonPayload,
+  encryptJsonPayload,
   hashOpaqueToken,
   hashPassword,
   normalizeEmail,
@@ -25,5 +27,19 @@ describe('auth helpers', () => {
 
   it('hashes opaque tokens', () => {
     expect(hashOpaqueToken('abc')).toHaveLength(64);
+  });
+
+  it('encrypts and decrypts json payloads', () => {
+    const secret = '0123456789abcdef0123456789abcdef';
+    const encrypted = encryptJsonPayload(
+      { apiKey: 'tenant-secret', nested: { branch: 'manchester' } },
+      secret,
+    );
+
+    expect(encrypted.ciphertext).not.toContain('tenant-secret');
+    expect(decryptJsonPayload(encrypted, secret)).toEqual({
+      apiKey: 'tenant-secret',
+      nested: { branch: 'manchester' },
+    });
   });
 });

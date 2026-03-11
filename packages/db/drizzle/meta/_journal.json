@@ -22,6 +22,20 @@
       "when": 1773169637493,
       "tag": "0002_dusty_hydra",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1773175074092,
+      "tag": "0003_premium_cable",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1773175867180,
+      "tag": "0004_breezy_leo",
+      "breakpoints": true
     }
   ]
 }

@@ -236,6 +236,7 @@ Integration boundaries should stay provider-agnostic at the platform layer:
 - raw inbound events are stored in generic webhook tables
 - provider-specific classifiers turn raw events into durable integration jobs
 - provider adapters fetch and normalize external data into canonical entities
+- external activity feeds should normalize into shared `timeline_events`, not provider-specific event caches
 - provider quirks stay inside adapters, not in domain modules or frontend code
 
 ## 10. Data Model Direction
@@ -334,6 +335,7 @@ The current platform relies heavily on external systems and webhook chains. In t
 - inbound webhooks should be authenticated, logged, and queued
 - inbound webhooks should be persisted before downstream processing
 - provider webhook handlers should classify into durable integration jobs rather than process inline
+- provider refresh jobs should hydrate canonical tables such as properties, offers, viewings, and timeline events
 - outbound sync should be retryable and observable
 - integration credentials should be tenant-scoped where applicable
 - sync status should be visible in admin tooling

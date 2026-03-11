@@ -1,5 +1,6 @@
 import {
   boolean,
+  integer,
   index,
   jsonb,
   pgTable,
@@ -354,6 +355,102 @@ export const properties = pgTable(
   },
   (table) => ({
     propertyTenantStatusIdx: index('properties_tenant_status_idx').on(table.tenantId, table.status),
+  }),
+);
+
+export const offers = pgTable(
+  'offers',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    propertyId: uuid('property_id').references(() => properties.id),
+    provider: text('provider').notNull(),
+    externalId: text('external_id').notNull(),
+    propertyRoleExternalId: text('property_role_external_id'),
+    applicantName: text('applicant_name'),
+    applicantEmail: text('applicant_email'),
+    applicantGrade: text('applicant_grade'),
+    amount: integer('amount'),
+    status: text('status'),
+    offeredAt: timestamp('offered_at', { withTimezone: true }),
+    rawPayload: jsonb('raw_payload'),
+    ...timestamps,
+  },
+  (table) => ({
+    offerProviderExternalIdx: uniqueIndex('offers_provider_external_idx').on(
+      table.tenantId,
+      table.provider,
+      table.externalId,
+    ),
+    offerTenantPropertyIdx: index('offers_tenant_property_idx').on(table.tenantId, table.propertyId),
+  }),
+);
+
+export const viewings = pgTable(
+  'viewings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    propertyId: uuid('property_id').references(() => properties.id),
+    provider: text('provider').notNull(),
+    externalId: text('external_id').notNull(),
+    propertyRoleExternalId: text('property_role_external_id'),
+    applicantName: text('applicant_name'),
+    applicantEmail: text('applicant_email'),
+    applicantGrade: text('applicant_grade'),
+    eventStatus: text('event_status'),
+    feedbackCount: integer('feedback_count').notNull().default(0),
+    notesCount: integer('notes_count').notNull().default(0),
+    startsAt: timestamp('starts_at', { withTimezone: true }),
+    rawPayload: jsonb('raw_payload'),
+    ...timestamps,
+  },
+  (table) => ({
+    viewingProviderExternalIdx: uniqueIndex('viewings_provider_external_idx').on(
+      table.tenantId,
+      table.provider,
+      table.externalId,
+    ),
+    viewingTenantPropertyIdx: index('viewings_tenant_property_idx').on(table.tenantId, table.propertyId),
+  }),
+);
+
+export const timelineEvents = pgTable(
+  'timeline_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    subjectType: text('subject_type').notNull(),
+    subjectId: uuid('subject_id').references(() => properties.id),
+    provider: text('provider').notNull(),
+    externalId: text('external_id').notNull(),
+    propertyRoleExternalId: text('property_role_external_id'),
+    eventType: text('event_type').notNull(),
+    title: text('title').notNull(),
+    body: text('body'),
+    actorType: text('actor_type').notNull().default('external_system'),
+    metadataJson: jsonb('metadata_json'),
+    rawPayload: jsonb('raw_payload'),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    timelineProviderExternalIdx: uniqueIndex('timeline_events_provider_external_idx').on(
+      table.tenantId,
+      table.provider,
+      table.externalId,
+    ),
+    timelineTenantSubjectOccurredIdx: index('timeline_events_tenant_subject_occurred_idx').on(
+      table.tenantId,
+      table.subjectType,
+      table.subjectId,
+      table.occurredAt,
+    ),
+    timelineTenantRoleIdx: index('timeline_events_tenant_role_idx').on(
+      table.tenantId,
+      table.propertyRoleExternalId,
+    ),
   }),
 );
 
