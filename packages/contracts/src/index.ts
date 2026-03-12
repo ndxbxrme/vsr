@@ -338,6 +338,16 @@ export const dezrezIntegrationCredentialsSchema = z.object({
 export const propertySyncRequestPayloadSchema = z.object({
   integrationAccountId: z.string().uuid(),
   requestedByUserId: z.string().uuid().nullable(),
+  trigger: z
+    .object({
+      source: z.string().min(1),
+      integrationJobId: z.string().uuid().optional(),
+      webhookEventId: z.string().uuid().optional(),
+      jobType: z.string().min(1).optional(),
+      entityType: z.string().min(1).optional(),
+      entityExternalId: z.string().min(1).optional(),
+    })
+    .optional(),
 });
 
 export type DezrezSeedProperty = z.infer<typeof dezrezSeedPropertySchema>;

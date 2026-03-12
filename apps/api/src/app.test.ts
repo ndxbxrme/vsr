@@ -1,7 +1,8 @@
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createServer } from 'node:http';
-import { eq, sql } from 'drizzle-orm';
+import { readFileSync } from 'node:fs';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { decryptJsonPayload } from '@vitalspace/auth';
 import {
   processPendingDezrezWebhookEvents,
@@ -16,7 +17,9 @@ import { configureRealtime, publishPendingOutboxEvents } from './realtime';
 import { createRuntimeApp } from './runtime';
 
 const DATABASE_URL =
-  process.env.DATABASE_URL ?? 'postgres://vitalspace:vitalspace@localhost:5432/vitalspace';
+  process.env.TEST_DATABASE_URL ??
+  process.env.DATABASE_URL ??
+  'postgres://vitalspace:vitalspace@localhost:5432/vitalspace_test';
 
 const { db, client } = createDbClient(DATABASE_URL);
 const app = createApp({
@@ -30,6 +33,15 @@ let previousGoogleAuthUrl: string | undefined;
 let previousGoogleTokenUrl: string | undefined;
 let previousGoogleUserInfoUrl: string | undefined;
 let previousEncryptionKey: string | undefined;
+
+function loadWebhookFixture(name: string) {
+  return JSON.parse(
+    readFileSync(
+      new URL(`../../../tests/fixtures/dezrez-webhooks/${name}`, import.meta.url),
+      'utf8',
+    ),
+  ) as Record<string, unknown>;
+}
 
 async function truncateAllTables() {
   await db.execute(sql`
@@ -1607,6 +1619,229 @@ describe('api auth and tenancy', () => {
     );
   });
 
+  it('returns reconciliation counts for pilot properties, cases, workflow, and reports', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'reconciliation-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'reconciliation-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Reconciliation Estates',
+        slug: 'reconciliation-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    const tenantId = createTenant.body.tenant.id as string;
+    const branchId = createTenant.body.branch.id as string;
+
+    const [property] = await db
+      .insert(schema.properties)
+      .values({
+        tenantId,
+        branchId,
+        displayAddress: '12 Reconciliation Road',
+        postcode: 'M1 4RT',
+        marketingStatus: 'for_sale',
+      })
+      .returning();
+
+    if (!property) {
+      throw new Error('reconciliation_property_not_created');
+    }
+
+    await db.insert(schema.externalReferences).values({
+      tenantId,
+      provider: 'dezrez',
+      entityType: 'property',
+      entityId: property.id,
+      externalType: 'marketing_role',
+      externalId: 'DRZ-RECON-1',
+    });
+
+    const createSalesWorkflowTemplate = await request(app)
+      .post('/api/v1/workflow-templates')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        key: 'reconciliation-sales',
+        name: 'Reconciliation Sales',
+        caseType: 'sales',
+        stages: [
+          {
+            key: 'instruction',
+            name: 'Instruction',
+            stageOrder: 0,
+          },
+          {
+            key: 'completed',
+            name: 'Completed',
+            stageOrder: 1,
+            isTerminal: true,
+          },
+        ],
+      });
+
+    const createLettingsWorkflowTemplate = await request(app)
+      .post('/api/v1/workflow-templates')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        key: 'reconciliation-lettings',
+        name: 'Reconciliation Lettings',
+        caseType: 'lettings',
+        stages: [
+          {
+            key: 'application',
+            name: 'Application',
+            stageOrder: 0,
+          },
+          {
+            key: 'agreed_let',
+            name: 'Agreed Let',
+            stageOrder: 1,
+          },
+        ],
+      });
+
+    expect(createSalesWorkflowTemplate.status).toBe(201);
+    expect(createLettingsWorkflowTemplate.status).toBe(201);
+
+    const createSalesCase = await request(app)
+      .post('/api/v1/sales/cases')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        branchId,
+        propertyId: property.id,
+        workflowTemplateId: createSalesWorkflowTemplate.body.workflowTemplate.id,
+        reference: 'RECON-SALES-001',
+        title: 'Reconciliation sales case',
+        askingPrice: 410000,
+        saleStatus: 'instruction',
+      });
+
+    const createLettingsCase = await request(app)
+      .post('/api/v1/lettings/cases')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        branchId,
+        propertyId: property.id,
+        workflowTemplateId: createLettingsWorkflowTemplate.body.workflowTemplate.id,
+        reference: 'RECON-LET-001',
+        title: 'Reconciliation lettings case',
+        monthlyRent: 1750,
+        depositAmount: 1900,
+        lettingStatus: 'application',
+      });
+
+    expect(createSalesCase.status).toBe(201);
+    expect(createLettingsCase.status).toBe(201);
+
+    const salesCaseId = createSalesCase.body.case.id as string;
+    const lettingsCaseId = createLettingsCase.body.case.id as string;
+
+    const addOffer = await request(app)
+      .post(`/api/v1/sales/cases/${salesCaseId}/offers`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        caseId: salesCaseId,
+        amount: 405000,
+        status: 'accepted',
+      });
+
+    const addApplication = await request(app)
+      .post(`/api/v1/lettings/cases/${lettingsCaseId}/applications`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        caseId: lettingsCaseId,
+        monthlyRentOffered: 1775,
+        status: 'accepted',
+      });
+
+    expect(addOffer.status).toBe(201);
+    expect(addApplication.status).toBe(201);
+
+    const reconciliation = await request(app)
+      .get('/api/v1/reconciliation')
+      .query({
+        tenantId,
+      })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(reconciliation.status).toBe(200);
+    expect(reconciliation.body.reconciliation.summary.properties).toMatchObject({
+      totalCount: 1,
+      withExternalReferenceCount: 1,
+      withoutExternalReferenceCount: 0,
+    });
+    expect(reconciliation.body.reconciliation.summary.cases.sales).toMatchObject({
+      totalCases: 1,
+      openCases: 1,
+      offerAcceptedCases: 1,
+      acceptedOffers: 1,
+      acceptedOfferValue: 405000,
+      casesWithoutProperty: 0,
+      casesWithoutWorkflow: 0,
+    });
+    expect(reconciliation.body.reconciliation.summary.cases.lettings).toMatchObject({
+      totalCases: 1,
+      openCases: 1,
+      agreedLets: 1,
+      acceptedApplications: 1,
+      totalRentOffered: 1775,
+      casesWithoutProperty: 0,
+      casesWithoutWorkflow: 0,
+    });
+    expect(reconciliation.body.reconciliation.summary.workflow.sales.stageCounts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          currentStageKey: 'instruction',
+          count: 1,
+        }),
+      ]),
+    );
+    expect(reconciliation.body.reconciliation.summary.workflow.lettings.stageCounts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          currentStageKey: 'application',
+          count: 1,
+        }),
+      ]),
+    );
+    expect(reconciliation.body.reconciliation.summary.reports.salesPipeline.aligned).toBe(true);
+    expect(reconciliation.body.reconciliation.summary.reports.agreedLets.aligned).toBe(true);
+    expect(reconciliation.body.reconciliation.checks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'workflow_coverage',
+          status: 'ready',
+        }),
+        expect.objectContaining({
+          key: 'sales_report_alignment',
+          status: 'ready',
+        }),
+        expect.objectContaining({
+          key: 'lettings_report_alignment',
+          status: 'ready',
+        }),
+      ]),
+    );
+  });
+
   it('rejects protected routes without valid authentication', async () => {
     const response = await request(app).post('/api/v1/tenants').send({
       name: 'No Auth',
@@ -1695,11 +1930,108 @@ describe('api auth and tenancy', () => {
     expect(properties.body.properties[0]).toMatchObject({
       displayAddress: '5 Market Street, Manchester',
       externalId: 'DRZ-500',
+      syncState: 'active',
+      consecutiveMissCount: 0,
     });
     expect(properties.body.properties[1]).toMatchObject({
       displayAddress: '7 Market Street, Manchester',
       externalId: 'DRZ-501',
+      syncState: 'active',
+      consecutiveMissCount: 0,
     });
+
+    const syncRequests = await db
+      .select({
+        payloadJson: schema.outboxEvents.payloadJson,
+      })
+      .from(schema.outboxEvents)
+      .where(eq(schema.outboxEvents.eventName, 'property.sync_requested'));
+
+    expect(syncRequests).toHaveLength(1);
+    expect(syncRequests[0]?.payloadJson).toMatchObject({
+      trigger: {
+        source: 'manual_api',
+      },
+    });
+  });
+
+  it('deduplicates pending Dezrez sync requests for the same tenant integration', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'dedupe-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'dedupe-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Dedupe Estates',
+        slug: 'dedupe-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    const configureDezrez = await request(app)
+      .post('/api/v1/integrations/dezrez/accounts')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId: createTenant.body.tenant.id,
+        name: 'Dedupe Dezrez',
+        settings: {
+          mode: 'seed',
+          seedProperties: [
+            {
+              externalId: 'DRZ-dedupe-1',
+              displayAddress: '1 Dedupe Road',
+            },
+          ],
+        },
+      });
+
+    expect(configureDezrez.status).toBe(201);
+
+    const firstSync = await request(app)
+      .post('/api/v1/integrations/dezrez/sync')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId: createTenant.body.tenant.id,
+      });
+
+    expect(firstSync.status).toBe(202);
+    expect(firstSync.body.deduplicated).toBe(false);
+
+    const secondSync = await request(app)
+      .post('/api/v1/integrations/dezrez/sync')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId: createTenant.body.tenant.id,
+      });
+
+    expect(secondSync.status).toBe(202);
+    expect(secondSync.body.deduplicated).toBe(true);
+
+    const pendingSyncRequests = await db
+      .select({
+        id: schema.outboxEvents.id,
+      })
+      .from(schema.outboxEvents)
+      .where(
+        and(
+          eq(schema.outboxEvents.tenantId, createTenant.body.tenant.id),
+          eq(schema.outboxEvents.eventName, 'property.sync_requested'),
+          eq(schema.outboxEvents.status, 'pending'),
+        ),
+      );
+
+    expect(pendingSyncRequests).toHaveLength(1);
+    expect(secondSync.body.existingEventId).toBe(pendingSyncRequests[0]?.id);
   });
 
   it('returns property detail, offers, viewings, and timeline for a tenant member', async () => {
@@ -1735,6 +2067,10 @@ describe('api auth and tenancy', () => {
         postcode: 'M1 5QA',
         status: 'active',
         marketingStatus: 'for_sale',
+        syncState: 'stale_candidate',
+        consecutiveMissCount: 2,
+        lastSeenAt: new Date('2026-03-11T10:00:00.000Z'),
+        staleCandidateAt: new Date('2026-03-12T08:00:00.000Z'),
       })
       .returning();
 
@@ -1826,6 +2162,8 @@ describe('api auth and tenancy', () => {
       id: property.id,
       displayAddress: '10 Oxford Road, Manchester',
       externalId: 'DRZ-900',
+      syncState: 'stale_candidate',
+      consecutiveMissCount: 2,
       counts: {
         offers: 1,
         viewings: 1,
@@ -1881,6 +2219,297 @@ describe('api auth and tenancy', () => {
     });
   });
 
+  it('deduplicates property list rows when a property has multiple Dezrez references', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'duplicate-ref-reader@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'duplicate-ref-reader@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Duplicate Ref Estates',
+        slug: 'duplicate-ref-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    const tenantId = createTenant.body.tenant.id as string;
+
+    const [property] = await db
+      .insert(schema.properties)
+      .values({
+        tenantId,
+        displayAddress: '22 Duplicate Lane, Manchester',
+        postcode: 'M2 2AB',
+      })
+      .returning();
+
+    if (!property) {
+      throw new Error('property_not_created');
+    }
+
+    await db.insert(schema.externalReferences).values([
+      {
+        tenantId,
+        provider: 'dezrez',
+        entityType: 'property',
+        entityId: property.id,
+        externalType: 'property',
+        externalId: '3671555',
+        metadataJson: {
+          propertyId: '3671555',
+        },
+        isCurrent: false,
+        lastSeenAt: new Date(),
+      },
+      {
+        tenantId,
+        provider: 'dezrez',
+        entityType: 'property',
+        entityId: property.id,
+        externalType: 'property_role',
+        externalId: 'DRZ-DUP-1',
+        metadataJson: {
+          propertyId: '3671555',
+        },
+        isCurrent: false,
+        supersededAt: new Date('2026-03-11T10:00:00.000Z'),
+        lastSeenAt: new Date(),
+      },
+      {
+        tenantId,
+        provider: 'dezrez',
+        entityType: 'property',
+        entityId: property.id,
+        externalType: 'property_role',
+        externalId: 'DRZ-DUP-2',
+        metadataJson: {
+          propertyId: '3671555',
+        },
+        lastSeenAt: new Date(),
+      },
+    ]);
+
+    const properties = await request(app)
+      .get('/api/v1/properties')
+      .query({ tenantId })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(properties.status).toBe(200);
+    expect(properties.body.properties).toHaveLength(1);
+    expect(properties.body.properties[0]).toMatchObject({
+      id: property.id,
+      displayAddress: '22 Duplicate Lane, Manchester',
+      externalId: 'DRZ-DUP-2',
+    });
+  });
+
+  it('queues and hydrates related Dezrez property data on demand for a selected property', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'property-refresh@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'property-refresh@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Property Refresh Estates',
+        slug: 'property-refresh-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    const configureDezrez = await request(app)
+      .post('/api/v1/integrations/dezrez/accounts')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId: createTenant.body.tenant.id,
+        name: 'Refreshable Dezrez',
+        settings: {
+          mode: 'seed',
+          seedProperties: [
+            {
+              externalId: 'DRZ-REFRESH-1',
+              propertyId: '3671906',
+              displayAddress: '42 Refresh Lane',
+            },
+          ],
+          seedOffersByRoleId: {
+            'DRZ-REFRESH-1': [
+              {
+                Id: 91001,
+                MarketingRoleId: 'DRZ-REFRESH-1',
+                DateTime: '2026-03-10T10:00:00.000Z',
+                Value: 275000,
+                ApplicantGroup: {
+                  PrimaryMember: {
+                    ContactName: 'Alex Buyer',
+                    PrimaryEmail: 'alex@example.com',
+                  },
+                  Grade: {
+                    Name: 'Hot Buyer',
+                  },
+                },
+                Response: {
+                  ResponseType: {
+                    Name: 'Accepted',
+                  },
+                },
+              },
+            ],
+          },
+          seedViewingsByRoleId: {
+            'DRZ-REFRESH-1': [
+              {
+                Id: 82001,
+                MarketingRoleId: 'DRZ-REFRESH-1',
+                StartDate: '2026-03-11T14:30:00.000Z',
+              },
+            ],
+          },
+          seedViewingDetailsByRoleId: {
+            'DRZ-REFRESH-1': [
+              {
+                Id: 82001,
+                MarketingRoleId: 'DRZ-REFRESH-1',
+                StartDate: '2026-03-11T14:30:00.000Z',
+                EventStatus: {
+                  Name: 'Completed',
+                },
+                Grade: {
+                  Name: 'First Time Buyer',
+                },
+                MainContact: {
+                  name: 'Jamie Viewer',
+                  email: 'jamie@example.com',
+                },
+                Feedback: [{ Id: 1 }],
+                Notes: [{ Id: 1 }, { Id: 2 }],
+              },
+            ],
+          },
+          seedEventsByRoleId: {
+            'DRZ-REFRESH-1': [
+              {
+                Id: 70001,
+                MarketingRoleId: 'DRZ-REFRESH-1',
+                DateTime: '2026-03-12T09:15:00.000Z',
+                Title: 'Offer chased',
+                Description: 'Buyer solicitor asked for an update.',
+                EventType: {
+                  Name: 'Note',
+                  SystemName: 'note',
+                },
+              },
+            ],
+          },
+        },
+      });
+
+    expect(configureDezrez.status).toBe(201);
+
+    const sync = await request(app)
+      .post('/api/v1/integrations/dezrez/sync')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId: createTenant.body.tenant.id,
+      });
+
+    expect(sync.status).toBe(202);
+    await processPendingPropertySyncs({ db });
+
+    const properties = await request(app)
+      .get('/api/v1/properties')
+      .query({
+        tenantId: createTenant.body.tenant.id,
+      })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    const propertyId = properties.body.properties[0]?.id as string | undefined;
+    expect(propertyId).toBeTruthy();
+
+    const refreshRelated = await request(app)
+      .post(`/api/v1/properties/${propertyId}/refresh-related`)
+      .query({
+        tenantId: createTenant.body.tenant.id,
+      })
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({});
+
+    expect(refreshRelated.status).toBe(202);
+
+    const jobsBeforeProcessing = await db
+      .select({
+        jobType: schema.integrationJobs.jobType,
+      })
+      .from(schema.integrationJobs)
+      .where(eq(schema.integrationJobs.tenantId, createTenant.body.tenant.id));
+
+    expect(jobsBeforeProcessing).toHaveLength(3);
+
+    const processedJobs = await processPendingIntegrationJobs({ db });
+    expect(processedJobs).toEqual({
+      completedJobs: 3,
+      failedJobs: 0,
+    });
+
+    const offers = await request(app)
+      .get(`/api/v1/properties/${propertyId}/offers`)
+      .query({ tenantId: createTenant.body.tenant.id })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(offers.status).toBe(200);
+    expect(offers.body.offers).toHaveLength(1);
+    expect(offers.body.offers[0]).toMatchObject({
+      applicantName: 'Alex Buyer',
+      amount: 275000,
+      status: 'Accepted',
+    });
+
+    const viewings = await request(app)
+      .get(`/api/v1/properties/${propertyId}/viewings`)
+      .query({ tenantId: createTenant.body.tenant.id })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(viewings.status).toBe(200);
+    expect(viewings.body.viewings).toHaveLength(1);
+    expect(viewings.body.viewings[0]).toMatchObject({
+      applicantName: 'Jamie Viewer',
+      eventStatus: 'Completed',
+      feedbackCount: 1,
+      notesCount: 2,
+    });
+
+    const timeline = await request(app)
+      .get(`/api/v1/properties/${propertyId}/timeline`)
+      .query({ tenantId: createTenant.body.tenant.id })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(timeline.status).toBe(200);
+    expect(timeline.body.timelineEvents).toHaveLength(1);
+    expect(timeline.body.timelineEvents[0]).toMatchObject({
+      eventType: 'note',
+      title: 'Offer chased',
+    });
+  });
+
   it('returns Dezrez integration status including last sync timestamps and counts', async () => {
     await request(app).post('/api/v1/auth/signup').send({
       email: 'status-admin@example.com',
@@ -1917,6 +2546,10 @@ describe('api auth and tenancy', () => {
               externalId: 'DRZ-status-1',
               displayAddress: '1 Status Street',
             },
+            {
+              externalId: 'DRZ-status-2',
+              displayAddress: '2 Status Street',
+            },
           ],
         },
       });
@@ -1933,7 +2566,55 @@ describe('api auth and tenancy', () => {
     expect(sync.status).toBe(202);
 
     const processed = await processPendingPropertySyncs({ db });
-    expect(processed.upsertedProperties).toBe(1);
+    expect(processed.upsertedProperties).toBe(2);
+
+    const latestSyncRun = await db
+      .select()
+      .from(schema.propertySyncRuns)
+      .where(eq(schema.propertySyncRuns.integrationAccountId, configureDezrez.body.integrationAccount.id))
+      .orderBy(sql`${schema.propertySyncRuns.startedAt} desc`)
+      .limit(1);
+    expect(latestSyncRun[0]).toBeTruthy();
+
+    const syncedProperties = await db
+      .select({
+        id: schema.properties.id,
+      })
+      .from(schema.properties)
+      .where(eq(schema.properties.tenantId, createTenant.body.tenant.id))
+      .orderBy(asc(schema.properties.displayAddress));
+
+    await db
+      .update(schema.properties)
+      .set({
+        syncState: 'stale_candidate',
+        consecutiveMissCount: 1,
+        staleCandidateAt: new Date('2026-03-12T12:00:00.000Z'),
+      })
+      .where(eq(schema.properties.id, syncedProperties[0]!.id));
+    await db
+      .update(schema.properties)
+      .set({
+        syncState: 'delisted',
+        consecutiveMissCount: 3,
+        staleCandidateAt: new Date('2026-03-11T12:00:00.000Z'),
+        delistedAt: new Date('2026-03-12T13:00:00.000Z'),
+        delistedReason: 'missing_from_healthy_sync',
+      })
+      .where(eq(schema.properties.id, syncedProperties[1]!.id));
+
+    await db
+      .update(schema.propertySyncRuns)
+      .set({
+        anomalyStatus: 'anomalous',
+        anomalyReason: 'count_drop_exceeds_threshold',
+        staleCandidateCount: 1,
+        delistedCount: 1,
+        metadataJson: {
+          baselineMedian: 24,
+        },
+      })
+      .where(eq(schema.propertySyncRuns.id, latestSyncRun[0]!.id));
 
     await db.insert(schema.webhookEvents).values({
       tenantId: createTenant.body.tenant.id,
@@ -1943,10 +2624,59 @@ describe('api auth and tenancy', () => {
       signatureValid: true,
       payloadJson: {
         EventName: 'ViewingFeedback',
+        AgencyId: 36,
+        BranchId: 245201,
+        PropertyRoleId: 'DRZ-status-1',
       },
       processingStatus: 'failed',
       errorMessage: 'invalid_payload_shape',
     });
+
+    await db.insert(schema.webhookEvents).values([
+      {
+        tenantId: createTenant.body.tenant.id,
+        integrationAccountId: configureDezrez.body.integrationAccount.id,
+        provider: 'dezrez',
+        eventType: 'unknown',
+        signatureValid: true,
+        payloadJson: {
+          AgencyId: 36,
+          BranchId: 245201,
+          RootEntityId: 12345,
+        },
+        processingStatus: 'failed',
+        errorMessage: 'integration_account_not_resolved',
+      },
+      {
+        tenantId: createTenant.body.tenant.id,
+        integrationAccountId: configureDezrez.body.integrationAccount.id,
+        provider: 'dezrez',
+        eventType: 'PropertyRoleUpdated',
+        signatureValid: true,
+        payloadJson: {
+          AgencyId: 36,
+          BranchId: 245201,
+          PropertyRoleId: 'DRZ-status-2',
+          ChangeType: 'Updated',
+        },
+        processingStatus: 'ignored',
+        errorMessage: 'coalesced_existing_job',
+      },
+      {
+        tenantId: createTenant.body.tenant.id,
+        integrationAccountId: configureDezrez.body.integrationAccount.id,
+        provider: 'dezrez',
+        eventType: 'GenericEvent:EmailSent',
+        signatureValid: false,
+        payloadJson: {
+          EventName: 'GenericEvent',
+          AgencyId: 36,
+          BranchId: 245201,
+        },
+        processingStatus: 'rejected',
+        errorMessage: 'invalid_signature',
+      },
+    ]);
 
     await db.insert(schema.integrationJobs).values({
       tenantId: createTenant.body.tenant.id,
@@ -2000,21 +2730,30 @@ describe('api auth and tenancy', () => {
       name: 'Status Dezrez',
       mode: 'seed',
       hasCredentials: false,
-      seedPropertyCount: 1,
-      propertyCount: 1,
+      seedPropertyCount: 2,
+      propertyCount: 2,
+      staleCandidatePropertyCount: 1,
+      delistedPropertyCount: 1,
       pendingWebhookCount: 0,
       pendingIntegrationJobCount: 0,
       pendingPropertySyncCount: 0,
+      metrics: {
+        failedWebhookCount: 2,
+        rejectedWebhookCount: 1,
+        unresolvedWebhookCount: 1,
+        ignoredWebhookCount: 1,
+        unknownWebhookCount: 1,
+      },
       lastSyncRequestedStatus: 'failed',
-      lastSyncCompletedPropertyCount: 1,
-      latestWebhookStatus: 'failed',
+      lastSyncCompletedPropertyCount: 2,
     });
     expect(status.body.integrationAccount.lastSyncRequestedAt).toBeTruthy();
     expect(status.body.integrationAccount.lastSyncCompletedAt).toBeTruthy();
     expect(status.body.integrationAccount.latestWebhookReceivedAt).toBeTruthy();
+    expect(status.body.integrationAccount.latestWebhookStatus).toBeTruthy();
     expect(status.body.integrationAccount.diagnostics.lastWebhookError).toMatchObject({
-      eventType: 'ViewingFeedback',
-      errorMessage: 'invalid_payload_shape',
+      eventType: 'unknown',
+      errorMessage: 'integration_account_not_resolved',
     });
     expect(status.body.integrationAccount.diagnostics.lastIntegrationJobError).toMatchObject({
       jobType: 'viewing.role.refresh',
@@ -2023,6 +2762,18 @@ describe('api auth and tenancy', () => {
     });
     expect(status.body.integrationAccount.diagnostics.lastSyncRequestError).toMatchObject({
       errorMessage: 'integration_account_unreachable',
+    });
+    expect(status.body.integrationAccount.diagnostics.lastSyncAnomaly).toMatchObject({
+      anomalyReason: 'count_drop_exceeds_threshold',
+      baselineMedian: 24,
+      propertyCount: 2,
+    });
+    expect(status.body.integrationAccount.latestSyncRun).toMatchObject({
+      anomalyStatus: 'anomalous',
+      anomalyReason: 'count_drop_exceeds_threshold',
+      propertyCount: 2,
+      staleCandidateCount: 1,
+      delistedCount: 1,
     });
     expect(status.body.integrationAccount.history.recentActivity).toEqual(
       expect.arrayContaining([
@@ -2045,6 +2796,30 @@ describe('api auth and tenancy', () => {
         expect.objectContaining({
           source: 'sync_completion',
           title: 'Property sync completed',
+          subtitle: expect.stringContaining('2 properties refreshed'),
+        }),
+      ]),
+    );
+    expect(status.body.integrationAccount.history.recentWebhooks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          eventType: 'ViewingFeedback',
+          status: 'failed',
+          summary: expect.objectContaining({
+            agencyId: '36',
+            branchId: '245201',
+            propertyRoleId: 'DRZ-status-1',
+          }),
+        }),
+        expect.objectContaining({
+          eventType: 'PropertyRoleUpdated',
+          status: 'ignored',
+          errorMessage: 'coalesced_existing_job',
+        }),
+        expect.objectContaining({
+          eventType: 'unknown',
+          status: 'failed',
+          errorMessage: 'integration_account_not_resolved',
         }),
       ]),
     );
@@ -2432,6 +3207,356 @@ describe('api auth and tenancy', () => {
     expect(integrationJobs[0]?.status).not.toBe('failed');
   });
 
+  it('routes Dezrez webhooks to the matching tenant by AgencyId', async () => {
+    const [tenantA, tenantB] = await db
+      .insert(schema.tenants)
+      .values([
+        {
+          name: 'Agency 36 Estates',
+          slug: 'agency-36-estates',
+        },
+        {
+          name: 'Agency 99 Estates',
+          slug: 'agency-99-estates',
+        },
+      ])
+      .returning();
+
+    if (!tenantA || !tenantB) {
+      throw new Error('tenants_not_created');
+    }
+
+    const integrationAccounts = await db
+      .insert(schema.integrationAccounts)
+      .values([
+        {
+          tenantId: tenantA.id,
+          provider: 'dezrez',
+          name: 'Agency 36 Dezrez',
+          settingsJson: {
+            agencyId: 36,
+            seedProperties: [],
+          },
+        },
+        {
+          tenantId: tenantB.id,
+          provider: 'dezrez',
+          name: 'Agency 99 Dezrez',
+          settingsJson: {
+            agencyId: 99,
+            seedProperties: [],
+          },
+        },
+      ])
+      .returning();
+
+    const agency99Account = integrationAccounts.find((account) => account.tenantId === tenantB.id);
+    if (!agency99Account) {
+      throw new Error('agency_99_account_not_created');
+    }
+
+    const event = await request(app).post('/event').send({
+      EventName: 'ViewingFeedback',
+      AgencyId: 99,
+      BranchId: 245201,
+      PropertyId: 3671906,
+      PropertyRoleId: 30026645,
+      RootEntityId: 88991,
+    });
+
+    expect(event.status).toBe(202);
+    expect(event.body.integrationAccountId).toBe(agency99Account.id);
+
+    const webhookRows = await db.select().from(schema.webhookEvents);
+    expect(webhookRows).toHaveLength(1);
+    expect(webhookRows[0]?.tenantId).toBe(tenantB.id);
+    expect(webhookRows[0]?.integrationAccountId).toBe(agency99Account.id);
+  });
+
+  it('uses BranchId to disambiguate Dezrez webhook routing when multiple tenants share an AgencyId', async () => {
+    const [tenantA, tenantB] = await db
+      .insert(schema.tenants)
+      .values([
+        {
+          name: 'Branch 245201 Estates',
+          slug: 'branch-245201-estates',
+        },
+        {
+          name: 'Branch 245202 Estates',
+          slug: 'branch-245202-estates',
+        },
+      ])
+      .returning();
+
+    if (!tenantA || !tenantB) {
+      throw new Error('tenants_not_created');
+    }
+
+    const integrationAccounts = await db
+      .insert(schema.integrationAccounts)
+      .values([
+        {
+          tenantId: tenantA.id,
+          provider: 'dezrez',
+          name: 'Branch 245201 Dezrez',
+          settingsJson: {
+            agencyId: 36,
+            branchIds: [245201],
+            seedProperties: [],
+          },
+        },
+        {
+          tenantId: tenantB.id,
+          provider: 'dezrez',
+          name: 'Branch 245202 Dezrez',
+          settingsJson: {
+            agencyId: 36,
+            branchIds: [245202],
+            seedProperties: [],
+          },
+        },
+      ])
+      .returning();
+
+    const branch245202Account = integrationAccounts.find((account) => account.tenantId === tenantB.id);
+    if (!branch245202Account) {
+      throw new Error('branch_245202_account_not_created');
+    }
+
+    const event = await request(app).post('/event').send({
+      EventName: 'ViewingFeedback',
+      AgencyId: 36,
+      BranchId: 245202,
+      PropertyId: 3671906,
+      PropertyRoleId: 30026645,
+      RootEntityId: 88991,
+    });
+
+    expect(event.status).toBe(202);
+    expect(event.body.integrationAccountId).toBe(branch245202Account.id);
+
+    const webhookRows = await db.select().from(schema.webhookEvents);
+    expect(webhookRows).toHaveLength(1);
+    expect(webhookRows[0]?.tenantId).toBe(tenantB.id);
+    expect(webhookRows[0]?.integrationAccountId).toBe(branch245202Account.id);
+  });
+
+  it('infers a fallback webhook event type when Dezrez omits EventName', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'fallback-webhook-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'fallback-webhook-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Fallback Webhook Estates',
+        slug: 'fallback-webhook-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    const configureDezrez = await request(app)
+      .post('/api/v1/integrations/dezrez/accounts')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId: createTenant.body.tenant.id,
+        name: 'Fallback Webhook Dezrez',
+        settings: {
+          seedProperties: [
+            {
+              externalId: '30026645',
+              displayAddress: '50 Manchester Street, Manchester',
+              postcode: 'M16 9GZ',
+              marketingStatus: 'for_sale',
+            },
+          ],
+        },
+      });
+
+    expect(configureDezrez.status).toBe(201);
+
+    const event = await request(app)
+      .post('/event')
+      .send(loadWebhookFixture('property-role-events-updated.json'));
+
+    expect(event.status).toBe(202);
+
+    const webhookRows = await db.select().from(schema.webhookEvents);
+    expect(webhookRows).toHaveLength(1);
+    expect(webhookRows[0]?.eventType).toBe('PropertyRoleEventsUpdated');
+    expect(webhookRows[0]?.integrationAccountId).toBe(
+      configureDezrez.body.integrationAccount.id,
+    );
+  });
+
+  it('stores GenericEvent subtypes for webhook activity', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'generic-webhook-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'generic-webhook-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Generic Webhook Estates',
+        slug: 'generic-webhook-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    const configureDezrez = await request(app)
+      .post('/api/v1/integrations/dezrez/accounts')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId: createTenant.body.tenant.id,
+        name: 'Generic Webhook Dezrez',
+        settings: {
+          seedProperties: [],
+        },
+      });
+
+    expect(configureDezrez.status).toBe(201);
+
+    const event = await request(app)
+      .post('/event')
+      .send(loadWebhookFixture('generic-event-email-sent.json'));
+
+    expect(event.status).toBe(202);
+
+    const webhookRows = await db.select().from(schema.webhookEvents);
+    expect(webhookRows).toHaveLength(1);
+    expect(webhookRows[0]?.eventType).toBe('GenericEvent:EmailSent');
+    expect(webhookRows[0]?.integrationAccountId).toBe(
+      configureDezrez.body.integrationAccount.id,
+    );
+  });
+
+  it('labels contact item webhooks when Dezrez omits EventName', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'contact-item-webhook-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'contact-item-webhook-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Contact Item Webhook Estates',
+        slug: 'contact-item-webhook-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    const configureDezrez = await request(app)
+      .post('/api/v1/integrations/dezrez/accounts')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId: createTenant.body.tenant.id,
+        name: 'Contact Item Webhook Dezrez',
+        settings: {
+          seedProperties: [],
+        },
+      });
+
+    expect(configureDezrez.status).toBe(201);
+
+    const event = await request(app).post('/event').send({
+      NewEmailContactItemId: 37773204,
+      PersonId: 0,
+      RootEntityId: 0,
+      ChangeType: 'New',
+      AllChanges: [
+        {
+          PropertyName: 'ContactItemType',
+          NewSystemName: 'Email',
+        },
+      ],
+    });
+
+    expect(event.status).toBe(202);
+
+    const webhookRows = await db.select().from(schema.webhookEvents);
+    expect(webhookRows).toHaveLength(1);
+    expect(webhookRows[0]?.eventType).toBe('EmailContactItemNew');
+    expect(webhookRows[0]?.integrationAccountId).toBe(
+      configureDezrez.body.integrationAccount.id,
+    );
+  });
+
+  it('labels contact address webhooks when Dezrez omits EventName', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'contact-address-webhook-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'contact-address-webhook-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Contact Address Webhook Estates',
+        slug: 'contact-address-webhook-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    const configureDezrez = await request(app)
+      .post('/api/v1/integrations/dezrez/accounts')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId: createTenant.body.tenant.id,
+        name: 'Contact Address Webhook Dezrez',
+        settings: {
+          seedProperties: [],
+        },
+      });
+
+    expect(configureDezrez.status).toBe(201);
+
+    const event = await request(app)
+      .post('/event')
+      .send(loadWebhookFixture('contact-address-new.json'));
+
+    expect(event.status).toBe(202);
+
+    const webhookRows = await db.select().from(schema.webhookEvents);
+    expect(webhookRows).toHaveLength(1);
+    expect(webhookRows[0]?.eventType).toBe('ContactAddressNew');
+    expect(webhookRows[0]?.integrationAccountId).toBe(
+      configureDezrez.body.integrationAccount.id,
+    );
+  });
+
   it('authenticates sockets with bearer tokens and broadcasts tenant-scoped events', async () => {
     const server = createServer();
     const io = new Server(server, {
@@ -2618,7 +3743,7 @@ describe('api auth and tenancy', () => {
         });
       });
 
-      await db.insert(schema.outboxEvents).values({
+      const [createdOutboxEvent] = await db.insert(schema.outboxEvents).values({
         tenantId,
         eventName: 'timeline.refreshed',
         entityType: 'timeline_event',
@@ -2629,7 +3754,7 @@ describe('api auth and tenancy', () => {
           propertyRoleExternalId: '30029999',
           count: 2,
         },
-      });
+      }).returning();
 
       const eventPromise = new Promise<Record<string, unknown>>((resolve, reject) => {
         const timeout = setTimeout(() => reject(new Error('socket_event_timeout')), 3000);
@@ -2645,6 +3770,18 @@ describe('api auth and tenancy', () => {
       });
 
       expect(published).toEqual({ publishedCount: 1 });
+
+      const [publishedOutboxEvent] = await db
+        .select({
+          status: schema.outboxEvents.status,
+          publishedAt: schema.outboxEvents.publishedAt,
+        })
+        .from(schema.outboxEvents)
+        .where(eq(schema.outboxEvents.id, createdOutboxEvent!.id))
+        .limit(1);
+
+      expect(publishedOutboxEvent?.status).toBe('published');
+      expect(publishedOutboxEvent?.publishedAt).toBeTruthy();
 
       const event = await eventPromise;
       expect(event.tenantId).toBe(tenantId);

@@ -210,6 +210,13 @@ test('loads seeded Dezrez data and updates through realtime invalidation', async
   test.slow();
 
   const seededTenant = await createSeededExplorerTenant();
+  const malformedPropertyUrls = new Set<string>();
+
+  page.on('request', (request) => {
+    if (request.url().includes('/api/v1/properties//')) {
+      malformedPropertyUrls.add(request.url());
+    }
+  });
 
   await page.addInitScript(({ tenantId, accessToken }) => {
     window.localStorage.clear();
@@ -226,17 +233,27 @@ test('loads seeded Dezrez data and updates through realtime invalidation', async
 
   await page.getByRole('link', { name: 'Open Property Explorer' }).click();
   await expect(page.getByRole('heading', { name: 'Property read model validation' })).toBeVisible();
+  await expect
+    .poll(() => malformedPropertyUrls.size, {
+      message: `unexpected malformed property urls: ${[...malformedPropertyUrls].join(', ')}`,
+    })
+    .toBe(0);
 
   await expect(page.getByText('Seeded Explorer Dezrez')).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('properties 0')).toBeVisible({ timeout: 20_000 });
 
   await page.getByRole('button', { name: 'Request sync' }).click();
   await expect(page.getByText(/Sync accepted\./)).toBeVisible();
+  await expect(page.getByText('properties 1')).toBeVisible({ timeout: 20_000 });
   await expect(
     page.locator('.property-row').filter({ hasText: '12 Example Street, Manchester' }),
   ).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText(/last event/i)).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('Property sync completed')).toBeVisible({ timeout: 20_000 });
+
+  await page.locator('.property-row').filter({ hasText: '12 Example Street, Manchester' }).click();
+  await expect(page.getByText(/sync active/i)).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/Misses/i)).toBeVisible({ timeout: 20_000 });
 
   await sendDezrezWebhook(seededTenant.integrationAccountId, 'Offer');
   await sendDezrezWebhook(seededTenant.integrationAccountId, 'ViewingFeedback');
@@ -245,7 +262,9 @@ test('loads seeded Dezrez data and updates through realtime invalidation', async
   await expect(page.getByText('Alicia Buyer')).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('Victor Viewer')).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText('Vendor updated fixtures')).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText('ViewingFeedback')).toBeVisible({ timeout: 20_000 });
+  await expect(
+    page.locator('.history-row strong').filter({ hasText: 'ViewingFeedback' }).first(),
+  ).toBeVisible({ timeout: 20_000 });
 
   await page.setInputFiles('#property-file-upload', {
     name: 'memorandum.txt',
@@ -257,4 +276,5 @@ test('loads seeded Dezrez data and updates through realtime invalidation', async
     timeout: 20_000,
   });
   await expect(page.getByText('memorandum.txt')).toBeVisible({ timeout: 20_000 });
+  expect([...malformedPropertyUrls]).toEqual([]);
 });

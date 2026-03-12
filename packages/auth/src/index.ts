@@ -47,6 +47,14 @@ export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+export function getEncryptionSecretMetadata(secret: string | null | undefined) {
+  return {
+    present: Boolean(secret),
+    length: secret?.length ?? 0,
+    trimmedLength: secret?.trim().length ?? 0,
+  };
+}
+
 function deriveEncryptionKey(secret: string) {
   if (!secret || secret.trim().length < 16) {
     throw new Error('encryption_secret_too_short');

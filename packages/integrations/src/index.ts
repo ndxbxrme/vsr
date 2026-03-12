@@ -1,10 +1,9 @@
-import { decryptJsonPayload } from '@vitalspace/auth';
+import { decryptJsonPayload, getEncryptionSecretMetadata } from '@vitalspace/auth';
 import {
   dezrezIntegrationCredentialsSchema,
   dezrezRefreshJobPayloadSchema,
   dezrezIntegrationSettingsSchema,
   dezrezWebhookPayloadSchema,
-  integrationJobTypeSchema,
   propertySyncRequestPayloadSchema,
   type DezrezSeedProperty,
   type IntegrationJobType,
@@ -12,13 +11,27 @@ import {
 import { type createDbClient, schema } from '@vitalspace/db';
 import { buildTenantRoom } from '@vitalspace/realtime';
 import { createHash } from 'node:crypto';
-import { and, asc, eq, lte } from 'drizzle-orm';
-import { createDezrezClient } from './dezrez-client';
-export { createDezrezClient, normalizeDezrezPropertySummary } from './dezrez-client';
+import { and, asc, desc, eq, lte, sql } from 'drizzle-orm';
+import {
+  createDezrezClient,
+  extractDezrezPropertyAddress,
+  isPlaceholderPropertyDisplayAddress,
+  normalizeDezrezPropertySummary,
+} from './dezrez-client';
+export {
+  createDezrezClient,
+  extractDezrezPropertyAddress,
+  isPlaceholderPropertyDisplayAddress,
+  normalizeDezrezPropertySummary,
+} from './dezrez-client';
 
 type DbClient = ReturnType<typeof createDbClient>['db'];
 
 const COLLECTION_EVENT_ENTITY_ID = '00000000-0000-0000-0000-000000000000';
+const PROPERTY_STALE_CANDIDATE_MISS_THRESHOLD = 1;
+const PROPERTY_DELIST_MISS_THRESHOLD = 3;
+const PROPERTY_SYNC_ANOMALY_MIN_BASELINE = 20;
+const PROPERTY_SYNC_ANOMALY_DROP_RATIO = 0.5;
 
 export type ProcessPendingPropertySyncsResult = {
   processedEvents: number;
@@ -79,6 +92,33 @@ function getDezrezRoleId(payload: {
   return payload.PropertyRoleId ?? payload.MarketingRoleId ?? null;
 }
 
+function isMeaningfulExternalId(value: string | null | undefined) {
+  return Boolean(value && value !== '0');
+}
+
+const PROPERTY_ROLE_REFRESH_FIELD_NAMES = new Set([
+  'RoleStatus',
+  'RoleType',
+  'Price',
+  'Value',
+  'PriceValue',
+  'Address',
+  'DisplayAddress',
+  'Postcode',
+  'Bedrooms',
+  'Bathrooms',
+  'Receptions',
+  'PropertyType',
+  'Style',
+  'Summary',
+  'Description',
+  'Features',
+  'AvailableDate',
+  'Deposit',
+  'Term',
+  'ServiceLevel',
+]);
+
 function getString(value: unknown) {
   if (typeof value === 'string' && value.trim().length > 0) {
     return value;
@@ -128,6 +168,52 @@ function getFirstString(...values: Array<unknown>) {
   return null;
 }
 
+function extractWebhookChanges(payload: Record<string, unknown>) {
+  if (!Array.isArray(payload.AllChanges)) {
+    return [] as Array<Record<string, unknown>>;
+  }
+
+  return payload.AllChanges.filter(
+    (entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === 'object' && !Array.isArray(entry),
+  );
+}
+
+function getWebhookChangeNames(payload: Record<string, unknown>) {
+  return extractWebhookChanges(payload)
+    .map((change) => getFirstString(change.PropertyName))
+    .filter((name): name is string => Boolean(name));
+}
+
+function inferGenericEventSubtype(payload: Record<string, unknown>) {
+  for (const change of extractWebhookChanges(payload)) {
+    if (getFirstString(change.PropertyName) !== 'EventType') {
+      continue;
+    }
+
+    const subtype = getFirstString(
+      change.NewSystemName,
+      change.NewName,
+      change.NewValue,
+      change.OldSystemName,
+      change.OldName,
+      change.OldValue,
+    );
+    if (subtype) {
+      return subtype;
+    }
+  }
+
+  return null;
+}
+
+function isTimelineChangeWebhook(payload: Record<string, unknown>) {
+  return getWebhookChangeNames(payload).includes('Events');
+}
+
+function isPropertyAffectingWebhook(payload: Record<string, unknown>) {
+  return getWebhookChangeNames(payload).some((name) => PROPERTY_ROLE_REFRESH_FIELD_NAMES.has(name));
+}
+
 function humanizeIdentifier(value: string) {
   const spaced = value
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
@@ -149,8 +235,121 @@ function extractCollectionRecords(value: unknown) {
   return Array.isArray(collection) ? (collection as Array<Record<string, unknown>>) : [];
 }
 
+function getFirstCollectionRecord(value: unknown) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+
+  const collection = extractCollectionRecords(value);
+  return collection[0] ?? null;
+}
+
 function buildSyntheticExternalId(rawEvent: Record<string, unknown>) {
   return createHash('sha256').update(JSON.stringify(rawEvent)).digest('hex');
+}
+
+function getPropertyIdFromReferenceMetadata(reference: ExternalReferenceLike) {
+  if (!reference.metadataJson || typeof reference.metadataJson !== 'object') {
+    return null;
+  }
+
+  return getString((reference.metadataJson as Record<string, unknown>).propertyId);
+}
+
+type ExternalReferenceLike = {
+  metadataJson: unknown;
+};
+
+function median(values: number[]) {
+  if (!values.length) {
+    return null;
+  }
+
+  const sorted = [...values].sort((left, right) => left - right);
+  const midpoint = Math.floor(sorted.length / 2);
+
+  if (sorted.length % 2 === 0) {
+    return (sorted[midpoint - 1]! + sorted[midpoint]!) / 2;
+  }
+
+  return sorted[midpoint] ?? null;
+}
+
+async function createPropertySyncRun(args: {
+  db: DbClient;
+  tenantId: string;
+  integrationAccountId: string;
+  triggerSource: string;
+  metadataJson: Record<string, unknown> | null;
+}) {
+  const createdRuns = await args.db
+    .insert(schema.propertySyncRuns)
+    .values({
+      tenantId: args.tenantId,
+      integrationAccountId: args.integrationAccountId,
+      triggerSource: args.triggerSource,
+      syncType: 'full',
+      status: 'running',
+      metadataJson: args.metadataJson,
+    })
+    .returning();
+
+  return requireValue(createdRuns[0], 'property_sync_run');
+}
+
+async function classifyPropertySyncRunHealth(args: {
+  db: DbClient;
+  integrationAccountId: string;
+  currentPropertyCount: number;
+}) {
+  const previousHealthyRuns = await args.db
+    .select({
+      propertyCount: schema.propertySyncRuns.propertyCount,
+    })
+    .from(schema.propertySyncRuns)
+    .where(
+      and(
+        eq(schema.propertySyncRuns.integrationAccountId, args.integrationAccountId),
+        eq(schema.propertySyncRuns.status, 'completed'),
+        eq(schema.propertySyncRuns.anomalyStatus, 'healthy'),
+      ),
+    )
+    .orderBy(desc(schema.propertySyncRuns.completedAt), desc(schema.propertySyncRuns.startedAt))
+    .limit(5);
+  const baselineCounts = previousHealthyRuns
+    .map((run) => Number(run.propertyCount ?? 0))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  const baselineMedian = median(baselineCounts);
+
+  if (
+    baselineMedian !== null &&
+    baselineMedian >= PROPERTY_SYNC_ANOMALY_MIN_BASELINE &&
+    args.currentPropertyCount === 0
+  ) {
+    return {
+      anomalyStatus: 'anomalous' as const,
+      anomalyReason: 'empty_feed_after_non_empty_history',
+      baselineMedian,
+    };
+  }
+
+  if (
+    baselineMedian !== null &&
+    baselineMedian >= PROPERTY_SYNC_ANOMALY_MIN_BASELINE &&
+    args.currentPropertyCount < Math.ceil(baselineMedian * PROPERTY_SYNC_ANOMALY_DROP_RATIO)
+  ) {
+    return {
+      anomalyStatus: 'anomalous' as const,
+      anomalyReason: 'count_drop_exceeds_threshold',
+      baselineMedian,
+    };
+  }
+
+  return {
+    anomalyStatus: 'healthy' as const,
+    anomalyReason: null,
+    baselineMedian,
+  };
 }
 
 async function findPropertyByRoleExternalId(args: {
@@ -173,6 +372,137 @@ async function findPropertyByRoleExternalId(args: {
     .limit(1);
 
   return reference?.entityId ?? null;
+}
+
+async function syncDezrezPropertyReferences(args: {
+  db: DbClient;
+  tenantId: string;
+  propertyId: string;
+  roleExternalId: string;
+  providerPropertyId: string | null;
+  displayAddress: string;
+}) {
+  const metadataJson = {
+    displayAddress: args.displayAddress,
+    propertyId: args.providerPropertyId,
+  };
+
+  if (args.providerPropertyId) {
+    const [propertyReference] = await args.db
+      .select()
+      .from(schema.externalReferences)
+      .where(
+        and(
+          eq(schema.externalReferences.tenantId, args.tenantId),
+          eq(schema.externalReferences.provider, 'dezrez'),
+          eq(schema.externalReferences.entityType, 'property'),
+          eq(schema.externalReferences.externalType, 'property'),
+          eq(schema.externalReferences.externalId, args.providerPropertyId),
+        ),
+      )
+      .limit(1);
+
+    if (propertyReference) {
+      await args.db
+        .update(schema.externalReferences)
+        .set({
+          entityId: args.propertyId,
+          metadataJson,
+          isCurrent: true,
+          supersededAt: null,
+          lastSeenAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.externalReferences.id, propertyReference.id));
+    } else {
+      await args.db.insert(schema.externalReferences).values({
+        tenantId: args.tenantId,
+        provider: 'dezrez',
+        entityType: 'property',
+        entityId: args.propertyId,
+        externalType: 'property',
+        externalId: args.providerPropertyId,
+        metadataJson,
+        isCurrent: true,
+        lastSeenAt: new Date(),
+      });
+    }
+  }
+
+  const [currentRoleReference] = await args.db
+    .select()
+    .from(schema.externalReferences)
+    .where(
+      and(
+        eq(schema.externalReferences.tenantId, args.tenantId),
+        eq(schema.externalReferences.provider, 'dezrez'),
+        eq(schema.externalReferences.entityType, 'property'),
+        eq(schema.externalReferences.externalType, 'property_role'),
+        eq(schema.externalReferences.entityId, args.propertyId),
+        eq(schema.externalReferences.isCurrent, true),
+      ),
+    )
+    .limit(1);
+
+  if (currentRoleReference?.externalId !== args.roleExternalId) {
+    await args.db
+      .update(schema.externalReferences)
+      .set({
+        isCurrent: false,
+        supersededAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(schema.externalReferences.tenantId, args.tenantId),
+          eq(schema.externalReferences.provider, 'dezrez'),
+          eq(schema.externalReferences.entityType, 'property'),
+          eq(schema.externalReferences.externalType, 'property_role'),
+          eq(schema.externalReferences.entityId, args.propertyId),
+          eq(schema.externalReferences.isCurrent, true),
+        ),
+      );
+  }
+
+  const [roleReference] = await args.db
+    .select()
+    .from(schema.externalReferences)
+    .where(
+      and(
+        eq(schema.externalReferences.tenantId, args.tenantId),
+        eq(schema.externalReferences.provider, 'dezrez'),
+        eq(schema.externalReferences.entityType, 'property'),
+        eq(schema.externalReferences.externalType, 'property_role'),
+        eq(schema.externalReferences.externalId, args.roleExternalId),
+      ),
+    )
+    .limit(1);
+
+  if (roleReference) {
+    await args.db
+      .update(schema.externalReferences)
+      .set({
+        entityId: args.propertyId,
+        metadataJson,
+        isCurrent: true,
+        supersededAt: null,
+        lastSeenAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.externalReferences.id, roleReference.id));
+  } else {
+    await args.db.insert(schema.externalReferences).values({
+      tenantId: args.tenantId,
+      provider: 'dezrez',
+      entityType: 'property',
+      entityId: args.propertyId,
+      externalType: 'property_role',
+      externalId: args.roleExternalId,
+      metadataJson,
+      isCurrent: true,
+      lastSeenAt: new Date(),
+    });
+  }
 }
 
 function normalizeOffer(rawOffer: Record<string, unknown>) {
@@ -532,9 +862,10 @@ export function classifyDezrezWebhookEvent(
   const parsed = dezrezWebhookPayloadSchema.parse(payload);
   const eventName = parsed.EventName ?? null;
   const propertyRoleId = getDezrezRoleId(parsed);
+  const hasRole = isMeaningfulExternalId(propertyRoleId);
 
   const pushRoleJob = (jobType: IntegrationJobType) => {
-    if (!propertyRoleId) {
+    if (!hasRole) {
       return [];
     }
 
@@ -559,24 +890,82 @@ export function classifyDezrezWebhookEvent(
     eventName &&
     ['GenericEvent', 'EventPropertySearch', 'EventKey', 'EventAlarm', 'event'].includes(eventName)
   ) {
+    const jobs = pushRoleJob('timeline.role.refresh');
+    if (isPropertyAffectingWebhook(payload)) {
+      jobs.push(...pushRoleJob('property.role.refresh'));
+    }
+    return jobs;
+  }
+
+  if (!eventName && isTimelineChangeWebhook(payload)) {
     return pushRoleJob('timeline.role.refresh');
   }
 
-  if (propertyRoleId) {
+  if (!eventName && isPropertyAffectingWebhook(payload)) {
     return pushRoleJob('property.role.refresh');
   }
 
-  if (parsed.PropertyId) {
-    return [
-      {
-        jobType: integrationJobTypeSchema.enum['property.role.refresh'],
-        entityType: 'property',
-        entityExternalId: parsed.PropertyId,
-      },
-    ];
+  if (hasRole) {
+    return pushRoleJob('property.role.refresh');
   }
 
   return [];
+}
+
+export function inferDezrezWebhookEventLabel(payload: Record<string, unknown>) {
+  const parsed = dezrezWebhookPayloadSchema.safeParse(payload);
+  const propertyRoleId =
+    getString(payload.PropertyRoleId) ?? getString(payload.MarketingRoleId);
+  const propertyId = getString(payload.PropertyId);
+  const rootEntityId = getString(payload.RootEntityId);
+  const documentId = getString(payload.DocumentId);
+  const changeType = getString(payload.ChangeType);
+
+  if (parsed.success && parsed.data.EventName) {
+    if (parsed.data.EventName === 'GenericEvent') {
+      const subtype = inferGenericEventSubtype(payload);
+      return subtype ? `GenericEvent:${subtype}` : 'GenericEvent';
+    }
+
+    return parsed.data.EventName;
+  }
+
+  if (isMeaningfulExternalId(propertyRoleId) && isTimelineChangeWebhook(payload)) {
+    return 'PropertyRoleEventsUpdated';
+  }
+
+  if (isMeaningfulExternalId(propertyRoleId)) {
+    if (isMeaningfulExternalId(documentId)) {
+      return 'PropertyRoleDocumentUpdated';
+    }
+
+    const normalizedChangeType =
+      typeof changeType === 'string' && changeType.length > 0
+        ? `${changeType.charAt(0).toUpperCase()}${changeType.slice(1).toLowerCase()}`
+        : null;
+
+    return normalizedChangeType ? `PropertyRole${normalizedChangeType}` : 'PropertyRoleUpdated';
+  }
+
+  if (isMeaningfulExternalId(propertyId)) {
+    const normalizedChangeType =
+      typeof changeType === 'string' && changeType.length > 0
+        ? `${changeType.charAt(0).toUpperCase()}${changeType.slice(1).toLowerCase()}`
+        : null;
+
+    return normalizedChangeType ? `Property${normalizedChangeType}` : 'PropertyUpdated';
+  }
+
+  if (isMeaningfulExternalId(rootEntityId)) {
+    const normalizedChangeType =
+      typeof changeType === 'string' && changeType.length > 0
+        ? `${changeType.charAt(0).toUpperCase()}${changeType.slice(1).toLowerCase()}`
+        : null;
+
+    return normalizedChangeType ? `Entity${normalizedChangeType}` : 'EntityUpdated';
+  }
+
+  return 'unknown';
 }
 
 async function loadDezrezIntegrationClient(args: {
@@ -601,11 +990,25 @@ async function loadDezrezIntegrationClient(args: {
   }
 
   const settings = dezrezIntegrationSettingsSchema.parse(integrationAccount.settingsJson ?? {});
+  const encryptionSecret = process.env.APP_ENCRYPTION_KEY ?? '';
   const decryptedCredentials = integrationAccount.credentialsJsonEncrypted
-    ? decryptJsonPayload(
-        integrationAccount.credentialsJsonEncrypted,
-        process.env.APP_ENCRYPTION_KEY ?? '',
-      )
+    ? (() => {
+        try {
+          return decryptJsonPayload(integrationAccount.credentialsJsonEncrypted, encryptionSecret);
+        } catch (error) {
+          const secretMetadata = getEncryptionSecretMetadata(encryptionSecret);
+          const details = JSON.stringify({
+            integrationAccountId: integrationAccount.id,
+            tenantId: integrationAccount.tenantId,
+            pid: process.pid,
+            encryptionSecretPresent: secretMetadata.present,
+            encryptionSecretLength: secretMetadata.length,
+            encryptionSecretTrimmedLength: secretMetadata.trimmedLength,
+          });
+          const errorMessage = error instanceof Error ? error.message : 'unknown_error';
+          throw new Error(`integration_credentials_decrypt_failed:${errorMessage}:${details}`);
+        }
+      })()
     : {};
   const credentials = dezrezIntegrationCredentialsSchema.parse(decryptedCredentials);
 
@@ -623,8 +1026,10 @@ async function upsertProperty(args: {
   tenantId: string;
   requestedByUserId: string | null;
   upstreamProperty: DezrezSeedProperty;
+  syncRunId?: string | null;
+  allowPlaceholderCreate?: boolean;
 }) {
-  const [existingReference] = await args.db
+  const [existingReferenceByExternalId] = await args.db
     .select()
     .from(schema.externalReferences)
     .where(
@@ -632,36 +1037,89 @@ async function upsertProperty(args: {
         eq(schema.externalReferences.tenantId, args.tenantId),
         eq(schema.externalReferences.provider, 'dezrez'),
         eq(schema.externalReferences.entityType, 'property'),
+        eq(schema.externalReferences.externalType, 'property_role'),
         eq(schema.externalReferences.externalId, args.upstreamProperty.externalId),
       ),
     )
     .limit(1);
+  const [existingReferenceByPropertyId] = args.upstreamProperty.propertyId
+    ? await args.db
+        .select()
+        .from(schema.externalReferences)
+        .where(
+          and(
+            eq(schema.externalReferences.tenantId, args.tenantId),
+            eq(schema.externalReferences.provider, 'dezrez'),
+            eq(schema.externalReferences.entityType, 'property'),
+            eq(schema.externalReferences.externalType, 'property'),
+            eq(schema.externalReferences.externalId, args.upstreamProperty.propertyId),
+          ),
+        )
+        .limit(1)
+    : [undefined];
+  const [existingReferenceByLegacyPropertyIdMetadata] = args.upstreamProperty.propertyId
+    ? await args.db
+        .select()
+        .from(schema.externalReferences)
+        .where(
+          and(
+            eq(schema.externalReferences.tenantId, args.tenantId),
+            eq(schema.externalReferences.provider, 'dezrez'),
+            eq(schema.externalReferences.entityType, 'property'),
+            sql`${schema.externalReferences.metadataJson} ->> 'propertyId' = ${args.upstreamProperty.propertyId}`,
+          ),
+        )
+        .limit(1)
+    : [undefined];
+  const existingReference =
+    existingReferenceByExternalId ??
+    existingReferenceByPropertyId ??
+    existingReferenceByLegacyPropertyIdMetadata;
 
   if (existingReference) {
+    const [existingProperty] = await args.db
+      .select()
+      .from(schema.properties)
+      .where(eq(schema.properties.id, existingReference.entityId))
+      .limit(1);
+    const resolvedDisplayAddress =
+      isPlaceholderPropertyDisplayAddress(args.upstreamProperty.displayAddress) &&
+      existingProperty?.displayAddress &&
+      !isPlaceholderPropertyDisplayAddress(existingProperty.displayAddress)
+        ? existingProperty.displayAddress
+        : args.upstreamProperty.displayAddress;
+    const resolvedPostcode =
+      args.upstreamProperty.postcode ??
+      (existingProperty?.postcode && existingProperty.postcode.trim().length > 0 ? existingProperty.postcode : null);
     const updatedProperties = await args.db
       .update(schema.properties)
       .set({
-        displayAddress: args.upstreamProperty.displayAddress,
-        postcode: args.upstreamProperty.postcode ?? null,
+        displayAddress: resolvedDisplayAddress,
+        postcode: resolvedPostcode,
         status: args.upstreamProperty.status ?? 'active',
         marketingStatus: args.upstreamProperty.marketingStatus ?? null,
+        syncState: 'active',
+        consecutiveMissCount: 0,
+        lastSeenAt: new Date(),
+        lastSeenInSyncRunId: args.syncRunId ?? null,
+        missingSinceSyncRunId: null,
+        staleCandidateAt: null,
+        delistedAt: null,
+        delistedReason: null,
         updatedAt: new Date(),
       })
       .where(eq(schema.properties.id, existingReference.entityId))
       .returning();
     const property = requireValue(updatedProperties[0], 'property');
 
-    await args.db
-      .update(schema.externalReferences)
-      .set({
-        metadataJson: {
-          displayAddress: args.upstreamProperty.displayAddress,
-          propertyId: args.upstreamProperty.propertyId ?? null,
-        },
-        lastSeenAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.externalReferences.id, existingReference.id));
+    await syncDezrezPropertyReferences({
+      db: args.db,
+      tenantId: args.tenantId,
+      propertyId: property.id,
+      roleExternalId: args.upstreamProperty.externalId,
+      providerPropertyId: args.upstreamProperty.propertyId ?? null,
+      displayAddress: resolvedDisplayAddress,
+    });
 
     await args.db.insert(schema.auditLogs).values({
       tenantId: args.tenantId,
@@ -692,30 +1150,37 @@ async function upsertProperty(args: {
     return { propertyId: property.id, mutationType: 'updated' as const };
   }
 
+  if (
+    args.allowPlaceholderCreate === false &&
+    isPlaceholderPropertyDisplayAddress(args.upstreamProperty.displayAddress) &&
+    !args.upstreamProperty.postcode
+  ) {
+    return { propertyId: null, mutationType: 'skipped' as const };
+  }
+
   const createdProperties = await args.db
     .insert(schema.properties)
-    .values({
-      tenantId: args.tenantId,
-      displayAddress: args.upstreamProperty.displayAddress,
-      postcode: args.upstreamProperty.postcode ?? null,
-      status: args.upstreamProperty.status ?? 'active',
-      marketingStatus: args.upstreamProperty.marketingStatus ?? null,
-    })
+      .values({
+        tenantId: args.tenantId,
+        displayAddress: args.upstreamProperty.displayAddress,
+        postcode: args.upstreamProperty.postcode ?? null,
+        status: args.upstreamProperty.status ?? 'active',
+        marketingStatus: args.upstreamProperty.marketingStatus ?? null,
+        syncState: 'active',
+        consecutiveMissCount: 0,
+        lastSeenAt: new Date(),
+        lastSeenInSyncRunId: args.syncRunId ?? null,
+      })
     .returning();
   const property = requireValue(createdProperties[0], 'property');
 
-  await args.db.insert(schema.externalReferences).values({
+  await syncDezrezPropertyReferences({
+    db: args.db,
     tenantId: args.tenantId,
-    provider: 'dezrez',
-    entityType: 'property',
-    entityId: property.id,
-    externalType: 'property_role',
-    externalId: args.upstreamProperty.externalId,
-    metadataJson: {
-      displayAddress: args.upstreamProperty.displayAddress,
-      propertyId: args.upstreamProperty.propertyId ?? null,
-    },
-    lastSeenAt: new Date(),
+    propertyId: property.id,
+    roleExternalId: args.upstreamProperty.externalId,
+    providerPropertyId: args.upstreamProperty.propertyId ?? null,
+    displayAddress: args.upstreamProperty.displayAddress,
   });
 
   await args.db.insert(schema.auditLogs).values({
@@ -745,6 +1210,175 @@ async function upsertProperty(args: {
   });
 
   return { propertyId: property.id, mutationType: 'created' as const };
+}
+
+async function storePropertySyncInventory(args: {
+  db: DbClient;
+  tenantId: string;
+  syncRunId: string;
+  seenProperties: Array<{
+    propertyId: string | null;
+    externalId: string;
+    providerPropertyId: string | null;
+    displayAddress: string;
+  }>;
+}) {
+  if (!args.seenProperties.length) {
+    return;
+  }
+
+  await args.db.insert(schema.propertySyncInventory).values(
+    args.seenProperties.map((property) => ({
+      tenantId: args.tenantId,
+      syncRunId: args.syncRunId,
+      propertyId: property.propertyId,
+      externalId: property.externalId,
+      providerPropertyId: property.providerPropertyId,
+      displayAddress: property.displayAddress,
+    })),
+  );
+}
+
+async function applyPropertySyncState(args: {
+  db: DbClient;
+  tenantId: string;
+  syncRunId: string;
+  seenRoleIds: Set<string>;
+  seenProviderPropertyIds: Set<string>;
+}) {
+  const propertyReferences = await args.db
+    .select({
+      propertyId: schema.properties.id,
+      tenantId: schema.properties.tenantId,
+      syncState: schema.properties.syncState,
+      consecutiveMissCount: schema.properties.consecutiveMissCount,
+      lastSeenAt: schema.properties.lastSeenAt,
+      lastSeenInSyncRunId: schema.properties.lastSeenInSyncRunId,
+      missingSinceSyncRunId: schema.properties.missingSinceSyncRunId,
+      staleCandidateAt: schema.properties.staleCandidateAt,
+      delistedAt: schema.properties.delistedAt,
+      externalId: schema.externalReferences.externalId,
+      metadataJson: schema.externalReferences.metadataJson,
+    })
+    .from(schema.properties)
+    .innerJoin(
+      schema.externalReferences,
+      and(
+        eq(schema.externalReferences.tenantId, schema.properties.tenantId),
+        eq(schema.externalReferences.entityId, schema.properties.id),
+        eq(schema.externalReferences.provider, 'dezrez'),
+        eq(schema.externalReferences.entityType, 'property'),
+      ),
+    )
+    .where(eq(schema.properties.tenantId, args.tenantId));
+
+  const groupedByProperty = new Map<
+    string,
+    {
+      propertyId: string;
+      syncState: string;
+      consecutiveMissCount: number;
+      missingSinceSyncRunId: string | null;
+      staleCandidateAt: Date | null;
+      delistedAt: Date | null;
+      references: Array<{ externalId: string; providerPropertyId: string | null }>;
+    }
+  >();
+
+  for (const row of propertyReferences) {
+    const existing = groupedByProperty.get(row.propertyId);
+    if (existing) {
+      existing.references.push({
+        externalId: row.externalId,
+        providerPropertyId: getPropertyIdFromReferenceMetadata(row),
+      });
+      continue;
+    }
+
+    groupedByProperty.set(row.propertyId, {
+      propertyId: row.propertyId,
+      syncState: row.syncState,
+      consecutiveMissCount: row.consecutiveMissCount ?? 0,
+      missingSinceSyncRunId: row.missingSinceSyncRunId ?? null,
+      staleCandidateAt: row.staleCandidateAt ?? null,
+      delistedAt: row.delistedAt ?? null,
+      references: [
+        {
+          externalId: row.externalId,
+          providerPropertyId: getPropertyIdFromReferenceMetadata(row),
+        },
+      ],
+    });
+  }
+
+  for (const property of groupedByProperty.values()) {
+    const seen = property.references.some(
+      (reference) =>
+        args.seenRoleIds.has(reference.externalId) ||
+        (reference.providerPropertyId ? args.seenProviderPropertyIds.has(reference.providerPropertyId) : false),
+    );
+
+    if (seen) {
+      await args.db
+        .update(schema.properties)
+        .set({
+          syncState: 'active',
+          consecutiveMissCount: 0,
+          lastSeenAt: new Date(),
+          lastSeenInSyncRunId: args.syncRunId,
+          missingSinceSyncRunId: null,
+          staleCandidateAt: null,
+          delistedAt: null,
+          delistedReason: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.properties.id, property.propertyId));
+      continue;
+    }
+
+    const nextMissCount = property.consecutiveMissCount + 1;
+    const becomesDelisted = nextMissCount >= PROPERTY_DELIST_MISS_THRESHOLD;
+    const becomesStaleCandidate = nextMissCount >= PROPERTY_STALE_CANDIDATE_MISS_THRESHOLD;
+
+    await args.db
+      .update(schema.properties)
+      .set({
+        syncState: becomesDelisted ? 'delisted' : becomesStaleCandidate ? 'stale_candidate' : 'active',
+        consecutiveMissCount: nextMissCount,
+        missingSinceSyncRunId: property.missingSinceSyncRunId ?? args.syncRunId,
+        staleCandidateAt: property.staleCandidateAt ?? new Date(),
+        delistedAt: becomesDelisted ? property.delistedAt ?? new Date() : null,
+        delistedReason: becomesDelisted ? 'missing_from_healthy_sync' : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.properties.id, property.propertyId));
+  }
+
+  const [staleCandidateCountRow, delistedCountRow] = await Promise.all([
+    args.db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.properties)
+      .where(
+        and(
+          eq(schema.properties.tenantId, args.tenantId),
+          eq(schema.properties.syncState, 'stale_candidate'),
+        ),
+      ),
+    args.db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.properties)
+      .where(
+        and(
+          eq(schema.properties.tenantId, args.tenantId),
+          eq(schema.properties.syncState, 'delisted'),
+        ),
+      ),
+  ]);
+
+  return {
+    staleCandidateCount: Number(staleCandidateCountRow[0]?.count ?? 0),
+    delistedCount: Number(delistedCountRow[0]?.count ?? 0),
+  };
 }
 
 export async function processPendingPropertySyncs(args: {
@@ -801,7 +1435,33 @@ export async function processPendingPropertySyncs(args: {
       continue;
     }
 
+    let syncRun: typeof schema.propertySyncRuns.$inferSelect | null = null;
+
     try {
+      console.log('@vitalspace/worker property.sync_requested processing', {
+        outboxEventId: pendingEvent.id,
+        tenantId: pendingEvent.tenantId,
+        trigger:
+          pendingEvent.payloadJson && typeof pendingEvent.payloadJson === 'object'
+            ? (pendingEvent.payloadJson as Record<string, unknown>).trigger ?? null
+            : null,
+      });
+
+      const triggerMetadata =
+        parsedPayload.data.trigger && typeof parsedPayload.data.trigger === 'object'
+          ? parsedPayload.data.trigger
+          : null;
+      syncRun = await createPropertySyncRun({
+        db: args.db,
+        tenantId: pendingEvent.tenantId,
+        integrationAccountId: integrationAccount.id,
+        triggerSource: triggerMetadata?.source ?? 'manual_api',
+        metadataJson: {
+          outboxEventId: pendingEvent.id,
+          trigger: triggerMetadata,
+        },
+      });
+
       const { client } = await loadDezrezIntegrationClient({
         db: args.db,
         integrationAccountId: integrationAccount.id,
@@ -809,16 +1469,77 @@ export async function processPendingPropertySyncs(args: {
       });
       const upstreamProperties = await client.listPropertiesForSync();
       let upsertCount = 0;
+      const seenRoleIds = new Set<string>();
+      const seenProviderPropertyIds = new Set<string>();
+      const seenInventory: Array<{
+        propertyId: string | null;
+        externalId: string;
+        providerPropertyId: string | null;
+        displayAddress: string;
+      }> = [];
 
       for (const upstreamProperty of upstreamProperties) {
-        await upsertProperty({
+        const { propertyId } = await upsertProperty({
           db: args.db,
           tenantId: pendingEvent.tenantId,
           requestedByUserId: parsedPayload.data.requestedByUserId,
           upstreamProperty,
+          syncRunId: syncRun.id,
         });
         upsertCount += 1;
+        seenRoleIds.add(upstreamProperty.externalId);
+        if (upstreamProperty.propertyId) {
+          seenProviderPropertyIds.add(upstreamProperty.propertyId);
+        }
+        seenInventory.push({
+          propertyId,
+          externalId: upstreamProperty.externalId,
+          providerPropertyId: upstreamProperty.propertyId ?? null,
+          displayAddress: upstreamProperty.displayAddress,
+        });
       }
+
+      await storePropertySyncInventory({
+        db: args.db,
+        tenantId: pendingEvent.tenantId,
+        syncRunId: syncRun.id,
+        seenProperties: seenInventory,
+      });
+
+      const health = await classifyPropertySyncRunHealth({
+        db: args.db,
+        integrationAccountId: integrationAccount.id,
+        currentPropertyCount: upsertCount,
+      });
+      const stateCounts =
+        health.anomalyStatus === 'healthy'
+          ? await applyPropertySyncState({
+              db: args.db,
+              tenantId: pendingEvent.tenantId,
+              syncRunId: syncRun.id,
+              seenRoleIds,
+              seenProviderPropertyIds,
+            })
+          : { staleCandidateCount: 0, delistedCount: 0 };
+
+      await args.db
+        .update(schema.propertySyncRuns)
+        .set({
+          status: 'completed',
+          anomalyStatus: health.anomalyStatus,
+          anomalyReason: health.anomalyReason,
+          propertyCount: upsertCount,
+          staleCandidateCount: stateCounts.staleCandidateCount,
+          delistedCount: stateCounts.delistedCount,
+          metadataJson: {
+            outboxEventId: pendingEvent.id,
+            trigger: triggerMetadata,
+            baselineMedian: health.baselineMedian,
+          },
+          completedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(schema.propertySyncRuns.id, syncRun.id));
 
       await args.db.insert(schema.auditLogs).values({
         tenantId: pendingEvent.tenantId,
@@ -829,7 +1550,12 @@ export async function processPendingPropertySyncs(args: {
         action: 'property.sync_completed',
         summary: `Completed Dezrez property sync with ${upsertCount} properties`,
         metadataJson: {
+          syncRunId: syncRun.id,
           propertyCount: upsertCount,
+          anomalyStatus: health.anomalyStatus,
+          anomalyReason: health.anomalyReason,
+          staleCandidateCount: stateCounts.staleCandidateCount,
+          delistedCount: stateCounts.delistedCount,
         },
       });
 
@@ -841,7 +1567,12 @@ export async function processPendingPropertySyncs(args: {
         mutationType: 'sync_completed',
         channelKey: buildTenantRoom(pendingEvent.tenantId),
         payloadJson: {
+          syncRunId: syncRun.id,
           propertyCount: upsertCount,
+          anomalyStatus: health.anomalyStatus,
+          anomalyReason: health.anomalyReason,
+          staleCandidateCount: stateCounts.staleCandidateCount,
+          delistedCount: stateCounts.delistedCount,
         },
       });
 
@@ -859,6 +1590,24 @@ export async function processPendingPropertySyncs(args: {
       result.upsertedProperties += upsertCount;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'sync_failed';
+      if (syncRun) {
+        await args.db
+          .update(schema.propertySyncRuns)
+          .set({
+            status: 'failed',
+            anomalyStatus: 'healthy',
+            anomalyReason: null,
+            completedAt: new Date(),
+            metadataJson: {
+              ...(syncRun.metadataJson && typeof syncRun.metadataJson === 'object'
+                ? (syncRun.metadataJson as Record<string, unknown>)
+                : {}),
+              errorMessage: message,
+            },
+            updatedAt: new Date(),
+          })
+          .where(eq(schema.propertySyncRuns.id, syncRun.id));
+      }
       await markOutboxEventFailed(args.db, pendingEvent.id, message);
       result.failedEvents += 1;
     }
@@ -905,8 +1654,33 @@ export async function processPendingDezrezWebhookEvents(args: {
     try {
       const payload = dezrezWebhookPayloadSchema.parse(webhookEvent.payloadJson);
       const jobs = classifyDezrezWebhookEvent(payload);
+      let createdJobsForWebhook = 0;
+      let coalescedJobsForWebhook = 0;
 
       for (const job of jobs) {
+        const [existingPendingJob] = await args.db
+          .select({ id: schema.integrationJobs.id })
+          .from(schema.integrationJobs)
+          .where(
+            and(
+              eq(schema.integrationJobs.tenantId, webhookEvent.tenantId),
+              eq(schema.integrationJobs.integrationAccountId, webhookEvent.integrationAccountId),
+              eq(schema.integrationJobs.provider, 'dezrez'),
+              eq(schema.integrationJobs.jobType, job.jobType),
+              eq(schema.integrationJobs.entityType, job.entityType),
+              job.entityExternalId === null
+                ? sql`${schema.integrationJobs.entityExternalId} is null`
+                : eq(schema.integrationJobs.entityExternalId, job.entityExternalId),
+              eq(schema.integrationJobs.status, 'pending'),
+            ),
+          )
+          .limit(1);
+
+        if (existingPendingJob) {
+          coalescedJobsForWebhook += 1;
+          continue;
+        }
+
         const payloadHash = buildWebhookPayloadHash(payload);
         const refreshPayload = dezrezRefreshJobPayloadSchema.parse({
           webhookEventId: webhookEvent.id,
@@ -933,25 +1707,32 @@ export async function processPendingDezrezWebhookEvents(args: {
           .onConflictDoNothing({
             target: [schema.integrationJobs.provider, schema.integrationJobs.dedupeKey],
           });
+        createdJobsForWebhook += 1;
       }
 
       await args.db
         .update(schema.webhookEvents)
         .set({
-          processingStatus: 'processed',
+          processingStatus: createdJobsForWebhook > 0 ? 'processed' : 'ignored',
           processedAt: new Date(),
-          errorMessage: null,
+          errorMessage:
+            createdJobsForWebhook > 0
+              ? null
+              : coalescedJobsForWebhook > 0
+                ? 'coalesced_existing_job'
+                : 'no_jobs_created',
         })
         .where(eq(schema.webhookEvents.id, webhookEvent.id));
 
       result.processedEvents += 1;
-      result.createdJobs += jobs.length;
+      result.createdJobs += createdJobsForWebhook;
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'webhook_processing_failed';
       await args.db
         .update(schema.webhookEvents)
         .set({
           processingStatus: 'failed',
-          errorMessage: error instanceof Error ? error.message : 'webhook_processing_failed',
+          errorMessage: message,
         })
         .where(eq(schema.webhookEvents.id, webhookEvent.id));
       result.failedEvents += 1;
@@ -1002,18 +1783,89 @@ export async function processPendingIntegrationJobs(args: {
       });
 
       if (job.jobType === 'property.role.refresh') {
-        await args.db.insert(schema.outboxEvents).values({
-          tenantId: job.tenantId,
-          eventName: 'property.sync_requested',
-          entityType: 'property',
-          entityId: COLLECTION_EVENT_ENTITY_ID,
-          mutationType: 'sync_requested',
-          channelKey: buildTenantRoom(job.tenantId),
-          payloadJson: propertySyncRequestPayloadSchema.parse({
-            integrationAccountId: job.integrationAccountId,
+        let upstreamProperty =
+          job.entityType === 'property_role' && job.entityExternalId
+            ? normalizeDezrezPropertySummary(
+                getFirstCollectionRecord(await client.getRole(job.entityExternalId)) ?? {},
+              )
+            : null;
+
+        if (
+          upstreamProperty &&
+          upstreamProperty.propertyId &&
+          isPlaceholderPropertyDisplayAddress(upstreamProperty.displayAddress)
+        ) {
+          const rawProperty = getFirstCollectionRecord(await client.getProperty(upstreamProperty.propertyId)) ?? {};
+          const enrichedAddress = extractDezrezPropertyAddress(rawProperty);
+          if (enrichedAddress.displayAddress && !isPlaceholderPropertyDisplayAddress(enrichedAddress.displayAddress)) {
+            upstreamProperty = {
+              ...upstreamProperty,
+              displayAddress: enrichedAddress.displayAddress,
+              postcode: enrichedAddress.postcode ?? upstreamProperty.postcode,
+            };
+          }
+        }
+
+        if (upstreamProperty) {
+          const { propertyId } = await upsertProperty({
+            db: args.db,
+            tenantId: job.tenantId,
             requestedByUserId: null,
-          }),
-        });
+            upstreamProperty,
+            allowPlaceholderCreate: false,
+          });
+
+          if (propertyId) {
+            await args.db.insert(schema.outboxEvents).values({
+              tenantId: job.tenantId,
+              eventName: 'property.refreshed',
+              entityType: 'property',
+              entityId: propertyId,
+              mutationType: 'refreshed',
+              channelKey: buildTenantRoom(job.tenantId),
+              payloadJson: {
+                externalId: upstreamProperty.externalId,
+                displayAddress: upstreamProperty.displayAddress,
+              },
+            });
+          }
+        } else {
+          const queuedSyncRequests = await args.db
+            .insert(schema.outboxEvents)
+            .values({
+              tenantId: job.tenantId,
+              eventName: 'property.sync_requested',
+              entityType: 'property',
+              entityId: COLLECTION_EVENT_ENTITY_ID,
+              mutationType: 'sync_requested',
+              channelKey: buildTenantRoom(job.tenantId),
+              payloadJson: propertySyncRequestPayloadSchema.parse({
+                integrationAccountId: job.integrationAccountId,
+                requestedByUserId: null,
+                trigger: {
+                  source: 'integration_job_fallback',
+                  integrationJobId: job.id,
+                  webhookEventId: payload.webhookEventId,
+                  jobType: job.jobType,
+                  entityType: job.entityType,
+                  entityExternalId: job.entityExternalId ?? undefined,
+                },
+              }),
+            })
+            .returning();
+
+          console.log('@vitalspace/worker property.sync_requested queued', {
+            source: 'integration_job_fallback',
+            outboxEventId: queuedSyncRequests[0]?.id ?? null,
+            tenantId: job.tenantId,
+            integrationAccountId: job.integrationAccountId,
+            integrationJobId: job.id,
+            webhookEventId: payload.webhookEventId,
+            jobType: job.jobType,
+            entityType: job.entityType,
+            entityExternalId: job.entityExternalId,
+          });
+        }
       } else if (job.jobType === 'offer.role.refresh') {
         if (!job.entityExternalId) {
           throw new Error('role_external_id_required');
@@ -1130,10 +1982,11 @@ export async function processPendingIntegrationJobs(args: {
 
       result.completedJobs += 1;
     } catch (error) {
+      const message = error instanceof Error ? error.message : 'integration_job_failed';
       await markIntegrationJobFailed(
         args.db,
         job.id,
-        error instanceof Error ? error.message : 'integration_job_failed',
+        message,
       );
       result.failedJobs += 1;
     }

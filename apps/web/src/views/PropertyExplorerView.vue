@@ -11,6 +11,12 @@ type PropertySummary = {
   postcode: string | null;
   status: string;
   marketingStatus: string | null;
+  syncState: string;
+  consecutiveMissCount: number;
+  lastSeenAt: string | null;
+  staleCandidateAt: string | null;
+  delistedAt: string | null;
+  delistedReason: string | null;
   externalId: string | null;
 };
 
@@ -86,9 +92,18 @@ type IntegrationStatus = {
   hasCredentials: boolean;
   seedPropertyCount: number;
   propertyCount: number;
+  staleCandidatePropertyCount: number;
+  delistedPropertyCount: number;
   pendingWebhookCount: number;
   pendingIntegrationJobCount: number;
   pendingPropertySyncCount: number;
+  metrics: {
+    failedWebhookCount: number;
+    rejectedWebhookCount: number;
+    unresolvedWebhookCount: number;
+    ignoredWebhookCount: number;
+    unknownWebhookCount: number;
+  };
   lastSyncRequestedAt: string | null;
   lastSyncRequestedPublishedAt: string | null;
   lastSyncRequestedStatus: string | null;
@@ -96,6 +111,19 @@ type IntegrationStatus = {
   lastSyncCompletedPropertyCount: number | null;
   latestWebhookReceivedAt: string | null;
   latestWebhookStatus: string | null;
+  latestSyncRun: {
+    id: string;
+    triggerSource: string;
+    status: string;
+    anomalyStatus: string;
+    anomalyReason: string | null;
+    baselineMedian: number | null;
+    propertyCount: number;
+    staleCandidateCount: number;
+    delistedCount: number;
+    startedAt: string;
+    completedAt: string | null;
+  } | null;
   diagnostics: {
     lastWebhookError: {
       id: string;
@@ -115,6 +143,13 @@ type IntegrationStatus = {
       createdAt: string;
       errorMessage: string | null;
     } | null;
+    lastSyncAnomaly: {
+      id: string;
+      completedAt: string | null;
+      anomalyReason: string | null;
+      baselineMedian: number | null;
+      propertyCount: number;
+    } | null;
   };
   history: {
     recentActivity: {
@@ -125,6 +160,26 @@ type IntegrationStatus = {
       title: string;
       subtitle: string | null;
       errorMessage: string | null;
+    }[];
+    recentWebhooks: {
+      id: string;
+      eventType: string;
+      status: string;
+      receivedAt: string;
+      errorMessage: string | null;
+      summary: {
+        agencyId: string | null;
+        branchId: string | null;
+        propertyId: string | null;
+        propertyRoleId: string | null;
+        rootEntityId: string | null;
+        documentId: string | null;
+        changedByPersonId: string | null;
+        personId: string | null;
+        changeType: string | null;
+        occurredAt: string | null;
+      };
+      payloadJson: Record<string, unknown>;
     }[];
   };
   updatedAt: string;
@@ -146,6 +201,8 @@ const connectionState = ref<'disconnected' | 'connecting' | 'connected'>('discon
 const lastRealtimeEvent = ref<EntityChangedEvent | null>(null);
 const syncState = ref<'idle' | 'requesting' | 'requested' | 'failed'>('idle');
 const syncMessage = ref('No sync requested in this session.');
+const propertyRefreshState = ref<'idle' | 'requesting' | 'requested' | 'failed'>('idle');
+const propertyRefreshMessage = ref('No property refresh requested in this session.');
 const retryState = ref<'idle' | 'retrying' | 'retried' | 'failed'>('idle');
 const retryMessage = ref('No retry attempted in this session.');
 const replayState = ref<'idle' | 'replaying' | 'replayed' | 'failed'>('idle');
@@ -153,6 +210,8 @@ const replayMessage = ref('No webhook replay attempted in this session.');
 const fileUploadState = ref<'idle' | 'uploading' | 'uploaded' | 'failed'>('idle');
 const fileUploadMessage = ref('No file uploaded in this session.');
 const selectedUploadFile = ref<File | null>(null);
+const activityFeedCollapsed = ref(false);
+const webhookFeedCollapsed = ref(false);
 let socket: Socket | null = null;
 
 watch(tenantId, (value) => {
@@ -182,6 +241,7 @@ watch([tenantId, accessToken], ([nextTenantId, nextAccessToken], [previousTenant
 });
 
 const canLoad = computed(() => tenantId.value.trim().length > 0 && accessToken.value.trim().length > 0);
+const selectedPropertyIdValue = computed(() => selectedPropertyId.value.trim());
 
 async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`${apiBaseUrl}${path}`, {
@@ -251,62 +311,67 @@ watch(
 );
 
 const selectedPropertyReady = computed(
-  () => canLoad.value && selectedPropertyId.value.trim().length > 0,
+  () => canLoad.value && selectedPropertyIdValue.value.length > 0,
 );
 
 const propertyDetailQuery = useQuery({
-  queryKey: ['property-detail', tenantId, selectedPropertyId],
+  queryKey: ['property-detail', tenantId, selectedPropertyIdValue],
   enabled: selectedPropertyReady,
   queryFn: () =>
     apiGet<{ property: PropertyDetail }>(
-      `/properties/${selectedPropertyId.value}?tenantId=${encodeURIComponent(tenantId.value.trim())}`,
+      `/properties/${selectedPropertyIdValue.value}?tenantId=${encodeURIComponent(tenantId.value.trim())}`,
     ),
 });
 
 const offersQuery = useQuery({
-  queryKey: ['property-offers', tenantId, selectedPropertyId],
+  queryKey: ['property-offers', tenantId, selectedPropertyIdValue],
   enabled: selectedPropertyReady,
   queryFn: () =>
     apiGet<{ offers: PropertyOffer[] }>(
-      `/properties/${selectedPropertyId.value}/offers?tenantId=${encodeURIComponent(tenantId.value.trim())}`,
+      `/properties/${selectedPropertyIdValue.value}/offers?tenantId=${encodeURIComponent(tenantId.value.trim())}`,
     ),
 });
 
 const viewingsQuery = useQuery({
-  queryKey: ['property-viewings', tenantId, selectedPropertyId],
+  queryKey: ['property-viewings', tenantId, selectedPropertyIdValue],
   enabled: selectedPropertyReady,
   queryFn: () =>
     apiGet<{ viewings: PropertyViewing[] }>(
-      `/properties/${selectedPropertyId.value}/viewings?tenantId=${encodeURIComponent(tenantId.value.trim())}`,
+      `/properties/${selectedPropertyIdValue.value}/viewings?tenantId=${encodeURIComponent(tenantId.value.trim())}`,
     ),
 });
 
 const timelineQuery = useQuery({
-  queryKey: ['property-timeline', tenantId, selectedPropertyId],
+  queryKey: ['property-timeline', tenantId, selectedPropertyIdValue],
   enabled: selectedPropertyReady,
   queryFn: () =>
     apiGet<{ timelineEvents: PropertyTimelineEvent[] }>(
-      `/properties/${selectedPropertyId.value}/timeline?tenantId=${encodeURIComponent(tenantId.value.trim())}`,
+      `/properties/${selectedPropertyIdValue.value}/timeline?tenantId=${encodeURIComponent(tenantId.value.trim())}`,
     ),
 });
 
 const filesQuery = useQuery({
-  queryKey: ['property-files', tenantId, selectedPropertyId],
+  queryKey: ['property-files', tenantId, selectedPropertyIdValue],
   enabled: selectedPropertyReady,
   queryFn: () =>
     apiGet<{ files: PropertyFile[] }>(
-      `/files?tenantId=${encodeURIComponent(tenantId.value.trim())}&entityType=property&entityId=${selectedPropertyId.value}`,
+      `/files?tenantId=${encodeURIComponent(tenantId.value.trim())}&entityType=property&entityId=${selectedPropertyIdValue.value}`,
     ),
 });
 
 const propertyList = computed(() => propertiesQuery.data.value?.properties ?? []);
 const integrationStatus = computed(() => integrationStatusQuery.data.value?.integrationAccount ?? null);
+const hasPendingSyncRequest = computed(
+  () => (integrationStatus.value?.pendingPropertySyncCount ?? 0) > 0,
+);
 const integrationHistory = computed(() => integrationStatus.value?.history.recentActivity ?? []);
+const recentWebhookHistory = computed(() => integrationStatus.value?.history.recentWebhooks ?? []);
 const hasDiagnostics = computed(() => {
   return Boolean(
     integrationStatus.value?.diagnostics.lastWebhookError ||
       integrationStatus.value?.diagnostics.lastIntegrationJobError ||
-      integrationStatus.value?.diagnostics.lastSyncRequestError,
+      integrationStatus.value?.diagnostics.lastSyncRequestError ||
+      integrationStatus.value?.diagnostics.lastSyncAnomaly,
   );
 });
 const propertyDetail = computed(() => propertyDetailQuery.data.value?.property ?? null);
@@ -315,17 +380,35 @@ const viewings = computed(() => viewingsQuery.data.value?.viewings ?? []);
 const timelineEvents = computed(() => timelineQuery.data.value?.timelineEvents ?? []);
 const files = computed(() => filesQuery.data.value?.files ?? []);
 
-const primaryError = computed(() => {
-  return (
-    propertiesQuery.error.value ??
-    integrationStatusQuery.error.value ??
-    propertyDetailQuery.error.value ??
-    offersQuery.error.value ??
-    viewingsQuery.error.value ??
-    timelineQuery.error.value ??
-    filesQuery.error.value
-  );
+const queryErrors = computed(() => {
+  const entries: Array<{ source: string; message: string }> = [];
+
+  const pushError = (source: string, error: unknown) => {
+    if (!error) {
+      return;
+    }
+
+    entries.push({
+      source,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  };
+
+  pushError('properties', propertiesQuery.error.value);
+  pushError('integration-status', integrationStatusQuery.error.value);
+
+  if (selectedPropertyReady.value) {
+    pushError('property-detail', propertyDetailQuery.error.value);
+    pushError('property-offers', offersQuery.error.value);
+    pushError('property-viewings', viewingsQuery.error.value);
+    pushError('property-timeline', timelineQuery.error.value);
+    pushError('property-files', filesQuery.error.value);
+  }
+
+  return entries;
 });
+
+const primaryError = computed(() => queryErrors.value[0] ?? null);
 
 function formatMoney(value: number | null) {
   if (value === null) {
@@ -361,6 +444,14 @@ function formatActivitySource(value: IntegrationStatus['history']['recentActivit
     case 'sync_completion':
       return 'Sync complete';
   }
+}
+
+function formatWebhookSummaryValue(value: string | null) {
+  return value ?? 'n/a';
+}
+
+function prettyJson(value: Record<string, unknown>) {
+  return JSON.stringify(value, null, 2);
 }
 
 function refreshAll() {
@@ -459,16 +550,26 @@ async function requestSync() {
     return;
   }
 
+  if (hasPendingSyncRequest.value) {
+    syncState.value = 'requested';
+    syncMessage.value = 'A sync request is already pending for this tenant.';
+    return;
+  }
+
   syncState.value = 'requesting';
   syncMessage.value = 'Requesting Dezrez sync...';
 
   try {
-    await apiPost<{ accepted: boolean }>('/integrations/dezrez/sync', {
+    const response = await apiPost<{ accepted: boolean; deduplicated?: boolean }>(
+      '/integrations/dezrez/sync',
+      {
       tenantId: tenantId.value.trim(),
-    });
+      },
+    );
     syncState.value = 'requested';
-    syncMessage.value =
-      'Sync accepted. If the worker is running, realtime updates should begin arriving shortly.';
+    syncMessage.value = response.deduplicated
+      ? 'A matching sync request is already queued. Waiting for the worker to pick it up.'
+      : 'Sync accepted. If the worker is running, realtime updates should begin arriving shortly.';
     void queryClient.invalidateQueries({
       queryKey: ['integration-status', tenantId],
     });
@@ -478,6 +579,32 @@ async function requestSync() {
   } catch (error) {
     syncState.value = 'failed';
     syncMessage.value = error instanceof Error ? error.message : 'Sync request failed.';
+  }
+}
+
+async function refreshSelectedProperty() {
+  if (!selectedPropertyIdValue.value || !canLoad.value) {
+    propertyRefreshState.value = 'failed';
+    propertyRefreshMessage.value = 'Select a property first.';
+    return;
+  }
+
+  propertyRefreshState.value = 'requesting';
+  propertyRefreshMessage.value = 'Requesting offers, viewings, and timeline refresh...';
+
+  try {
+    await apiPost<{ accepted: boolean }>(
+      `/properties/${selectedPropertyIdValue.value}/refresh-related?tenantId=${encodeURIComponent(tenantId.value.trim())}`,
+      {},
+    );
+    propertyRefreshState.value = 'requested';
+    propertyRefreshMessage.value =
+      'Property refresh accepted. The worker should fill offers, viewings, and timeline shortly.';
+    refreshAll();
+  } catch (error) {
+    propertyRefreshState.value = 'failed';
+    propertyRefreshMessage.value =
+      error instanceof Error ? error.message : 'Property refresh failed.';
   }
 }
 
@@ -566,37 +693,37 @@ function invalidateExplorerQueries(event: EntityChangedEvent) {
     queryKey: ['properties', tenantId],
   });
 
-  if (!selectedPropertyId.value) {
+  if (!selectedPropertyIdValue.value) {
     return;
   }
 
   const shouldInvalidateDetail =
     event.entityType === 'property' &&
-    (event.entityId === selectedPropertyId.value ||
+    (event.entityId === selectedPropertyIdValue.value ||
       event.payload?.externalId !== undefined ||
       event.entityId === '00000000-0000-0000-0000-000000000000');
 
   if (shouldInvalidateDetail) {
     void queryClient.invalidateQueries({
-      queryKey: ['property-detail', tenantId, selectedPropertyId],
+      queryKey: ['property-detail', tenantId, selectedPropertyIdValue],
     });
   }
 
   if (['offer', 'viewing', 'timeline_event', 'property', 'file_object'].includes(event.entityType)) {
     void queryClient.invalidateQueries({
-      queryKey: ['property-detail', tenantId, selectedPropertyId],
+      queryKey: ['property-detail', tenantId, selectedPropertyIdValue],
     });
     void queryClient.invalidateQueries({
-      queryKey: ['property-offers', tenantId, selectedPropertyId],
+      queryKey: ['property-offers', tenantId, selectedPropertyIdValue],
     });
     void queryClient.invalidateQueries({
-      queryKey: ['property-viewings', tenantId, selectedPropertyId],
+      queryKey: ['property-viewings', tenantId, selectedPropertyIdValue],
     });
     void queryClient.invalidateQueries({
-      queryKey: ['property-timeline', tenantId, selectedPropertyId],
+      queryKey: ['property-timeline', tenantId, selectedPropertyIdValue],
     });
     void queryClient.invalidateQueries({
-      queryKey: ['property-files', tenantId, selectedPropertyId],
+      queryKey: ['property-files', tenantId, selectedPropertyIdValue],
     });
   }
 }
@@ -694,12 +821,26 @@ onBeforeUnmount(() => {
         <button
           class="primary-link sync-button"
           type="button"
-          :disabled="!canLoad || syncState === 'requesting'"
+          :disabled="!canLoad || syncState === 'requesting' || hasPendingSyncRequest"
           @click="requestSync"
         >
           {{ syncState === 'requesting' ? 'Requesting…' : 'Request sync' }}
         </button>
         <small class="sync-copy" :class="`sync-${syncState}`">{{ syncMessage }}</small>
+      </div>
+      <div class="sync-panel">
+        <span>Selected property</span>
+        <button
+          class="primary-link sync-button"
+          type="button"
+          :disabled="!selectedPropertyReady || propertyRefreshState === 'requesting'"
+          @click="refreshSelectedProperty"
+        >
+          {{ propertyRefreshState === 'requesting' ? 'Refreshing…' : 'Refresh related data' }}
+        </button>
+        <small class="sync-copy" :class="`sync-${propertyRefreshState}`">
+          {{ propertyRefreshMessage }}
+        </small>
       </div>
     </section>
 
@@ -719,9 +860,15 @@ onBeforeUnmount(() => {
         <h2>Current counts</h2>
         <template v-if="integrationStatus">
           <p>properties {{ integrationStatus.propertyCount }}</p>
+          <p>stale candidates {{ integrationStatus.staleCandidatePropertyCount }}</p>
+          <p>delisted {{ integrationStatus.delistedPropertyCount }}</p>
           <p>pending webhooks {{ integrationStatus.pendingWebhookCount }}</p>
           <p>pending jobs {{ integrationStatus.pendingIntegrationJobCount }}</p>
           <p>pending sync requests {{ integrationStatus.pendingPropertySyncCount }}</p>
+          <p>failed webhooks {{ integrationStatus.metrics.failedWebhookCount }}</p>
+          <p>ignored webhooks {{ integrationStatus.metrics.ignoredWebhookCount }}</p>
+          <p>unresolved webhooks {{ integrationStatus.metrics.unresolvedWebhookCount }}</p>
+          <p>unknown webhooks {{ integrationStatus.metrics.unknownWebhookCount }}</p>
         </template>
         <p v-else class="muted-copy">Counts will appear after configuration.</p>
       </article>
@@ -735,6 +882,22 @@ onBeforeUnmount(() => {
           <p>
             completed property count
             {{ integrationStatus.lastSyncCompletedPropertyCount ?? 'Unknown' }}
+          </p>
+          <p>
+            latest run
+            {{
+              integrationStatus.latestSyncRun
+                ? `${integrationStatus.latestSyncRun.status} • ${integrationStatus.latestSyncRun.triggerSource}`
+                : 'Unknown'
+            }}
+          </p>
+          <p v-if="integrationStatus.latestSyncRun">
+            run health
+            {{
+              integrationStatus.latestSyncRun.anomalyStatus === 'anomalous'
+                ? `anomalous${integrationStatus.latestSyncRun.anomalyReason ? ` • ${integrationStatus.latestSyncRun.anomalyReason}` : ''}`
+                : 'healthy'
+            }}
           </p>
         </template>
         <p v-else class="muted-copy">No sync history available yet.</p>
@@ -777,6 +940,21 @@ onBeforeUnmount(() => {
               Retry sync request
             </button>
           </div>
+          <div v-if="integrationStatus.diagnostics.lastSyncAnomaly" class="diagnostic-block">
+            <strong>Sync anomaly</strong>
+            <p>
+              {{ formatDate(integrationStatus.diagnostics.lastSyncAnomaly.completedAt) }} •
+              {{ integrationStatus.diagnostics.lastSyncAnomaly.propertyCount }} properties
+            </p>
+            <p>
+              {{
+                integrationStatus.diagnostics.lastSyncAnomaly.anomalyReason ?? 'Anomalous sync volume detected'
+              }}
+              <template v-if="integrationStatus.diagnostics.lastSyncAnomaly.baselineMedian !== null">
+                • baseline median {{ integrationStatus.diagnostics.lastSyncAnomaly.baselineMedian }}
+              </template>
+            </p>
+          </div>
           <p class="retry-copy" :class="`retry-${retryState}`">{{ retryMessage }}</p>
           <p class="retry-copy" :class="`retry-${replayState}`">{{ replayMessage }}</p>
         </template>
@@ -787,9 +965,19 @@ onBeforeUnmount(() => {
     <article class="history-panel">
       <div class="panel-heading">
         <h2>Recent activity</h2>
-        <span>{{ integrationHistory.length }}</span>
+        <div class="panel-actions">
+          <span>{{ integrationHistory.length }}</span>
+          <button
+            class="ghost-button panel-toggle"
+            type="button"
+            @click="activityFeedCollapsed = !activityFeedCollapsed"
+          >
+            {{ activityFeedCollapsed ? 'Expand' : 'Collapse' }}
+          </button>
+        </div>
       </div>
-      <p v-if="!integrationStatus" class="muted-copy">Configure Dezrez to see tenant activity.</p>
+      <p v-if="activityFeedCollapsed" class="muted-copy">Activity feed collapsed.</p>
+      <p v-else-if="!integrationStatus" class="muted-copy">Configure Dezrez to see tenant activity.</p>
       <ol v-else-if="integrationHistory.length" class="history-list">
         <li
           v-for="activity in integrationHistory"
@@ -809,9 +997,59 @@ onBeforeUnmount(() => {
       <p v-else class="muted-copy">No webhook, job, or sync history available yet.</p>
     </article>
 
-    <p v-if="primaryError" class="error-banner">
-      {{ primaryError instanceof Error ? primaryError.message : String(primaryError) }}
-    </p>
+    <article class="history-panel">
+      <div class="panel-heading">
+        <h2>Recent webhooks</h2>
+        <div class="panel-actions">
+          <span>{{ recentWebhookHistory.length }}</span>
+          <button
+            class="ghost-button panel-toggle"
+            type="button"
+            @click="webhookFeedCollapsed = !webhookFeedCollapsed"
+          >
+            {{ webhookFeedCollapsed ? 'Expand' : 'Collapse' }}
+          </button>
+        </div>
+      </div>
+      <p v-if="webhookFeedCollapsed" class="muted-copy">Webhook feed collapsed.</p>
+      <p v-else-if="!integrationStatus" class="muted-copy">Configure Dezrez to inspect webhook payloads.</p>
+      <ol v-else-if="recentWebhookHistory.length" class="history-list">
+        <li
+          v-for="webhook in recentWebhookHistory"
+          :key="`webhook-${webhook.id}`"
+          class="history-row webhook-row"
+        >
+          <div class="history-meta">
+            <span class="history-source">Webhook</span>
+            <strong>{{ webhook.eventType }}</strong>
+            <span class="history-status">{{ webhook.status }}</span>
+          </div>
+          <p>{{ formatDate(webhook.receivedAt) }}</p>
+          <p class="muted-copy">
+            agency {{ formatWebhookSummaryValue(webhook.summary.agencyId) }} • branch
+            {{ formatWebhookSummaryValue(webhook.summary.branchId) }} • role
+            {{ formatWebhookSummaryValue(webhook.summary.propertyRoleId) }}
+          </p>
+          <p class="muted-copy">
+            property {{ formatWebhookSummaryValue(webhook.summary.propertyId) }} • root
+            {{ formatWebhookSummaryValue(webhook.summary.rootEntityId) }} • change
+            {{ formatWebhookSummaryValue(webhook.summary.changeType) }}
+          </p>
+          <p v-if="webhook.errorMessage" class="history-error">{{ webhook.errorMessage }}</p>
+          <details class="webhook-payload">
+            <summary>Payload</summary>
+            <pre>{{ prettyJson(webhook.payloadJson) }}</pre>
+          </details>
+        </li>
+      </ol>
+      <p v-else class="muted-copy">No stored webhook payloads yet.</p>
+    </article>
+
+    <div v-if="queryErrors.length" class="error-banner">
+      <p v-for="entry in queryErrors" :key="entry.source">
+        <strong>{{ entry.source }}:</strong> {{ entry.message }}
+      </p>
+    </div>
 
     <section class="explorer-grid">
       <aside class="rail-panel">
@@ -832,7 +1070,7 @@ onBeforeUnmount(() => {
           @click="selectedPropertyId = property.id"
         >
           <strong>{{ property.displayAddress }}</strong>
-          <span>{{ property.marketingStatus ?? property.status }}</span>
+          <span>{{ property.marketingStatus ?? property.status }} • {{ property.syncState }}</span>
           <small>{{ property.externalId ?? 'No external id' }}</small>
         </button>
       </aside>
@@ -843,11 +1081,23 @@ onBeforeUnmount(() => {
         </div>
 
         <template v-else>
-          <header v-if="propertyDetail" class="detail-hero">
+          <p v-if="propertyDetailQuery.isLoading.value" class="muted-copy">Loading property detail…</p>
+
+          <header v-else-if="propertyDetail" class="detail-hero">
             <div>
               <p class="eyebrow">Selected property</p>
               <h2>{{ propertyDetail.displayAddress }}</h2>
               <p>{{ propertyDetail.postcode ?? 'No postcode' }}</p>
+              <p class="muted-copy">
+                sync {{ propertyDetail.syncState }} • last seen {{ formatDate(propertyDetail.lastSeenAt) }}
+              </p>
+              <p v-if="propertyDetail.delistedAt || propertyDetail.staleCandidateAt" class="muted-copy">
+                {{
+                  propertyDetail.delistedAt
+                    ? `delisted ${formatDate(propertyDetail.delistedAt)}${propertyDetail.delistedReason ? ` • ${propertyDetail.delistedReason}` : ''}`
+                    : `stale candidate since ${formatDate(propertyDetail.staleCandidateAt)}`
+                }}
+              </p>
             </div>
             <dl class="metric-strip">
               <div>
@@ -861,6 +1111,10 @@ onBeforeUnmount(() => {
               <div>
                 <dt>Timeline</dt>
                 <dd>{{ propertyDetail.counts.timelineEvents }}</dd>
+              </div>
+              <div>
+                <dt>Misses</dt>
+                <dd>{{ propertyDetail.consecutiveMissCount }}</dd>
               </div>
             </dl>
           </header>

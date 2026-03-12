@@ -1,0 +1,36 @@
+{
+  "ContactAddressId": 14955802,
+  "PersonId": 0,
+  "RootEntityId": 0,
+  "AgencyId": 36,
+  "BranchId": 245201,
+  "Occurred": "2026-03-12T17:12:30.53Z",
+  "ChangedByPersonId": 17176203,
+  "ChangeType": "New",
+  "AllChanges": [
+    {
+      "NewValue": 0,
+      "PropertyName": "ContactOrder",
+      "PropertyType": "System.Int32"
+    },
+    {
+      "NewSystemName": "Active",
+      "OldId": -1,
+      "NewId": 48901,
+      "PropertyName": "SystemStatus",
+      "PropertyType": "Dezrez.Rezi.Domain.System.SystemStatus"
+    },
+    {
+      "OldId": -1,
+      "NewId": 17176203,
+      "PropertyName": "CreatedBy",
+      "PropertyType": "Dezrez.Rezi.Domain.People.Person"
+    },
+    {
+      "OldId": -1,
+      "NewId": 206833,
+      "PropertyName": "Address",
+      "PropertyType": "Dezrez.Rezi.Domain.Location.Address"
+    }
+  ]
+}

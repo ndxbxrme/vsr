@@ -367,6 +367,39 @@ export const integrationJobs = pgTable(
   }),
 );
 
+export const propertySyncRuns = pgTable(
+  'property_sync_runs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    integrationAccountId: uuid('integration_account_id')
+      .notNull()
+      .references(() => integrationAccounts.id),
+    triggerSource: text('trigger_source').notNull().default('manual_api'),
+    syncType: text('sync_type').notNull().default('full'),
+    status: text('status').notNull().default('running'),
+    anomalyStatus: text('anomaly_status').notNull().default('healthy'),
+    anomalyReason: text('anomaly_reason'),
+    propertyCount: integer('property_count').notNull().default(0),
+    staleCandidateCount: integer('stale_candidate_count').notNull().default(0),
+    delistedCount: integer('delisted_count').notNull().default(0),
+    metadataJson: jsonb('metadata_json'),
+    startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => ({
+    propertySyncRunTenantStartedIdx: index('property_sync_runs_tenant_started_idx').on(
+      table.tenantId,
+      table.startedAt,
+    ),
+    propertySyncRunIntegrationStartedIdx: index('property_sync_runs_integration_started_idx').on(
+      table.integrationAccountId,
+      table.startedAt,
+    ),
+  }),
+);
+
 export const properties = pgTable(
   'properties',
   {
@@ -377,10 +410,49 @@ export const properties = pgTable(
     postcode: text('postcode'),
     status: text('status').notNull().default('active'),
     marketingStatus: text('marketing_status'),
+    syncState: text('sync_state').notNull().default('active'),
+    consecutiveMissCount: integer('consecutive_miss_count').notNull().default(0),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
+    lastSeenInSyncRunId: uuid('last_seen_in_sync_run_id'),
+    missingSinceSyncRunId: uuid('missing_since_sync_run_id'),
+    staleCandidateAt: timestamp('stale_candidate_at', { withTimezone: true }),
+    delistedAt: timestamp('delisted_at', { withTimezone: true }),
+    delistedReason: text('delisted_reason'),
     ...timestamps,
   },
   (table) => ({
     propertyTenantStatusIdx: index('properties_tenant_status_idx').on(table.tenantId, table.status),
+    propertyTenantSyncStateIdx: index('properties_tenant_sync_state_idx').on(
+      table.tenantId,
+      table.syncState,
+    ),
+  }),
+);
+
+export const propertySyncInventory = pgTable(
+  'property_sync_inventory',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    syncRunId: uuid('sync_run_id')
+      .notNull()
+      .references(() => propertySyncRuns.id),
+    propertyId: uuid('property_id').references(() => properties.id),
+    externalId: text('external_id').notNull(),
+    providerPropertyId: text('provider_property_id'),
+    displayAddress: text('display_address'),
+    seenAt: timestamp('seen_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    propertySyncInventoryRunExternalIdx: uniqueIndex('property_sync_inventory_run_external_idx').on(
+      table.syncRunId,
+      table.externalId,
+    ),
+    propertySyncInventoryRunPropertyIdx: index('property_sync_inventory_run_property_idx').on(
+      table.syncRunId,
+      table.providerPropertyId,
+    ),
   }),
 );
 
@@ -863,6 +935,8 @@ export const externalReferences = pgTable(
     externalType: text('external_type').notNull(),
     externalId: text('external_id').notNull(),
     metadataJson: jsonb('metadata_json'),
+    isCurrent: boolean('is_current').notNull().default(true),
+    supersededAt: timestamp('superseded_at', { withTimezone: true }),
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
     ...timestamps,
   },
@@ -871,6 +945,7 @@ export const externalReferences = pgTable(
       table.tenantId,
       table.provider,
       table.entityType,
+      table.externalType,
       table.externalId,
     ),
   }),

@@ -71,6 +71,27 @@
       "when": 1773205068114,
       "tag": "0009_fresh_the_twelve",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1773414960000,
+      "tag": "0010_sync_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1773420000000,
+      "tag": "0011_current_dezrez_role_refs",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1773423600000,
+      "tag": "0012_external_reference_type_uniqueness",
+      "breakpoints": true
     }
   ]
 }

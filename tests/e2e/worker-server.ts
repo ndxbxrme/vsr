@@ -2,7 +2,9 @@ import { createServer } from 'node:http';
 import { startWorkerLoop } from '../../apps/worker/src/worker.ts';
 
 const databaseUrl =
-  process.env.DATABASE_URL ?? 'postgres://vitalspace:vitalspace@localhost:5432/vitalspace';
+  process.env.TEST_DATABASE_URL ??
+  process.env.DATABASE_URL ??
+  'postgres://vitalspace:vitalspace@localhost:5432/vitalspace_test';
 const pollIntervalMs = Number(process.env.WORKER_POLL_INTERVAL_MS ?? '250');
 const port = Number(process.env.WORKER_HEALTH_PORT ?? '4322');
 

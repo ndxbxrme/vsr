@@ -86,6 +86,7 @@ import {
   loadSalesDashboard,
   updateSalesCaseRecord,
 } from './sales-service';
+import { loadTenantReconciliation } from './reconciliation-service';
 import { resolveTenantFromHost } from './tenant-resolution';
 
 type DbClient = ReturnType<typeof createDbClient>['db'];
@@ -258,6 +259,165 @@ const webhookQuerySchema = z.object({
   integrationAccountId: z.string().uuid().optional(),
 });
 
+function toWebhookId(value: unknown) {
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  return null;
+}
+
+function toWebhookChangeType(value: unknown) {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return null;
+  }
+
+  return `${value.charAt(0).toUpperCase()}${value.slice(1).toLowerCase()}`;
+}
+
+function extractWebhookChanges(payload: Record<string, unknown>) {
+  if (!Array.isArray(payload.AllChanges)) {
+    return [] as Array<Record<string, unknown>>;
+  }
+
+  return payload.AllChanges.filter(
+    (entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === 'object' && !Array.isArray(entry),
+  );
+}
+
+function inferGenericEventSubtype(payload: Record<string, unknown>) {
+  for (const change of extractWebhookChanges(payload)) {
+    if (toWebhookId(change.PropertyName) !== 'EventType') {
+      continue;
+    }
+
+    const subtype =
+      toWebhookId(change.NewSystemName) ??
+      toWebhookId(change.NewName) ??
+      toWebhookId(change.NewValue) ??
+      toWebhookId(change.OldSystemName) ??
+      toWebhookId(change.OldName) ??
+      toWebhookId(change.OldValue);
+    if (subtype) {
+      return subtype;
+    }
+  }
+
+  return null;
+}
+
+function hasWebhookChange(payload: Record<string, unknown>, propertyName: string) {
+  return extractWebhookChanges(payload).some((change) => toWebhookId(change.PropertyName) === propertyName);
+}
+
+function inferContactItemWebhookEventType(payload: Record<string, unknown>) {
+  const contactAddressId = toWebhookId(payload.ContactAddressId);
+  if (contactAddressId && contactAddressId !== '0') {
+    const changeType = toWebhookChangeType(payload.ChangeType) ?? 'Updated';
+    return `ContactAddress${changeType}`;
+  }
+
+  const contactItemId =
+    toWebhookId(payload.NewEmailContactItemId) ??
+    toWebhookId(payload.NewPhoneContactItemId) ??
+    toWebhookId(payload.NewAddressContactItemId) ??
+    toWebhookId(payload.NewContactItemId);
+  if (!contactItemId || contactItemId === '0') {
+    return null;
+  }
+
+  const contactItemType = extractWebhookChanges(payload).find(
+    (change) => toWebhookId(change.PropertyName) === 'ContactItemType',
+  );
+  const contactType =
+    toWebhookId(contactItemType?.NewSystemName) ??
+    toWebhookId(contactItemType?.NewName) ??
+    toWebhookId(contactItemType?.NewValue) ??
+    'ContactItem';
+  const changeType = toWebhookChangeType(payload.ChangeType) ?? 'Updated';
+
+  return `${contactType}ContactItem${changeType}`;
+}
+
+function inferDezrezWebhookEventType(payload: Record<string, unknown>) {
+  const parsed = dezrezWebhookPayloadSchema.safeParse(payload);
+  if (parsed.success && parsed.data.EventName) {
+    if (parsed.data.EventName === 'GenericEvent') {
+      const subtype = inferGenericEventSubtype(payload);
+      return subtype ? `GenericEvent:${subtype}` : 'GenericEvent';
+    }
+
+    return parsed.data.EventName;
+  }
+
+  const propertyRoleId =
+    toWebhookId(payload.PropertyRoleId) ?? toWebhookId(payload.MarketingRoleId);
+  const propertyId = toWebhookId(payload.PropertyId);
+  const rootEntityId = toWebhookId(payload.RootEntityId);
+  const documentId = toWebhookId(payload.DocumentId);
+  const changeType = toWebhookChangeType(payload.ChangeType);
+  const contactItemEventType = inferContactItemWebhookEventType(payload);
+
+  if (contactItemEventType) {
+    return contactItemEventType;
+  }
+
+  if (propertyRoleId && propertyRoleId !== '0') {
+    if (hasWebhookChange(payload, 'Events')) {
+      return 'PropertyRoleEventsUpdated';
+    }
+
+    if (documentId && documentId !== '0') {
+      return 'PropertyRoleDocumentUpdated';
+    }
+
+    return changeType ? `PropertyRole${changeType}` : 'PropertyRoleUpdated';
+  }
+
+  if (propertyId && propertyId !== '0') {
+    return changeType ? `Property${changeType}` : 'PropertyUpdated';
+  }
+
+  if (rootEntityId && rootEntityId !== '0') {
+    return changeType ? `Entity${changeType}` : 'EntityUpdated';
+  }
+
+  return 'unknown';
+}
+
+function summarizeWebhookPayload(payload: Record<string, unknown>) {
+  const agencyId = toWebhookId(payload.AgencyId);
+  const branchId = toWebhookId(payload.BranchId);
+  const propertyId = toWebhookId(payload.PropertyId);
+  const propertyRoleId = toWebhookId(payload.PropertyRoleId) ?? toWebhookId(payload.MarketingRoleId);
+  const rootEntityId = toWebhookId(payload.RootEntityId);
+  const documentId = toWebhookId(payload.DocumentId);
+  const changedByPersonId = toWebhookId(payload.ChangedByPersonId);
+  const personId = toWebhookId(payload.PersonId);
+
+  return {
+    agencyId: agencyId && agencyId !== '0' ? agencyId : null,
+    branchId: branchId && branchId !== '0' ? branchId : null,
+    propertyId: propertyId && propertyId !== '0' ? propertyId : null,
+    propertyRoleId: propertyRoleId && propertyRoleId !== '0' ? propertyRoleId : null,
+    rootEntityId: rootEntityId && rootEntityId !== '0' ? rootEntityId : null,
+    documentId: documentId && documentId !== '0' ? documentId : null,
+    changedByPersonId: changedByPersonId && changedByPersonId !== '0' ? changedByPersonId : null,
+    personId: personId && personId !== '0' ? personId : null,
+    changeType: toWebhookChangeType(payload.ChangeType),
+    occurredAt:
+      typeof payload.Occurred === 'string' && payload.Occurred.trim().length > 0 ? payload.Occurred : null,
+  };
+}
+
+function shouldLogWebhookPayload(eventType: string) {
+  return eventType === 'unknown';
+}
+
 async function recordMutation(args: {
   db: DbClient;
   actorUserId: string | null;
@@ -290,6 +450,7 @@ async function recordMutation(args: {
       mutationType: args.mutationType,
       channelKey: buildTenantRoom(args.tenantId),
       payloadJson: args.payload ?? null,
+      status: args.publishEntityChangedEvent ? 'published' : 'pending',
       publishedAt: args.publishEntityChangedEvent ? new Date() : null,
     });
 
@@ -355,6 +516,31 @@ async function loadPropertyRecord(args: {
   tenantId: string;
   propertyId: string;
 }) {
+  const currentDezrezPropertyRoleReferences = args.db
+    .selectDistinctOn([schema.externalReferences.entityId], {
+      tenantId: schema.externalReferences.tenantId,
+      entityId: schema.externalReferences.entityId,
+      externalId: schema.externalReferences.externalId,
+      provider: schema.externalReferences.provider,
+      metadataJson: schema.externalReferences.metadataJson,
+    })
+    .from(schema.externalReferences)
+    .where(
+      and(
+        eq(schema.externalReferences.tenantId, args.tenantId),
+        eq(schema.externalReferences.provider, 'dezrez'),
+        eq(schema.externalReferences.entityType, 'property'),
+        eq(schema.externalReferences.externalType, 'property_role'),
+        eq(schema.externalReferences.isCurrent, true),
+      ),
+    )
+    .orderBy(
+      schema.externalReferences.entityId,
+      desc(schema.externalReferences.updatedAt),
+      desc(schema.externalReferences.createdAt),
+    )
+    .as('current_dezrez_property_role_references');
+
   const [property] = await args.db
     .select({
       id: schema.properties.id,
@@ -364,20 +550,24 @@ async function loadPropertyRecord(args: {
       postcode: schema.properties.postcode,
       status: schema.properties.status,
       marketingStatus: schema.properties.marketingStatus,
-      externalId: schema.externalReferences.externalId,
-      provider: schema.externalReferences.provider,
-      propertyExternalMetadata: schema.externalReferences.metadataJson,
+      syncState: schema.properties.syncState,
+      consecutiveMissCount: schema.properties.consecutiveMissCount,
+      lastSeenAt: schema.properties.lastSeenAt,
+      staleCandidateAt: schema.properties.staleCandidateAt,
+      delistedAt: schema.properties.delistedAt,
+      delistedReason: schema.properties.delistedReason,
+      externalId: currentDezrezPropertyRoleReferences.externalId,
+      provider: currentDezrezPropertyRoleReferences.provider,
+      propertyExternalMetadata: currentDezrezPropertyRoleReferences.metadataJson,
       createdAt: schema.properties.createdAt,
       updatedAt: schema.properties.updatedAt,
     })
     .from(schema.properties)
     .leftJoin(
-      schema.externalReferences,
+      currentDezrezPropertyRoleReferences,
       and(
-        eq(schema.externalReferences.tenantId, schema.properties.tenantId),
-        eq(schema.externalReferences.entityId, schema.properties.id),
-        eq(schema.externalReferences.provider, 'dezrez'),
-        eq(schema.externalReferences.entityType, 'property'),
+        eq(currentDezrezPropertyRoleReferences.tenantId, schema.properties.tenantId),
+        eq(currentDezrezPropertyRoleReferences.entityId, schema.properties.id),
       ),
     )
     .where(
@@ -391,6 +581,57 @@ async function loadPropertyRecord(args: {
   return property ?? null;
 }
 
+async function queueManualDezrezRoleRefreshJobs(args: {
+  db: DbClient;
+  tenantId: string;
+  integrationAccountId: string;
+  propertyExternalId: string;
+  propertyMetadata: Record<string, unknown> | null;
+}) {
+  const propertyIdValue =
+    args.propertyMetadata && typeof args.propertyMetadata.propertyId !== 'undefined'
+      ? String(args.propertyMetadata.propertyId)
+      : null;
+  const rawEvent = {
+    EventName: 'ManualRefresh',
+    PropertyId: propertyIdValue,
+    PropertyRoleId: args.propertyExternalId,
+    RootEntityId: null,
+  };
+
+  const jobs = [
+    'offer.role.refresh',
+    'viewing.role.refresh',
+    'timeline.role.refresh',
+  ] as const;
+
+  for (const jobType of jobs) {
+    await args.db
+      .insert(schema.integrationJobs)
+      .values({
+        tenantId: args.tenantId,
+        integrationAccountId: args.integrationAccountId,
+        webhookEventId: null,
+        provider: 'dezrez',
+        jobType,
+        entityType: 'property_role',
+        entityExternalId: args.propertyExternalId,
+        dedupeKey: `${args.integrationAccountId}:${jobType}:manual:${args.propertyExternalId}`,
+        payloadJson: {
+          webhookEventId: COLLECTION_EVENT_ENTITY_ID,
+          eventName: 'ManualRefresh',
+          propertyId: propertyIdValue,
+          propertyRoleId: args.propertyExternalId,
+          rootEntityId: null,
+          rawEvent,
+        },
+      })
+      .onConflictDoNothing({
+        target: [schema.integrationJobs.provider, schema.integrationJobs.dedupeKey],
+      });
+  }
+}
+
 function hasNonEmptyCredentials(credentials: Record<string, unknown>) {
   return Object.values(credentials).some((value) => value !== undefined && value !== null && value !== '');
 }
@@ -398,6 +639,7 @@ function hasNonEmptyCredentials(credentials: Record<string, unknown>) {
 async function resolveIntegrationAccount(args: {
   db: DbClient;
   provider: string;
+  payload?: Record<string, unknown> | undefined;
   integrationAccountId?: string | undefined;
 }) {
   if (args.integrationAccountId) {
@@ -423,8 +665,80 @@ async function resolveIntegrationAccount(args: {
         eq(schema.integrationAccounts.provider, args.provider),
         eq(schema.integrationAccounts.status, 'active'),
       ),
-    )
-    .limit(2);
+    );
+
+  if (args.provider === 'dezrez' && args.payload) {
+    const payloadAgencyId =
+      typeof args.payload.AgencyId === 'number'
+        ? args.payload.AgencyId
+        : typeof args.payload.AgencyId === 'string' && args.payload.AgencyId.trim().length > 0
+          ? Number(args.payload.AgencyId)
+          : null;
+    const payloadBranchId =
+      typeof args.payload.BranchId === 'number'
+        ? args.payload.BranchId
+        : typeof args.payload.BranchId === 'string' && args.payload.BranchId.trim().length > 0
+          ? Number(args.payload.BranchId)
+          : null;
+
+    const parsedAgencyId =
+      payloadAgencyId !== null && Number.isFinite(payloadAgencyId) && payloadAgencyId > 0
+        ? payloadAgencyId
+        : null;
+    const parsedBranchId =
+      payloadBranchId !== null && Number.isFinite(payloadBranchId) && payloadBranchId > 0
+        ? payloadBranchId
+        : null;
+
+    if (parsedAgencyId !== null) {
+      const agencyMatches = integrationAccounts.filter((integrationAccount) => {
+        const parsedSettings = dezrezIntegrationSettingsSchema.safeParse(integrationAccount.settingsJson ?? {});
+        if (!parsedSettings.success) {
+          return false;
+        }
+
+        return parsedSettings.data.agencyId === parsedAgencyId;
+      });
+
+      if (parsedBranchId !== null) {
+        const exactBranchMatches = agencyMatches.filter((integrationAccount) => {
+          const parsedSettings = dezrezIntegrationSettingsSchema.safeParse(
+            integrationAccount.settingsJson ?? {},
+          );
+          return parsedSettings.success && parsedSettings.data.branchIds.includes(parsedBranchId);
+        });
+        if (exactBranchMatches.length === 1) {
+          return exactBranchMatches[0] ?? null;
+        }
+        if (exactBranchMatches.length > 1) {
+          return null;
+        }
+
+        const wildcardBranchMatches = agencyMatches.filter((integrationAccount) => {
+          const parsedSettings = dezrezIntegrationSettingsSchema.safeParse(
+            integrationAccount.settingsJson ?? {},
+          );
+          return parsedSettings.success && parsedSettings.data.branchIds.length === 0;
+        });
+        if (wildcardBranchMatches.length === 1) {
+          return wildcardBranchMatches[0] ?? null;
+        }
+        if (wildcardBranchMatches.length > 1) {
+          return null;
+        }
+      }
+
+      if (agencyMatches.length === 1) {
+        return agencyMatches[0] ?? null;
+      }
+
+      if (agencyMatches.length === 0 && integrationAccounts.length === 1) {
+        return integrationAccounts[0] ?? null;
+      }
+
+      return null;
+    }
+  }
 
   if (integrationAccounts.length === 1) {
     return integrationAccounts[0] ?? null;
@@ -448,7 +762,35 @@ export function createApp(deps: ApiAppDeps) {
     return next();
   });
 
-  app.use(express.json());
+  app.use(
+    express.json({
+      verify: (req, _res, buf) => {
+        if ((req.url ?? '').startsWith('/event')) {
+          (req as Request & { rawBody?: string }).rawBody = buf.toString('utf8');
+        }
+      },
+    }),
+  );
+
+  app.use((error: unknown, req: Request, res: Response, next: NextFunction) => {
+    if (req.path === '/event') {
+      console.error('@vitalspace/api /event json_parse_failed', {
+        message: error instanceof Error ? error.message : 'unknown_error',
+        rawBody: (req as Request & { rawBody?: string }).rawBody ?? null,
+      });
+    }
+
+    if (
+      error &&
+      typeof error === 'object' &&
+      'type' in error &&
+      (error as { type?: string }).type === 'entity.parse.failed'
+    ) {
+      return res.status(400).json({ error: 'invalid_json' });
+    }
+
+    return next(error);
+  });
 
   app.use(async (req, _res, next) => {
     const authReq = req as AuthenticatedRequest;
@@ -504,13 +846,18 @@ export function createApp(deps: ApiAppDeps) {
     const integrationAccount = await resolveIntegrationAccount({
       db: deps.db,
       provider: parsedQuery.data.provider,
+      payload: req.body as Record<string, unknown>,
       integrationAccountId: parsedQuery.data.integrationAccountId,
     });
 
     const eventName =
       parsedQuery.data.provider === 'dezrez'
-        ? dezrezWebhookPayloadSchema.safeParse(req.body).data?.EventName ?? 'unknown'
+        ? inferDezrezWebhookEventType(req.body as Record<string, unknown>)
         : 'unknown';
+
+    if (shouldLogWebhookPayload(eventName)) {
+      console.log(`@vitalspace/api /event ${eventName} body`, JSON.stringify(req.body));
+    }
 
     const createdWebhookEvents = await deps.db
       .insert(schema.webhookEvents)
@@ -2058,6 +2405,29 @@ export function createApp(deps: ApiAppDeps) {
     });
   });
 
+  app.get('/api/v1/reconciliation', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = tenantScopedQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_query', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const reconciliation = await loadTenantReconciliation({
+      db: deps.db,
+      tenantId: parsed.data.tenantId,
+    });
+
+    if (!reconciliation) {
+      return res.status(404).json({ error: 'tenant_not_found' });
+    }
+
+    return res.json({ reconciliation });
+  });
+
   app.get('/api/v1/lettings/cases', requireAuth, async (req: Request, res: Response) => {
     const authReq = req as AuthenticatedRequest;
     const parsed = listLettingsCasesQuerySchema.safeParse(req.query);
@@ -2821,12 +3191,42 @@ export function createApp(deps: ApiAppDeps) {
     }
 
     const settings = dezrezIntegrationSettingsSchema.parse(integrationAccount.settingsJson ?? {});
-    const [propertyCountRow, pendingWebhookCountRow, pendingIntegrationJobCountRow, pendingSyncCountRow] =
+    const [
+      propertyCountRow,
+      staleCandidateCountRow,
+      delistedCountRow,
+      pendingWebhookCountRow,
+      pendingIntegrationJobCountRow,
+      pendingSyncCountRow,
+      failedWebhookCountRow,
+      rejectedWebhookCountRow,
+      unresolvedWebhookCountRow,
+      ignoredWebhookCountRow,
+      unknownWebhookCountRow,
+    ] =
       await Promise.all([
         deps.db
           .select({ count: sql<number>`count(*)` })
           .from(schema.properties)
           .where(eq(schema.properties.tenantId, parsed.data.tenantId)),
+        deps.db
+          .select({ count: sql<number>`count(*)` })
+          .from(schema.properties)
+          .where(
+            and(
+              eq(schema.properties.tenantId, parsed.data.tenantId),
+              eq(schema.properties.syncState, 'stale_candidate'),
+            ),
+          ),
+        deps.db
+          .select({ count: sql<number>`count(*)` })
+          .from(schema.properties)
+          .where(
+            and(
+              eq(schema.properties.tenantId, parsed.data.tenantId),
+              eq(schema.properties.syncState, 'delisted'),
+            ),
+          ),
         deps.db
           .select({ count: sql<number>`count(*)` })
           .from(schema.webhookEvents)
@@ -2857,6 +3257,57 @@ export function createApp(deps: ApiAppDeps) {
               eq(schema.outboxEvents.status, 'pending'),
             ),
           ),
+        deps.db
+          .select({ count: sql<number>`count(*)` })
+          .from(schema.webhookEvents)
+          .where(
+            and(
+              eq(schema.webhookEvents.tenantId, parsed.data.tenantId),
+              eq(schema.webhookEvents.provider, 'dezrez'),
+              eq(schema.webhookEvents.processingStatus, 'failed'),
+            ),
+          ),
+        deps.db
+          .select({ count: sql<number>`count(*)` })
+          .from(schema.webhookEvents)
+          .where(
+            and(
+              eq(schema.webhookEvents.tenantId, parsed.data.tenantId),
+              eq(schema.webhookEvents.provider, 'dezrez'),
+              eq(schema.webhookEvents.processingStatus, 'rejected'),
+            ),
+          ),
+        deps.db
+          .select({ count: sql<number>`count(*)` })
+          .from(schema.webhookEvents)
+          .where(
+            and(
+              eq(schema.webhookEvents.tenantId, parsed.data.tenantId),
+              eq(schema.webhookEvents.provider, 'dezrez'),
+              eq(schema.webhookEvents.processingStatus, 'failed'),
+              eq(schema.webhookEvents.errorMessage, 'integration_account_not_resolved'),
+            ),
+          ),
+        deps.db
+          .select({ count: sql<number>`count(*)` })
+          .from(schema.webhookEvents)
+          .where(
+            and(
+              eq(schema.webhookEvents.tenantId, parsed.data.tenantId),
+              eq(schema.webhookEvents.provider, 'dezrez'),
+              eq(schema.webhookEvents.processingStatus, 'ignored'),
+            ),
+          ),
+        deps.db
+          .select({ count: sql<number>`count(*)` })
+          .from(schema.webhookEvents)
+          .where(
+            and(
+              eq(schema.webhookEvents.tenantId, parsed.data.tenantId),
+              eq(schema.webhookEvents.provider, 'dezrez'),
+              eq(schema.webhookEvents.eventType, 'unknown'),
+            ),
+          ),
       ]);
 
     const [
@@ -2870,6 +3321,8 @@ export function createApp(deps: ApiAppDeps) {
       recentIntegrationJobs,
       recentSyncRequests,
       recentSyncCompletions,
+      latestSyncRun,
+      recentWebhookHistory,
     ] = await Promise.all([
       deps.db
         .select({
@@ -3044,7 +3497,58 @@ export function createApp(deps: ApiAppDeps) {
         )
         .orderBy(desc(schema.outboxEvents.createdAt))
         .limit(5),
+      deps.db
+        .select({
+          id: schema.propertySyncRuns.id,
+          triggerSource: schema.propertySyncRuns.triggerSource,
+          status: schema.propertySyncRuns.status,
+          anomalyStatus: schema.propertySyncRuns.anomalyStatus,
+          anomalyReason: schema.propertySyncRuns.anomalyReason,
+          propertyCount: schema.propertySyncRuns.propertyCount,
+          staleCandidateCount: schema.propertySyncRuns.staleCandidateCount,
+          delistedCount: schema.propertySyncRuns.delistedCount,
+          metadataJson: schema.propertySyncRuns.metadataJson,
+          startedAt: schema.propertySyncRuns.startedAt,
+          completedAt: schema.propertySyncRuns.completedAt,
+        })
+        .from(schema.propertySyncRuns)
+        .where(
+          and(
+            eq(schema.propertySyncRuns.tenantId, parsed.data.tenantId),
+            eq(schema.propertySyncRuns.integrationAccountId, integrationAccount.id),
+          ),
+        )
+        .orderBy(desc(schema.propertySyncRuns.startedAt))
+        .limit(1),
+      deps.db
+        .select({
+          id: schema.webhookEvents.id,
+          eventType: schema.webhookEvents.eventType,
+          processingStatus: schema.webhookEvents.processingStatus,
+          errorMessage: schema.webhookEvents.errorMessage,
+          receivedAt: schema.webhookEvents.receivedAt,
+          payloadJson: schema.webhookEvents.payloadJson,
+        })
+        .from(schema.webhookEvents)
+        .where(
+          and(
+            eq(schema.webhookEvents.tenantId, parsed.data.tenantId),
+            eq(schema.webhookEvents.provider, 'dezrez'),
+          ),
+        )
+        .orderBy(desc(schema.webhookEvents.receivedAt))
+        .limit(10),
     ]);
+
+    const latestSyncRunRecord = latestSyncRun[0] ?? null;
+    const latestSyncRunMetadata =
+      latestSyncRunRecord?.metadataJson && typeof latestSyncRunRecord.metadataJson === 'object'
+        ? (latestSyncRunRecord.metadataJson as Record<string, unknown>)
+        : null;
+    const latestSyncRunBaselineMedian =
+      latestSyncRunMetadata && typeof latestSyncRunMetadata.baselineMedian !== 'undefined'
+        ? Number(latestSyncRunMetadata.baselineMedian ?? 0)
+        : null;
 
     const recentActivity = [
       ...recentWebhooks.map((webhook) => ({
@@ -3094,13 +3598,44 @@ export function createApp(deps: ApiAppDeps) {
           occurredAt: event.createdAt.toISOString(),
           title: 'Property sync completed',
           subtitle:
-            propertyCount === null ? null : `${propertyCount} properties refreshed`,
+            propertyCount === null
+              ? null
+              : [
+                  `${propertyCount} properties refreshed`,
+                  payload && typeof payload.staleCandidateCount !== 'undefined'
+                    ? `${Number(payload.staleCandidateCount ?? 0)} stale candidates`
+                    : null,
+                  payload && typeof payload.delistedCount !== 'undefined'
+                    ? `${Number(payload.delistedCount ?? 0)} delisted`
+                    : null,
+                  payload && payload.anomalyStatus === 'anomalous'
+                    ? `anomalous${payload.anomalyReason ? ` (${String(payload.anomalyReason)})` : ''}`
+                    : null,
+                ]
+                  .filter((part): part is string => Boolean(part))
+                  .join(' • '),
           errorMessage: null,
         };
       }),
     ]
       .sort((left, right) => right.occurredAt.localeCompare(left.occurredAt))
       .slice(0, 12);
+
+    const recentWebhookEntries = recentWebhookHistory.map((webhook) => {
+      const payload =
+        webhook.payloadJson && typeof webhook.payloadJson === 'object'
+          ? (webhook.payloadJson as Record<string, unknown>)
+          : {};
+      return {
+        id: webhook.id,
+        eventType: webhook.eventType,
+        status: webhook.processingStatus,
+        receivedAt: webhook.receivedAt.toISOString(),
+        errorMessage: webhook.errorMessage,
+        summary: summarizeWebhookPayload(payload),
+        payloadJson: payload,
+      };
+    });
 
     return res.json({
       integrationAccount: {
@@ -3113,9 +3648,18 @@ export function createApp(deps: ApiAppDeps) {
         hasCredentials: Boolean(integrationAccount.credentialsJsonEncrypted),
         seedPropertyCount: settings.seedProperties.length,
         propertyCount: Number(propertyCountRow[0]?.count ?? 0),
+        staleCandidatePropertyCount: Number(staleCandidateCountRow[0]?.count ?? 0),
+        delistedPropertyCount: Number(delistedCountRow[0]?.count ?? 0),
         pendingWebhookCount: Number(pendingWebhookCountRow[0]?.count ?? 0),
         pendingIntegrationJobCount: Number(pendingIntegrationJobCountRow[0]?.count ?? 0),
         pendingPropertySyncCount: Number(pendingSyncCountRow[0]?.count ?? 0),
+        metrics: {
+          failedWebhookCount: Number(failedWebhookCountRow[0]?.count ?? 0),
+          rejectedWebhookCount: Number(rejectedWebhookCountRow[0]?.count ?? 0),
+          unresolvedWebhookCount: Number(unresolvedWebhookCountRow[0]?.count ?? 0),
+          ignoredWebhookCount: Number(ignoredWebhookCountRow[0]?.count ?? 0),
+          unknownWebhookCount: Number(unknownWebhookCountRow[0]?.count ?? 0),
+        },
         lastSyncRequestedAt: lastSyncRequested[0]?.createdAt ?? null,
         lastSyncRequestedPublishedAt: lastSyncRequested[0]?.publishedAt ?? null,
         lastSyncRequestedStatus: lastSyncRequested[0]?.status ?? null,
@@ -3128,6 +3672,21 @@ export function createApp(deps: ApiAppDeps) {
             : null,
         latestWebhookReceivedAt: latestWebhookReceived[0]?.receivedAt ?? null,
         latestWebhookStatus: latestWebhookReceived[0]?.processingStatus ?? null,
+        latestSyncRun: latestSyncRunRecord
+          ? {
+              id: latestSyncRunRecord.id,
+              triggerSource: latestSyncRunRecord.triggerSource,
+              status: latestSyncRunRecord.status,
+              anomalyStatus: latestSyncRunRecord.anomalyStatus,
+              anomalyReason: latestSyncRunRecord.anomalyReason,
+              baselineMedian: latestSyncRunBaselineMedian,
+              propertyCount: latestSyncRunRecord.propertyCount,
+              staleCandidateCount: latestSyncRunRecord.staleCandidateCount,
+              delistedCount: latestSyncRunRecord.delistedCount,
+              startedAt: latestSyncRunRecord.startedAt,
+              completedAt: latestSyncRunRecord.completedAt,
+            }
+          : null,
         diagnostics: {
           lastWebhookError: lastWebhookError[0]
             ? {
@@ -3153,9 +3712,20 @@ export function createApp(deps: ApiAppDeps) {
                 errorMessage: lastSyncRequestError[0].errorMessage,
               }
             : null,
+          lastSyncAnomaly:
+            latestSyncRunRecord && latestSyncRunRecord.anomalyStatus === 'anomalous'
+              ? {
+                  id: latestSyncRunRecord.id,
+                  completedAt: latestSyncRunRecord.completedAt,
+                  anomalyReason: latestSyncRunRecord.anomalyReason,
+                  baselineMedian: latestSyncRunBaselineMedian,
+                  propertyCount: latestSyncRunRecord.propertyCount,
+                }
+              : null,
         },
         history: {
           recentActivity,
+          recentWebhooks: recentWebhookEntries,
         },
         updatedAt: integrationAccount.updatedAt,
       },
@@ -3371,6 +3941,29 @@ export function createApp(deps: ApiAppDeps) {
       return res.status(403).json({ error: 'forbidden' });
     }
 
+    const currentDezrezPropertyRoleReferences = deps.db
+      .selectDistinctOn([schema.externalReferences.entityId], {
+        tenantId: schema.externalReferences.tenantId,
+        entityId: schema.externalReferences.entityId,
+        externalId: schema.externalReferences.externalId,
+      })
+      .from(schema.externalReferences)
+      .where(
+        and(
+          eq(schema.externalReferences.tenantId, parsed.data.tenantId),
+          eq(schema.externalReferences.provider, 'dezrez'),
+          eq(schema.externalReferences.entityType, 'property'),
+          eq(schema.externalReferences.externalType, 'property_role'),
+          eq(schema.externalReferences.isCurrent, true),
+        ),
+      )
+      .orderBy(
+        schema.externalReferences.entityId,
+        desc(schema.externalReferences.updatedAt),
+        desc(schema.externalReferences.createdAt),
+      )
+      .as('current_dezrez_property_role_references');
+
     const properties = await deps.db
       .select({
         id: schema.properties.id,
@@ -3379,16 +3972,20 @@ export function createApp(deps: ApiAppDeps) {
         postcode: schema.properties.postcode,
         status: schema.properties.status,
         marketingStatus: schema.properties.marketingStatus,
-        externalId: schema.externalReferences.externalId,
+        syncState: schema.properties.syncState,
+        consecutiveMissCount: schema.properties.consecutiveMissCount,
+        lastSeenAt: schema.properties.lastSeenAt,
+        staleCandidateAt: schema.properties.staleCandidateAt,
+        delistedAt: schema.properties.delistedAt,
+        delistedReason: schema.properties.delistedReason,
+        externalId: currentDezrezPropertyRoleReferences.externalId,
       })
       .from(schema.properties)
       .leftJoin(
-        schema.externalReferences,
+        currentDezrezPropertyRoleReferences,
         and(
-          eq(schema.externalReferences.tenantId, schema.properties.tenantId),
-          eq(schema.externalReferences.entityId, schema.properties.id),
-          eq(schema.externalReferences.provider, 'dezrez'),
-          eq(schema.externalReferences.entityType, 'property'),
+          eq(currentDezrezPropertyRoleReferences.tenantId, schema.properties.tenantId),
+          eq(currentDezrezPropertyRoleReferences.entityId, schema.properties.id),
         ),
       )
       .where(eq(schema.properties.tenantId, parsed.data.tenantId))
@@ -3610,6 +4207,65 @@ export function createApp(deps: ApiAppDeps) {
     return res.json({ timelineEvents });
   });
 
+  app.post('/api/v1/properties/:propertyId/refresh-related', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsedQuery = tenantScopedQuerySchema.safeParse(req.query);
+    const parsedParams = propertyParamsSchema.safeParse(req.params);
+    if (!parsedQuery.success || !parsedParams.success) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+
+    if (!hasTenantRole(authReq.auth!, parsedQuery.data.tenantId, 'tenant_admin')) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const property = await loadPropertyRecord({
+      db: deps.db,
+      tenantId: parsedQuery.data.tenantId,
+      propertyId: parsedParams.data.propertyId,
+    });
+    if (!property) {
+      return res.status(404).json({ error: 'property_not_found' });
+    }
+
+    if (!property.externalId) {
+      return res.status(409).json({ error: 'property_external_reference_missing' });
+    }
+
+    const [integrationAccount] = await deps.db
+      .select()
+      .from(schema.integrationAccounts)
+      .where(
+        and(
+          eq(schema.integrationAccounts.tenantId, parsedQuery.data.tenantId),
+          eq(schema.integrationAccounts.provider, 'dezrez'),
+          eq(schema.integrationAccounts.status, 'active'),
+        ),
+      )
+      .limit(1);
+
+    if (!integrationAccount) {
+      return res.status(404).json({ error: 'integration_account_not_found' });
+    }
+
+    await queueManualDezrezRoleRefreshJobs({
+      db: deps.db,
+      tenantId: parsedQuery.data.tenantId,
+      integrationAccountId: integrationAccount.id,
+      propertyExternalId: property.externalId,
+      propertyMetadata:
+        property.propertyExternalMetadata && typeof property.propertyExternalMetadata === 'object'
+          ? (property.propertyExternalMetadata as Record<string, unknown>)
+          : null,
+    });
+
+    return res.status(202).json({
+      accepted: true,
+      propertyId: property.id,
+      propertyExternalId: property.externalId,
+    });
+  });
+
   app.post('/api/v1/integrations/dezrez/sync', requireAuth, async (req: Request, res: Response) => {
     const authReq = req as AuthenticatedRequest;
     const parsed = propertySyncRequestSchema.safeParse(req.body);
@@ -3636,6 +4292,44 @@ export function createApp(deps: ApiAppDeps) {
       return res.status(404).json({ error: 'integration_account_not_found' });
     }
 
+    const pendingSyncRequests = await deps.db
+      .select({
+        id: schema.outboxEvents.id,
+        payloadJson: schema.outboxEvents.payloadJson,
+      })
+      .from(schema.outboxEvents)
+      .where(
+        and(
+          eq(schema.outboxEvents.tenantId, parsed.data.tenantId),
+          eq(schema.outboxEvents.eventName, 'property.sync_requested'),
+          eq(schema.outboxEvents.status, 'pending'),
+        ),
+      )
+      .orderBy(desc(schema.outboxEvents.createdAt));
+
+    const existingPendingSyncRequest = pendingSyncRequests.find((event) => {
+      if (!event.payloadJson || typeof event.payloadJson !== 'object') {
+        return false;
+      }
+
+      return (
+        (event.payloadJson as Record<string, unknown>).integrationAccountId === integrationAccount.id
+      );
+    });
+
+    if (existingPendingSyncRequest) {
+      console.log('@vitalspace/api property.sync_requested deduplicated', {
+        tenantId: parsed.data.tenantId,
+        integrationAccountId: integrationAccount.id,
+        existingEventId: existingPendingSyncRequest.id,
+      });
+      return res.status(202).json({
+        accepted: true,
+        deduplicated: true,
+        existingEventId: existingPendingSyncRequest.id,
+      });
+    }
+
     const event = buildEntityChangedEvent({
       tenantId: parsed.data.tenantId,
       entityType: 'property',
@@ -3646,7 +4340,9 @@ export function createApp(deps: ApiAppDeps) {
       },
     });
 
-    await deps.db.insert(schema.outboxEvents).values({
+    const createdSyncRequests = await deps.db
+      .insert(schema.outboxEvents)
+      .values({
       tenantId: parsed.data.tenantId,
       eventName: 'property.sync_requested',
       entityType: 'property',
@@ -3656,13 +4352,25 @@ export function createApp(deps: ApiAppDeps) {
       payloadJson: propertySyncRequestPayloadSchema.parse({
         integrationAccountId: integrationAccount.id,
         requestedByUserId: authReq.auth!.userId,
+        trigger: {
+          source: 'manual_api',
+        },
       }),
+      status: 'pending',
       publishedAt: deps.publishEntityChangedEvent ? new Date() : null,
+      })
+      .returning();
+
+    console.log('@vitalspace/api property.sync_requested queued', {
+      source: 'manual_api',
+      tenantId: parsed.data.tenantId,
+      integrationAccountId: integrationAccount.id,
+      outboxEventId: createdSyncRequests[0]?.id ?? null,
     });
 
     deps.publishEntityChangedEvent?.(event);
 
-    return res.status(202).json({ accepted: true, event });
+    return res.status(202).json({ accepted: true, deduplicated: false, event });
   });
 
   return app;

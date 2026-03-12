@@ -1,3 +1,7 @@
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { config as loadDotenvConfig } from 'dotenv';
 import { z } from 'zod';
 
 const apiConfigSchema = z.object({
@@ -17,6 +21,53 @@ const workerConfigSchema = z.object({
   pollIntervalMs: z.coerce.number().default(1000),
   queueBackend: z.enum(['database', 'sqs']).default('database'),
 });
+
+function findWorkspaceEnvPath(moduleUrl: string) {
+  let currentDir = dirname(fileURLToPath(moduleUrl));
+
+  for (;;) {
+    const candidate = join(currentDir, '.env');
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+
+    const parentDir = dirname(currentDir);
+    if (parentDir === currentDir) {
+      return null;
+    }
+    currentDir = parentDir;
+  }
+}
+
+export function loadWorkspaceEnv(moduleUrl: string) {
+  const envPath = findWorkspaceEnvPath(moduleUrl);
+  if (!envPath) {
+    return {
+      envPath: null,
+      loaded: false,
+    };
+  }
+
+  const result = loadDotenvConfig({
+    path: envPath,
+    override: false,
+    quiet: true,
+  });
+
+  return {
+    envPath,
+    loaded: !result.error,
+  };
+}
+
+export function describeEnvVarPresence(name: string) {
+  const value = process.env[name];
+  if (!value) {
+    return 'missing';
+  }
+
+  return `present (${value.length} chars)`;
+}
 
 export function loadApiConfig() {
   return apiConfigSchema.parse({

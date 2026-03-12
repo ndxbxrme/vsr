@@ -1,0 +1,37 @@
+{
+  "EventName": "GenericEvent",
+  "RootEntityId": 248397452,
+  "EventId": 248397452,
+  "PropertyId": 0,
+  "AgencyId": 36,
+  "BranchId": 245201,
+  "Occurred": "2026-03-12T14:54:13.795Z",
+  "ChangedByPersonId": 17176203,
+  "ChangeType": "New",
+  "AllChanges": [
+    {
+      "NewValue": "VitalSpace Estate Agents Memorandum of Sale To Ms Jessica Hayden",
+      "PropertyName": "Name",
+      "PropertyType": "System.String"
+    },
+    {
+      "NewValue": "'VitalSpace Estate Agents Memorandum of Sale To Ms Jessica Hayden' was sent with 1 attachment.",
+      "PropertyName": "Description",
+      "PropertyType": "System.String"
+    },
+    {
+      "NewSystemName": "EmailSent",
+      "OldId": -1,
+      "NewId": 48951,
+      "PropertyName": "EventType",
+      "PropertyType": "Dezrez.Rezi.Domain.Events.EventType"
+    },
+    {
+      "NewSystemName": "Completed",
+      "OldId": -1,
+      "NewId": 49222,
+      "PropertyName": "EventStatus",
+      "PropertyType": "Dezrez.Rezi.Domain.Events.EventStatus"
+    }
+  ]
+}

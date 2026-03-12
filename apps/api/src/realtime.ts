@@ -102,6 +102,7 @@ export async function publishPendingOutboxEvents(args: {
     await args.db
       .update(schema.outboxEvents)
       .set({
+        status: 'published',
         publishedAt: new Date(),
       })
       .where(eq(schema.outboxEvents.id, outboxEvent.id));

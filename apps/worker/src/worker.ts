@@ -48,8 +48,14 @@ export function startWorkerLoop(args: {
   const config = loadWorkerConfig();
   const pollIntervalMs = args.pollIntervalMs ?? config.pollIntervalMs;
   const queueBackend = args.queueBackend ?? config.queueBackend;
+  let inFlight = false;
 
   const tick = async () => {
+    if (inFlight) {
+      return;
+    }
+
+    inFlight = true;
     try {
       const result = await runWorkerCycle({
         databaseUrl: args.databaseUrl,
@@ -67,6 +73,8 @@ export function startWorkerLoop(args: {
       }
     } catch (error) {
       console.error('@vitalspace/worker cycle failed', error);
+    } finally {
+      inFlight = false;
     }
   };
 
@@ -74,6 +82,5 @@ export function startWorkerLoop(args: {
   const interval = setInterval(() => {
     void tick();
   }, pollIntervalMs);
-  interval.unref();
   return interval;
 }

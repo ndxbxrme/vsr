@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
-const databaseUrl =
-  process.env.DATABASE_URL ?? 'postgres://vitalspace:vitalspace@localhost:5432/vitalspace';
+const testDatabaseUrl =
+  process.env.TEST_DATABASE_URL ?? 'postgres://vitalspace:vitalspace@localhost:5432/vitalspace_test';
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -20,7 +20,8 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       env: {
         ...process.env,
-        DATABASE_URL: databaseUrl,
+        DATABASE_URL: testDatabaseUrl,
+        TEST_DATABASE_URL: testDatabaseUrl,
         API_PORT: '4320',
         APP_ENCRYPTION_KEY: process.env.APP_ENCRYPTION_KEY ?? '0123456789abcdef0123456789abcdef',
         GOOGLE_CLIENT_ID: 'playwright-google-client-id',
@@ -48,7 +49,8 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       env: {
         ...process.env,
-        DATABASE_URL: databaseUrl,
+        DATABASE_URL: testDatabaseUrl,
+        TEST_DATABASE_URL: testDatabaseUrl,
         WORKER_POLL_INTERVAL_MS: '250',
         WORKER_HEALTH_PORT: '4322',
       },

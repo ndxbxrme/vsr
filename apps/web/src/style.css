@@ -221,6 +221,16 @@ p {
   box-shadow: var(--shadow);
 }
 
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.panel-toggle {
+  min-width: 90px;
+}
+
 .history-list {
   list-style: none;
   padding: 0;
@@ -279,6 +289,30 @@ p {
 
 .history-error {
   color: #8d2b0f;
+}
+
+.webhook-row .muted-copy {
+  margin-bottom: 6px;
+}
+
+.webhook-payload {
+  margin-top: 10px;
+}
+
+.webhook-payload summary {
+  cursor: pointer;
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.webhook-payload pre {
+  margin: 10px 0 0;
+  padding: 12px;
+  overflow-x: auto;
+  border-radius: 14px;
+  background: rgba(16, 34, 36, 0.08);
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
 .explorer-header {

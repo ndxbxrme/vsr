@@ -35,6 +35,23 @@ function buildDisplayAddress(address: Record<string, unknown> | undefined) {
   return parts.join(', ');
 }
 
+export function isPlaceholderPropertyDisplayAddress(value: string | null | undefined) {
+  return Boolean(value && /^Property \d+$/.test(value.trim()));
+}
+
+export function extractDezrezPropertyAddress(raw: Record<string, unknown>) {
+  const address =
+    raw.Address && typeof raw.Address === 'object' ? (raw.Address as Record<string, unknown>) : undefined;
+
+  return {
+    displayAddress:
+      buildDisplayAddress(address) ??
+      getString(raw.DisplayAddress) ??
+      getString(raw.displayAddress),
+    postcode: getString(address?.Postcode) ?? undefined,
+  };
+}
+
 function sanitizeJson<T>(value: T): T {
   if (typeof value === 'string') {
     return [...value].filter((char) => {
@@ -72,7 +89,8 @@ export function normalizeDezrezPropertySummary(raw: Record<string, unknown>): De
   const externalId =
     getString(raw.RoleId) ??
     getString(raw.PropertyRoleId) ??
-    getString(raw.MarketingRoleId);
+    getString(raw.MarketingRoleId) ??
+    getString(raw.Id);
   if (!externalId) {
     return null;
   }
@@ -83,12 +101,15 @@ export function normalizeDezrezPropertySummary(raw: Record<string, unknown>): De
     raw.RoleStatus && typeof raw.RoleStatus === 'object'
       ? (raw.RoleStatus as Record<string, unknown>)
       : undefined;
+  const normalizedAddress = extractDezrezPropertyAddress(raw);
 
   return dezrezSeedPropertySchema.parse({
     externalId,
     propertyId: getString(raw.PropertyId) ?? undefined,
-    displayAddress: buildDisplayAddress(address) ?? `Property ${externalId}`,
-    postcode: getString(address?.Postcode) ?? undefined,
+    displayAddress:
+      normalizedAddress.displayAddress ??
+      `Property ${externalId}`,
+    postcode: normalizedAddress.postcode ?? getString(address?.Postcode) ?? undefined,
     status: getString(roleStatus?.SystemName) ?? getString(roleStatus?.Name) ?? 'active',
     marketingStatus: getString(roleStatus?.SystemName) ?? undefined,
     rawPayload: sanitizeJson(raw),
@@ -218,9 +239,41 @@ export function createDezrezClient(args: {
       .filter((property): property is DezrezSeedProperty => property !== null);
   }
 
+  function getSeedProperty(identifier: string) {
+    return (
+      settings.seedProperties.find(
+        (property) => property.externalId === identifier || property.propertyId === identifier,
+      ) ?? null
+    );
+  }
+
+  function buildSeedRolePayload(identifier: string) {
+    const property = getSeedProperty(identifier);
+    if (!property) {
+      return null;
+    }
+
+    return sanitizeJson(
+      property.rawPayload ?? {
+        Id: property.externalId,
+        RoleId: property.externalId,
+        PropertyId: property.propertyId ?? null,
+        DisplayAddress: property.displayAddress,
+        RoleStatus: {
+          SystemName: property.marketingStatus ?? property.status ?? 'active',
+          Name: property.marketingStatus ?? property.status ?? 'active',
+        },
+      },
+    );
+  }
+
   return {
     listPropertiesForSync: searchProperties,
     getRole(roleId: string) {
+      if (settings.mode === 'seed') {
+        return Promise.resolve(buildSeedRolePayload(roleId) ?? {});
+      }
+
       return getCore(`role/${roleId}`);
     },
     async getRoleOffers(roleId: string) {
@@ -252,6 +305,10 @@ export function createDezrezClient(args: {
       return getCore(`role/${roleId}/events`, { pageSize: 2000 });
     },
     getProperty(propertyId: string) {
+      if (settings.mode === 'seed') {
+        return Promise.resolve(buildSeedRolePayload(propertyId) ?? {});
+      }
+
       return getCore(`property/${propertyId}`);
     },
     getPropertyOwners(propertyId: string) {

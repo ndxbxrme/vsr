@@ -1,6 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
-import { createDezrezClient, normalizeDezrezPropertySummary } from './dezrez-client';
+import {
+  createDezrezClient,
+  extractDezrezPropertyAddress,
+  isPlaceholderPropertyDisplayAddress,
+  normalizeDezrezPropertySummary,
+} from './dezrez-client';
 
 const sampleProperties = JSON.parse(
   readFileSync(new URL('../../../sources/data/properties-selling.json', import.meta.url), 'utf8'),
@@ -17,6 +22,41 @@ describe('dezrez client adapter', () => {
       marketingStatus: 'InstructionToLet',
     });
     expect(normalized?.displayAddress).toContain('The Pulse');
+  });
+
+  it('prefers role ids over raw Id when normalizing role detail payloads', () => {
+    const normalized = normalizeDezrezPropertySummary({
+      Id: 3671906,
+      RoleId: 30026645,
+      PropertyId: 3671906,
+      DisplayAddress: 'The Pulse, 50 Seymour Grove, Manchester, M16 9GZ',
+      RoleStatus: {
+        SystemName: 'InstructionToLet',
+      },
+    });
+
+    expect(normalized).toMatchObject({
+      externalId: '30026645',
+      propertyId: '3671906',
+    });
+  });
+
+  it('detects placeholder addresses and extracts a better address from property payloads', () => {
+    expect(isPlaceholderPropertyDisplayAddress('Property 30026645')).toBe(true);
+    expect(isPlaceholderPropertyDisplayAddress('The Pulse, 50 Seymour Grove')).toBe(false);
+    expect(
+      extractDezrezPropertyAddress({
+        Address: {
+          BuildingName: 'The Pulse',
+          Street: '50 Seymour Grove',
+          Town: 'Manchester',
+          Postcode: 'M16 0LN',
+        },
+      }),
+    ).toEqual({
+      displayAddress: 'The Pulse, 50 Seymour Grove, Manchester, M16 0LN',
+      postcode: 'M16 0LN',
+    });
   });
 
   it('returns seeded properties in seed mode', async () => {

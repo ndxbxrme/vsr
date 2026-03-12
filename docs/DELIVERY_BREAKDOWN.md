@@ -708,15 +708,15 @@ Definition of done:
 
 - properties, contacts, cases, workflow, communications, and integrations foundation work together
 
-### Milestone C: Sales Operational Pilot
+### Milestone C: Pilot Hardening and Migration Trust
 
 Includes:
 
-- SL1, SL2, SL3, enough of C6 for sales
+- enough of SL6, M1, M2, and M3 to support real side-by-side pilot usage
 
 Definition of done:
 
-- internal users can operate sales workflows in the new system alongside legacy
+- selected tenants can run the defined sales and lettings pilot workflows alongside legacy with reconciliation and operator discipline
 
 ### Milestone D: Lettings Operational Pilot
 
@@ -747,6 +747,7 @@ Definition of done:
 - audit/outbox pattern
 - realtime contract
 - workflow engine design
+- progression-engine target design and later implementation path, as defined in [PROGRESSION_ENGINE.md](/home/kieron/code/vitalspace-remake/docs/PROGRESSION_ENGINE.md)
 - Dezrez integration quality
 
 ### Places where scope can easily blow up

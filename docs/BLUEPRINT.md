@@ -239,6 +239,8 @@ Integration boundaries should stay provider-agnostic at the platform layer:
 - provider-specific classifiers turn raw events into durable integration jobs
 - provider adapters fetch and normalize external data into canonical entities
 - external activity feeds should normalize into shared `timeline_events`, not provider-specific event caches
+- full-feed syncs should write `property_sync_runs` plus `property_sync_inventory` so missing records can be judged over time instead of from a single provider response
+- delisting must be conservative: repeated healthy misses can mark a property `stale_candidate` and then `delisted`, but anomalous runs must not delist anything
 - provider quirks stay inside adapters, not in domain modules or frontend code
 
 ## 10. Data Model Direction
@@ -391,23 +393,27 @@ This should be delivered in phases.
 ### Phase 2: Shared Core
 
 - property/contact/case canonical model
-- workflow engine
+- workflow engine foundation
 - timeline/notes/documents
 - search and dashboard read models
 - tenant theming system
 - core app shell in Vue
+
+The shared workflow layer delivered in early phases should be treated as a foundation, not the final progression engine. The target progression architecture is defined separately in [PROGRESSION_ENGINE.md](/home/kieron/code/vitalspace-remake/docs/PROGRESSION_ENGINE.md).
 
 ### Phase 3: Sales and Lettings MVP
 
 - dashboard
 - case list
 - case detail
-- progression workflows
+- progression workflows on the interim shared workflow layer
 - offers/applications
 - templates and notifications
 - required reports
 
 Sales and lettings should be built on the same shared platform foundations and progressed together, with internal rollout and side-by-side validation against the legacy system before either becomes the default.
+
+The final progression engine should be implemented deliberately after pilot learning has clarified the real branching, delay, automation, and dashboard requirements. It should not be improvised inside dashboard queries or controller logic.
 
 ### Phase 4: Integrations and Data Migration
 

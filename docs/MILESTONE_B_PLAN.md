@@ -21,6 +21,8 @@ At the end of Milestone B, the new platform should support:
 - essential operational reporting needed for side-by-side usage
 - side-by-side pilot usage by selected staff without relying on the legacy UI for the main sales and lettings workflows in scope
 
+This milestone does not need to deliver the final progression engine. It needs to deliver a stable shared workflow foundation that is good enough for product usage and pilot learning. The target progression-engine design is captured in [PROGRESSION_ENGINE.md](/home/kieron/code/vitalspace-remake/docs/PROGRESSION_ENGINE.md).
+
 ## 3. Milestone B Position
 
 Milestone B spans the practical overlap between:
@@ -82,6 +84,8 @@ The slices should be:
 - workflow templates
 - workflow instances and stage transitions
 - unified timeline and audit visibility
+
+This shared-core workflow model should be treated as interim progression infrastructure rather than the final graph-based progression engine.
 
 ### Sales
 
