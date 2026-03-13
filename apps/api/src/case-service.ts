@@ -191,22 +191,43 @@ export async function createCaseRecord(args: {
   tenantId: string;
   branchId?: string | null;
   propertyId?: string | null;
+  ownerMembershipId?: string | null;
   workflowTemplateId?: string | null;
   caseType: 'sales' | 'lettings';
   status: 'open' | 'on_hold' | 'completed' | 'cancelled';
+  closedReason?: string | null;
   reference?: string;
   title: string;
   description?: string;
   metadata?: Record<string, unknown>;
 }) {
+  if (args.ownerMembershipId) {
+    const [membership] = await args.db
+      .select()
+      .from(schema.memberships)
+      .where(
+        and(
+          eq(schema.memberships.id, args.ownerMembershipId),
+          eq(schema.memberships.tenantId, args.tenantId),
+        ),
+      )
+      .limit(1);
+
+    if (!membership) {
+      throw new Error('owner_membership_not_found');
+    }
+  }
+
   const createdCases = await args.db
     .insert(schema.cases)
     .values({
       tenantId: args.tenantId,
       branchId: args.branchId ?? null,
       propertyId: args.propertyId ?? null,
+      ownerMembershipId: args.ownerMembershipId ?? null,
       caseType: args.caseType,
       status: args.status,
+      closedReason: args.closedReason ?? null,
       reference: args.reference ?? null,
       title: args.title,
       description: args.description ?? null,
@@ -392,11 +413,12 @@ export async function transitionWorkflowInstance(args: {
     await args.db
       .update(schema.cases)
       .set({
-        status: 'completed',
-        closedAt: completedAt,
-        updatedAt: new Date(),
-      })
-      .where(eq(schema.cases.id, args.caseId));
+      status: 'completed',
+      closedAt: completedAt,
+      closedReason: 'progression_completed',
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.cases.id, args.caseId));
   }
 
   const createdTransitions = await args.db
@@ -436,8 +458,10 @@ export async function loadCaseRecord(args: {
       tenantId: schema.cases.tenantId,
       branchId: schema.cases.branchId,
       propertyId: schema.cases.propertyId,
+      ownerMembershipId: schema.cases.ownerMembershipId,
       caseType: schema.cases.caseType,
       status: schema.cases.status,
+      closedReason: schema.cases.closedReason,
       reference: schema.cases.reference,
       title: schema.cases.title,
       description: schema.cases.description,
@@ -449,9 +473,13 @@ export async function loadCaseRecord(args: {
       propertyDisplayAddress: schema.properties.displayAddress,
       propertyPostcode: schema.properties.postcode,
       propertyStatus: schema.properties.status,
+      ownerDisplayName: schema.users.displayName,
+      ownerEmail: schema.users.email,
     })
     .from(schema.cases)
     .leftJoin(schema.properties, eq(schema.properties.id, schema.cases.propertyId))
+    .leftJoin(schema.memberships, eq(schema.memberships.id, schema.cases.ownerMembershipId))
+    .leftJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
     .where(and(eq(schema.cases.tenantId, args.tenantId), eq(schema.cases.id, args.caseId)))
     .limit(1);
 
@@ -471,8 +499,10 @@ export async function listCaseRecords(args: {
       tenantId: schema.cases.tenantId,
       branchId: schema.cases.branchId,
       propertyId: schema.cases.propertyId,
+      ownerMembershipId: schema.cases.ownerMembershipId,
       caseType: schema.cases.caseType,
       status: schema.cases.status,
+      closedReason: schema.cases.closedReason,
       reference: schema.cases.reference,
       title: schema.cases.title,
       description: schema.cases.description,
@@ -481,6 +511,7 @@ export async function listCaseRecords(args: {
       createdAt: schema.cases.createdAt,
       updatedAt: schema.cases.updatedAt,
       propertyDisplayAddress: schema.properties.displayAddress,
+      ownerDisplayName: schema.users.displayName,
       workflowInstanceId: schema.workflowInstances.id,
       workflowStatus: schema.workflowInstances.status,
       workflowTemplateId: schema.workflowInstances.workflowTemplateId,
@@ -489,6 +520,8 @@ export async function listCaseRecords(args: {
     })
     .from(schema.cases)
     .leftJoin(schema.properties, eq(schema.properties.id, schema.cases.propertyId))
+    .leftJoin(schema.memberships, eq(schema.memberships.id, schema.cases.ownerMembershipId))
+    .leftJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
     .leftJoin(schema.workflowInstances, eq(schema.workflowInstances.caseId, schema.cases.id))
     .leftJoin(
       schema.workflowStages,

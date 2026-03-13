@@ -92,6 +92,13 @@
       "when": 1773423600000,
       "tag": "0012_external_reference_type_uniqueness",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1773364639042,
+      "tag": "0013_strong_loa",
+      "breakpoints": true
     }
   ]
 }

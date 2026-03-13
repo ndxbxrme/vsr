@@ -2,11 +2,12 @@
 import type { EntityChangedEvent } from '@vitalspace/contracts';
 import { useQuery, useQueryClient } from '@tanstack/vue-query';
 import { io, type Socket } from 'socket.io-client';
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, onBeforeUnmount, ref, toRef, watch } from 'vue';
 
 const props = defineProps<{
   product: 'sales' | 'lettings';
 }>();
+const product = toRef(props, 'product');
 
 type PropertySummary = {
   id: string;
@@ -301,10 +302,10 @@ watch(communicationChannel, () => {
 });
 
 const canLoad = computed(() => tenantId.value.trim().length > 0 && accessToken.value.trim().length > 0);
-const productLabel = computed(() => (props.product === 'sales' ? 'Sales' : 'Lettings'));
-const recordLabel = computed(() => (props.product === 'sales' ? 'Offer' : 'Application'));
+const productLabel = computed(() => (product.value === 'sales' ? 'Sales' : 'Lettings'));
+const recordLabel = computed(() => (product.value === 'sales' ? 'Offer' : 'Application'));
 const reportLabel = computed(() =>
-  props.product === 'sales' ? 'Sales pipeline report' : 'Agreed lets report',
+  product.value === 'sales' ? 'Sales pipeline report' : 'Agreed lets report',
 );
 
 async function apiGet<T>(path: string): Promise<T> {
@@ -366,11 +367,11 @@ const propertiesQuery = useQuery({
 });
 
 const workflowTemplatesQuery = useQuery({
-  queryKey: ['workspace-workflow-templates', tenantId, props.product],
+  queryKey: computed(() => ['workspace-workflow-templates', tenantId.value.trim(), product.value]),
   enabled: canLoad,
   queryFn: () =>
     apiGet<{ workflowTemplates: WorkflowTemplateSummary[] }>(
-      `/workflow-templates?tenantId=${encodeURIComponent(tenantId.value.trim())}&caseType=${props.product}`,
+      `/workflow-templates?tenantId=${encodeURIComponent(tenantId.value.trim())}&caseType=${product.value}`,
     ),
 });
 
@@ -393,40 +394,45 @@ const smsTemplatesQuery = useQuery({
 });
 
 const dashboardQuery = useQuery({
-  queryKey: ['workspace-dashboard', props.product, tenantId],
+  queryKey: computed(() => ['workspace-dashboard', product.value, tenantId.value.trim()]),
   enabled: canLoad,
   queryFn: () =>
     apiGet<{ dashboard: SalesDashboard | LettingsDashboard }>(
-      `/${props.product}/dashboard?tenantId=${encodeURIComponent(tenantId.value.trim())}`,
+      `/${product.value}/dashboard?tenantId=${encodeURIComponent(tenantId.value.trim())}`,
     ),
 });
 
 const casesQuery = useQuery({
-  queryKey: ['workspace-cases', props.product, tenantId],
+  queryKey: computed(() => ['workspace-cases', product.value, tenantId.value.trim()]),
   enabled: canLoad,
   queryFn: () =>
     apiGet<{ cases: CaseListRow[] }>(
-      `/${props.product}/cases?tenantId=${encodeURIComponent(tenantId.value.trim())}`,
+      `/${product.value}/cases?tenantId=${encodeURIComponent(tenantId.value.trim())}`,
     ),
 });
 
 const reportQuery = useQuery({
-  queryKey: ['workspace-report', props.product, tenantId],
+  queryKey: computed(() => ['workspace-report', product.value, tenantId.value.trim()]),
   enabled: canLoad,
   queryFn: () =>
     apiGet<{ report: SalesPipelineReport | AgreedLetsReport }>(
-      `/reports/${props.product === 'sales' ? 'sales-pipeline' : 'agreed-lets'}?tenantId=${encodeURIComponent(tenantId.value.trim())}`,
+      `/reports/${product.value === 'sales' ? 'sales-pipeline' : 'agreed-lets'}?tenantId=${encodeURIComponent(tenantId.value.trim())}`,
     ),
 });
 
 const selectedCaseReady = computed(() => canLoad.value && selectedCaseId.value.trim().length > 0);
 
 const caseDetailQuery = useQuery({
-  queryKey: ['workspace-case-detail', props.product, tenantId, selectedCaseId],
+  queryKey: computed(() => [
+    'workspace-case-detail',
+    product.value,
+    tenantId.value.trim(),
+    selectedCaseId.value,
+  ]),
   enabled: selectedCaseReady,
   queryFn: () =>
     apiGet<SalesCaseDetailResponse | LettingsCaseDetailResponse>(
-      `/${props.product}/cases/${selectedCaseId.value}?tenantId=${encodeURIComponent(tenantId.value.trim())}`,
+      `/${product.value}/cases/${selectedCaseId.value}?tenantId=${encodeURIComponent(tenantId.value.trim())}`,
     ),
 });
 
@@ -452,7 +458,7 @@ const productRecords = computed(() => {
     return [];
   }
 
-  return props.product === 'sales'
+  return product.value === 'sales'
     ? (detail.value as SalesCaseDetailResponse).salesOffers
     : (detail.value as LettingsCaseDetailResponse).lettingsApplications;
 });
@@ -500,7 +506,7 @@ watch(
     }
 
     updateCaseForm.value.title = nextDetail.case.title;
-    if (props.product === 'sales') {
+    if (product.value === 'sales') {
       const salesDetail = nextDetail as SalesCaseDetailResponse;
       updateCaseForm.value.status = salesDetail.salesCase.saleStatus;
       updateCaseForm.value.primaryAmount = salesDetail.salesCase.askingPrice?.toString() ?? '';
@@ -569,21 +575,21 @@ function invalidateWorkspaceQueries(event: EntityChangedEvent) {
 
   lastRealtimeEvent.value = event;
   void queryClient.invalidateQueries({
-    queryKey: ['workspace-dashboard', props.product, tenantId],
+    queryKey: ['workspace-dashboard', product.value, tenantId.value.trim()],
   });
   void queryClient.invalidateQueries({
-    queryKey: ['workspace-cases', props.product, tenantId],
+    queryKey: ['workspace-cases', product.value, tenantId.value.trim()],
   });
   void queryClient.invalidateQueries({
-    queryKey: ['workspace-report', props.product, tenantId],
+    queryKey: ['workspace-report', product.value, tenantId.value.trim()],
   });
   void queryClient.invalidateQueries({
-    queryKey: ['workspace-case-detail', props.product, tenantId, selectedCaseId],
+    queryKey: ['workspace-case-detail', product.value, tenantId.value.trim(), selectedCaseId.value],
   });
 }
 
 watch(
-  [canLoad, accessToken, () => props.product],
+  [canLoad, accessToken, product],
   ([ready, token]) => {
     if (socket) {
       socket.off('entity.changed', invalidateWorkspaceQueries);
@@ -637,12 +643,12 @@ async function createCase() {
     return;
   }
 
-  setActionState('working', `Creating ${props.product} case...`);
+  setActionState('working', `Creating ${product.value} case...`);
 
   try {
     const payload: Record<string, unknown> = {
       tenantId: tenantId.value.trim(),
-      caseType: props.product,
+      caseType: product.value,
       title: createCaseForm.value.title,
       ...(createCaseForm.value.reference ? { reference: createCaseForm.value.reference } : {}),
       ...(createCaseForm.value.propertyId ? { propertyId: createCaseForm.value.propertyId } : {}),
@@ -651,7 +657,7 @@ async function createCase() {
         : {}),
     };
 
-    if (props.product === 'sales') {
+    if (product.value === 'sales') {
       if (createCaseForm.value.primaryAmount) {
         payload.askingPrice = Number(createCaseForm.value.primaryAmount);
       }
@@ -690,7 +696,7 @@ async function updateCase() {
     return;
   }
 
-  setActionState('working', `Updating ${props.product} case...`);
+  setActionState('working', `Updating ${product.value} case...`);
 
   try {
     const payload: Record<string, unknown> = {
@@ -698,7 +704,7 @@ async function updateCase() {
       title: updateCaseForm.value.title,
     };
 
-    if (props.product === 'sales') {
+    if (product.value === 'sales') {
       payload.saleStatus = updateCaseForm.value.status;
       payload.askingPrice = updateCaseForm.value.primaryAmount
         ? Number(updateCaseForm.value.primaryAmount)
@@ -734,7 +740,7 @@ async function addRecord() {
   setActionState('working', `Adding ${recordLabel.value.toLowerCase()}...`);
 
   try {
-    if (props.product === 'sales') {
+    if (product.value === 'sales') {
       await apiPost(`/sales/cases/${selectedCaseId.value}/offers`, {
         tenantId: tenantId.value.trim(),
         caseId: selectedCaseId.value,

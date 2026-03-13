@@ -17,10 +17,12 @@ export async function createLettingsCaseRecord(args: {
   tenantId: string;
   branchId?: string | null;
   propertyId?: string | null;
+  ownerMembershipId?: string | null;
   workflowTemplateId?: string | null;
   reference?: string;
   title: string;
   description?: string;
+  closedReason?: string | null;
   monthlyRent?: number;
   depositAmount?: number;
   lettingStatus: string;
@@ -37,11 +39,13 @@ export async function createLettingsCaseRecord(args: {
     title: args.title,
     ...(args.branchId !== undefined ? { branchId: args.branchId } : {}),
     ...(args.propertyId !== undefined ? { propertyId: args.propertyId } : {}),
+    ...(args.ownerMembershipId !== undefined ? { ownerMembershipId: args.ownerMembershipId } : {}),
     ...(args.workflowTemplateId !== undefined
       ? { workflowTemplateId: args.workflowTemplateId }
       : {}),
     ...(args.reference !== undefined ? { reference: args.reference } : {}),
     ...(args.description !== undefined ? { description: args.description } : {}),
+    ...(args.closedReason !== undefined ? { closedReason: args.closedReason } : {}),
     ...(args.metadata !== undefined ? { metadata: args.metadata } : {}),
   });
 
@@ -72,7 +76,9 @@ export async function updateLettingsCaseRecord(args: {
   caseId: string;
   title?: string;
   description?: string;
+  ownerMembershipId?: string | null;
   status?: 'open' | 'on_hold' | 'completed' | 'cancelled';
+  closedReason?: string | null;
   monthlyRent?: number | null;
   depositAmount?: number | null;
   lettingStatus?: string;
@@ -96,18 +102,43 @@ export async function updateLettingsCaseRecord(args: {
     throw new Error('lettings_case_not_found');
   }
 
-  if (args.title !== undefined || args.description !== undefined || args.status !== undefined) {
+  if (
+    args.title !== undefined ||
+    args.description !== undefined ||
+    args.ownerMembershipId !== undefined ||
+    args.status !== undefined ||
+    args.closedReason !== undefined
+  ) {
+    if (args.ownerMembershipId) {
+      const [membership] = await args.db
+        .select()
+        .from(schema.memberships)
+        .where(
+          and(
+            eq(schema.memberships.id, args.ownerMembershipId),
+            eq(schema.memberships.tenantId, args.tenantId),
+          ),
+        )
+        .limit(1);
+
+      if (!membership) {
+        throw new Error('owner_membership_not_found');
+      }
+    }
+
     await args.db
       .update(schema.cases)
       .set({
         ...(args.title !== undefined ? { title: args.title } : {}),
         ...(args.description !== undefined ? { description: args.description } : {}),
+        ...(args.ownerMembershipId !== undefined ? { ownerMembershipId: args.ownerMembershipId } : {}),
         ...(args.status !== undefined
           ? {
               status: args.status,
-              closedAt: args.status === 'completed' ? new Date() : null,
+              closedAt: args.status === 'completed' || args.status === 'cancelled' ? new Date() : null,
             }
           : {}),
+        ...(args.closedReason !== undefined ? { closedReason: args.closedReason } : {}),
         updatedAt: new Date(),
       })
       .where(eq(schema.cases.id, args.caseId));
@@ -266,8 +297,10 @@ export async function listLettingsCaseRecords(args: {
       tenantId: schema.cases.tenantId,
       branchId: schema.cases.branchId,
       propertyId: schema.cases.propertyId,
+      ownerMembershipId: schema.cases.ownerMembershipId,
       caseType: schema.cases.caseType,
       status: schema.cases.status,
+      closedReason: schema.cases.closedReason,
       reference: schema.cases.reference,
       title: schema.cases.title,
       description: schema.cases.description,

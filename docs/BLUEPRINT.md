@@ -399,7 +399,7 @@ This should be delivered in phases.
 - tenant theming system
 - core app shell in Vue
 
-The shared workflow layer delivered in early phases should be treated as a foundation, not the final progression engine. The target progression architecture is defined separately in [PROGRESSION_ENGINE.md](/home/kieron/code/vitalspace-remake/docs/PROGRESSION_ENGINE.md).
+The shared workflow layer delivered in early phases should be treated as a foundation, not the final progression engine. The target progression architecture is defined separately in [PROGRESSION_ENGINE.md](/home/kieron/code/vitalspace-remake/docs/PROGRESSION_ENGINE.md), and the operational lifecycle rules for sales and lettings cases are captured in [CASE_LIFECYCLE.md](/home/kieron/code/vitalspace-remake/docs/CASE_LIFECYCLE.md).
 
 ### Phase 3: Sales and Lettings MVP
 

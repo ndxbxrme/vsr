@@ -265,6 +265,39 @@ p {
   margin-bottom: 0;
 }
 
+.trust-alert {
+  border-style: solid;
+}
+
+.trust-alert-warning {
+  background: rgba(255, 248, 230, 0.88);
+}
+
+.trust-alert-danger {
+  background: rgba(255, 240, 234, 0.9);
+}
+
+.operator-block + .operator-block {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(16, 34, 36, 0.08);
+}
+
+.compact-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: grid;
+  gap: 8px;
+}
+
+.compact-list li {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid rgba(16, 34, 36, 0.06);
+}
+
 .history-meta {
   display: flex;
   flex-wrap: wrap;

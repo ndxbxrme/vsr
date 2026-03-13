@@ -23,6 +23,6 @@ test('pilot readiness view is reachable from the home page', async ({ page }) =>
   await page.getByRole('link', { name: 'Open Pilot Readiness' }).click();
 
   await expect(page).toHaveURL(/\/pilot-readiness$/);
-  await expect(page.getByRole('heading', { name: 'Pilot readiness' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Pilot operations' })).toBeVisible();
   await expect(page.getByLabel('Tenant ID')).toBeVisible();
 });

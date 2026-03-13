@@ -1900,9 +1900,13 @@ export function createApp(deps: ApiAppDeps) {
         saleStatus: parsed.data.saleStatus,
         ...(parsed.data.branchId !== undefined ? { branchId: parsed.data.branchId } : {}),
         ...(parsed.data.propertyId !== undefined ? { propertyId: parsed.data.propertyId } : {}),
+        ...(parsed.data.ownerMembershipId !== undefined
+          ? { ownerMembershipId: parsed.data.ownerMembershipId }
+          : {}),
         ...(parsed.data.workflowTemplateId !== undefined
           ? { workflowTemplateId: parsed.data.workflowTemplateId }
           : {}),
+        ...(parsed.data.closedReason !== undefined ? { closedReason: parsed.data.closedReason } : {}),
         ...(parsed.data.reference !== undefined ? { reference: parsed.data.reference } : {}),
         ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
         ...(parsed.data.askingPrice !== undefined ? { askingPrice: parsed.data.askingPrice } : {}),
@@ -1955,6 +1959,10 @@ export function createApp(deps: ApiAppDeps) {
         return res.status(404).json({ error: 'workflow_template_not_found' });
       }
 
+      if (error instanceof Error && error.message === 'owner_membership_not_found') {
+        return res.status(404).json({ error: 'owner_membership_not_found' });
+      }
+
       throw error;
     }
   });
@@ -1981,41 +1989,62 @@ export function createApp(deps: ApiAppDeps) {
       return res.status(404).json({ error: 'sales_case_not_found' });
     }
 
-    const salesCase = await updateSalesCaseRecord({
-      db: deps.db,
-      tenantId: parsedBody.data.tenantId,
-      caseId: parsedParams.data.caseId,
-      ...(parsedBody.data.title !== undefined ? { title: parsedBody.data.title } : {}),
-      ...(parsedBody.data.description !== undefined
-        ? { description: parsedBody.data.description }
-        : {}),
-      ...(parsedBody.data.status !== undefined ? { status: parsedBody.data.status } : {}),
-      ...(parsedBody.data.askingPrice !== undefined ? { askingPrice: parsedBody.data.askingPrice } : {}),
-      ...(parsedBody.data.agreedPrice !== undefined ? { agreedPrice: parsedBody.data.agreedPrice } : {}),
-      ...(parsedBody.data.saleStatus !== undefined ? { saleStatus: parsedBody.data.saleStatus } : {}),
-      ...(parsedBody.data.memorandumSentAt !== undefined
-        ? {
-            memorandumSentAt: parsedBody.data.memorandumSentAt
-              ? new Date(parsedBody.data.memorandumSentAt)
-              : null,
-          }
-        : {}),
-      ...(parsedBody.data.targetExchangeAt !== undefined
-        ? {
-            targetExchangeAt: parsedBody.data.targetExchangeAt
-              ? new Date(parsedBody.data.targetExchangeAt)
-              : null,
-          }
-        : {}),
-      ...(parsedBody.data.targetCompletionAt !== undefined
-        ? {
-            targetCompletionAt: parsedBody.data.targetCompletionAt
-              ? new Date(parsedBody.data.targetCompletionAt)
-              : null,
-          }
-        : {}),
-      ...(parsedBody.data.metadata !== undefined ? { metadata: parsedBody.data.metadata } : {}),
-    });
+    let salesCase;
+    try {
+      salesCase = await updateSalesCaseRecord({
+        db: deps.db,
+        tenantId: parsedBody.data.tenantId,
+        caseId: parsedParams.data.caseId,
+        ...(parsedBody.data.title !== undefined ? { title: parsedBody.data.title } : {}),
+        ...(parsedBody.data.description !== undefined
+          ? { description: parsedBody.data.description }
+          : {}),
+        ...(parsedBody.data.ownerMembershipId !== undefined
+          ? { ownerMembershipId: parsedBody.data.ownerMembershipId }
+          : {}),
+        ...(parsedBody.data.status !== undefined ? { status: parsedBody.data.status } : {}),
+        ...(parsedBody.data.closedReason !== undefined
+          ? { closedReason: parsedBody.data.closedReason }
+          : {}),
+        ...(parsedBody.data.askingPrice !== undefined
+          ? { askingPrice: parsedBody.data.askingPrice }
+          : {}),
+        ...(parsedBody.data.agreedPrice !== undefined ? { agreedPrice: parsedBody.data.agreedPrice } : {}),
+        ...(parsedBody.data.saleStatus !== undefined ? { saleStatus: parsedBody.data.saleStatus } : {}),
+        ...(parsedBody.data.memorandumSentAt !== undefined
+          ? {
+              memorandumSentAt: parsedBody.data.memorandumSentAt
+                ? new Date(parsedBody.data.memorandumSentAt)
+                : null,
+            }
+          : {}),
+        ...(parsedBody.data.targetExchangeAt !== undefined
+          ? {
+              targetExchangeAt: parsedBody.data.targetExchangeAt
+                ? new Date(parsedBody.data.targetExchangeAt)
+                : null,
+            }
+          : {}),
+        ...(parsedBody.data.targetCompletionAt !== undefined
+          ? {
+              targetCompletionAt: parsedBody.data.targetCompletionAt
+                ? new Date(parsedBody.data.targetCompletionAt)
+                : null,
+            }
+          : {}),
+        ...(parsedBody.data.metadata !== undefined ? { metadata: parsedBody.data.metadata } : {}),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'owner_membership_not_found') {
+        return res.status(404).json({ error: 'owner_membership_not_found' });
+      }
+
+      throw error;
+    }
+
+    if (!salesCase) {
+      return res.status(404).json({ error: 'sales_case_not_found' });
+    }
 
     await recordMutation({
       db: deps.db,
@@ -2471,9 +2500,13 @@ export function createApp(deps: ApiAppDeps) {
         lettingStatus: parsed.data.lettingStatus,
         ...(parsed.data.branchId !== undefined ? { branchId: parsed.data.branchId } : {}),
         ...(parsed.data.propertyId !== undefined ? { propertyId: parsed.data.propertyId } : {}),
+        ...(parsed.data.ownerMembershipId !== undefined
+          ? { ownerMembershipId: parsed.data.ownerMembershipId }
+          : {}),
         ...(parsed.data.workflowTemplateId !== undefined
           ? { workflowTemplateId: parsed.data.workflowTemplateId }
           : {}),
+        ...(parsed.data.closedReason !== undefined ? { closedReason: parsed.data.closedReason } : {}),
         ...(parsed.data.reference !== undefined ? { reference: parsed.data.reference } : {}),
         ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
         ...(parsed.data.monthlyRent !== undefined ? { monthlyRent: parsed.data.monthlyRent } : {}),
@@ -2524,6 +2557,10 @@ export function createApp(deps: ApiAppDeps) {
         return res.status(404).json({ error: 'workflow_template_not_found' });
       }
 
+      if (error instanceof Error && error.message === 'owner_membership_not_found') {
+        return res.status(404).json({ error: 'owner_membership_not_found' });
+      }
+
       throw error;
     }
   });
@@ -2550,41 +2587,56 @@ export function createApp(deps: ApiAppDeps) {
       return res.status(404).json({ error: 'lettings_case_not_found' });
     }
 
-    const lettingsCase = await updateLettingsCaseRecord({
-      db: deps.db,
-      tenantId: parsedBody.data.tenantId,
-      caseId: parsedParams.data.caseId,
-      ...(parsedBody.data.title !== undefined ? { title: parsedBody.data.title } : {}),
-      ...(parsedBody.data.description !== undefined
-        ? { description: parsedBody.data.description }
-        : {}),
-      ...(parsedBody.data.status !== undefined ? { status: parsedBody.data.status } : {}),
-      ...(parsedBody.data.monthlyRent !== undefined
-        ? { monthlyRent: parsedBody.data.monthlyRent }
-        : {}),
-      ...(parsedBody.data.depositAmount !== undefined
-        ? { depositAmount: parsedBody.data.depositAmount }
-        : {}),
-      ...(parsedBody.data.lettingStatus !== undefined
-        ? { lettingStatus: parsedBody.data.lettingStatus }
-        : {}),
-      ...(parsedBody.data.agreedAt !== undefined
-        ? {
-            agreedAt: parsedBody.data.agreedAt ? new Date(parsedBody.data.agreedAt) : null,
-          }
-        : {}),
-      ...(parsedBody.data.moveInAt !== undefined
-        ? {
-            moveInAt: parsedBody.data.moveInAt ? new Date(parsedBody.data.moveInAt) : null,
-          }
-        : {}),
-      ...(parsedBody.data.agreedLetAt !== undefined
-        ? {
-            agreedLetAt: parsedBody.data.agreedLetAt ? new Date(parsedBody.data.agreedLetAt) : null,
-          }
-        : {}),
-      ...(parsedBody.data.metadata !== undefined ? { metadata: parsedBody.data.metadata } : {}),
-    });
+    let lettingsCase;
+    try {
+      lettingsCase = await updateLettingsCaseRecord({
+        db: deps.db,
+        tenantId: parsedBody.data.tenantId,
+        caseId: parsedParams.data.caseId,
+        ...(parsedBody.data.title !== undefined ? { title: parsedBody.data.title } : {}),
+        ...(parsedBody.data.description !== undefined
+          ? { description: parsedBody.data.description }
+          : {}),
+        ...(parsedBody.data.ownerMembershipId !== undefined
+          ? { ownerMembershipId: parsedBody.data.ownerMembershipId }
+          : {}),
+        ...(parsedBody.data.status !== undefined ? { status: parsedBody.data.status } : {}),
+        ...(parsedBody.data.closedReason !== undefined
+          ? { closedReason: parsedBody.data.closedReason }
+          : {}),
+        ...(parsedBody.data.monthlyRent !== undefined
+          ? { monthlyRent: parsedBody.data.monthlyRent }
+          : {}),
+        ...(parsedBody.data.depositAmount !== undefined
+          ? { depositAmount: parsedBody.data.depositAmount }
+          : {}),
+        ...(parsedBody.data.lettingStatus !== undefined
+          ? { lettingStatus: parsedBody.data.lettingStatus }
+          : {}),
+        ...(parsedBody.data.agreedAt !== undefined
+          ? {
+              agreedAt: parsedBody.data.agreedAt ? new Date(parsedBody.data.agreedAt) : null,
+            }
+          : {}),
+        ...(parsedBody.data.moveInAt !== undefined
+          ? {
+              moveInAt: parsedBody.data.moveInAt ? new Date(parsedBody.data.moveInAt) : null,
+            }
+          : {}),
+        ...(parsedBody.data.agreedLetAt !== undefined
+          ? {
+              agreedLetAt: parsedBody.data.agreedLetAt ? new Date(parsedBody.data.agreedLetAt) : null,
+            }
+          : {}),
+        ...(parsedBody.data.metadata !== undefined ? { metadata: parsedBody.data.metadata } : {}),
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'owner_membership_not_found') {
+        return res.status(404).json({ error: 'owner_membership_not_found' });
+      }
+
+      throw error;
+    }
 
     await recordMutation({
       db: deps.db,

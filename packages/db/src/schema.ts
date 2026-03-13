@@ -533,8 +533,10 @@ export const cases = pgTable(
     tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
     branchId: uuid('branch_id').references(() => branches.id),
     propertyId: uuid('property_id').references(() => properties.id),
+    ownerMembershipId: uuid('owner_membership_id').references(() => memberships.id),
     caseType: text('case_type').notNull(),
     status: text('status').notNull().default('open'),
+    closedReason: text('closed_reason'),
     reference: text('reference'),
     title: text('title').notNull(),
     description: text('description'),
@@ -550,6 +552,7 @@ export const cases = pgTable(
       table.status,
     ),
     caseTenantPropertyIdx: index('cases_tenant_property_idx').on(table.tenantId, table.propertyId),
+    caseTenantOwnerIdx: index('cases_tenant_owner_idx').on(table.tenantId, table.ownerMembershipId),
     caseTenantReferenceIdx: uniqueIndex('cases_tenant_reference_idx').on(
       table.tenantId,
       table.reference,

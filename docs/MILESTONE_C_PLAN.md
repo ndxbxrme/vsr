@@ -255,6 +255,10 @@ This order is deliberate:
 - add pilot operations view or operator console improvements
 - surface stale-sync and mismatch indicators
 - add Playwright coverage for pilot trust checks
+- delivered:
+  - pilot operations view now combines pilot readiness, reconciliation, and Dezrez sync trust on one screen
+  - reconciliation now includes drilldown rows for stale properties, missing external references, and incomplete cases
+  - Playwright covers a stale-property pilot scenario end to end
 
 ### Batch 3
 

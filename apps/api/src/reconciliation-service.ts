@@ -1,5 +1,5 @@
 import { type createDbClient, schema } from '@vitalspace/db';
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { loadLettingsDashboard } from './lettings-service';
 import { loadSalesDashboard } from './sales-service';
 
@@ -121,6 +121,83 @@ export async function loadTenantReconciliation(args: {
       asc(schema.workflowInstances.status),
       asc(schema.workflowStages.key),
     );
+
+  const [
+    propertiesWithoutExternalReference,
+    staleProperties,
+    casesWithoutProperty,
+    casesWithoutWorkflow,
+  ] = await Promise.all([
+    args.db
+      .select({
+        id: schema.properties.id,
+        displayAddress: schema.properties.displayAddress,
+        postcode: schema.properties.postcode,
+        syncState: schema.properties.syncState,
+      })
+      .from(schema.properties)
+      .where(
+        sql`${schema.properties.tenantId} = ${args.tenantId} and not exists (
+          select 1
+          from external_references er
+          where er.tenant_id = ${schema.properties.tenantId}
+            and er.entity_id = ${schema.properties.id}
+            and er.provider = 'dezrez'
+            and er.entity_type = 'property'
+        )`,
+      )
+      .orderBy(asc(schema.properties.displayAddress))
+      .limit(10),
+    args.db
+      .select({
+        id: schema.properties.id,
+        displayAddress: schema.properties.displayAddress,
+        postcode: schema.properties.postcode,
+        syncState: schema.properties.syncState,
+        consecutiveMissCount: schema.properties.consecutiveMissCount,
+        staleCandidateAt: schema.properties.staleCandidateAt,
+        delistedAt: schema.properties.delistedAt,
+        delistedReason: schema.properties.delistedReason,
+      })
+      .from(schema.properties)
+      .where(
+        and(
+          eq(schema.properties.tenantId, args.tenantId),
+          sql`${schema.properties.syncState} in ('stale_candidate', 'delisted')`,
+        ),
+      )
+      .orderBy(asc(schema.properties.displayAddress))
+      .limit(10),
+    args.db
+      .select({
+        id: schema.cases.id,
+        caseType: schema.cases.caseType,
+        status: schema.cases.status,
+        reference: schema.cases.reference,
+        title: schema.cases.title,
+      })
+      .from(schema.cases)
+      .where(
+        and(eq(schema.cases.tenantId, args.tenantId), sql`${schema.cases.propertyId} is null`),
+      )
+      .orderBy(asc(schema.cases.caseType), asc(schema.cases.title))
+      .limit(10),
+    args.db
+      .select({
+        id: schema.cases.id,
+        caseType: schema.cases.caseType,
+        status: schema.cases.status,
+        reference: schema.cases.reference,
+        title: schema.cases.title,
+      })
+      .from(schema.cases)
+      .leftJoin(schema.workflowInstances, eq(schema.workflowInstances.caseId, schema.cases.id))
+      .where(
+        and(eq(schema.cases.tenantId, args.tenantId), sql`${schema.workflowInstances.id} is null`),
+      )
+      .orderBy(asc(schema.cases.caseType), asc(schema.cases.title))
+      .limit(10),
+  ]);
 
   const salesDashboard = await loadSalesDashboard({
     db: args.db,
@@ -317,5 +394,47 @@ export async function loadTenantReconciliation(args: {
       },
     },
     checks,
+    details: {
+      propertiesWithoutExternalReference,
+      staleProperties,
+      casesWithoutProperty,
+      casesWithoutWorkflow,
+      reportMismatches: [
+        {
+          key: 'sales_pipeline',
+          label: 'Sales pipeline',
+          aligned: salesReportAlignment,
+          dashboardCounts: salesDashboard.counts,
+          actualCounts: {
+            totalCases: salesActual.totalCases,
+            openCases: salesActual.openCases,
+            completedCases: salesActual.completedCases,
+            offerAcceptedCases: salesActual.offerAcceptedCases,
+            acceptedOffers: salesActual.acceptedOffers,
+          },
+          dashboardValues: salesDashboard.values,
+          actualValues: {
+            acceptedOfferValue: salesActual.acceptedOfferValue,
+          },
+        },
+        {
+          key: 'agreed_lets',
+          label: 'Agreed lets',
+          aligned: lettingsReportAlignment,
+          dashboardCounts: lettingsDashboard.counts,
+          actualCounts: {
+            totalCases: lettingsActual.totalCases,
+            openCases: lettingsActual.openCases,
+            completedCases: lettingsActual.completedCases,
+            agreedLets: lettingsActual.agreedLets,
+            acceptedApplications: lettingsActual.acceptedApplications,
+          },
+          dashboardValues: lettingsDashboard.values,
+          actualValues: {
+            totalRentOffered: lettingsActual.totalRentOffered,
+          },
+        },
+      ],
+    },
   };
 }

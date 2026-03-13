@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createServer } from 'node:http';
+import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { decryptJsonPayload } from '@vitalspace/auth';
@@ -1209,6 +1210,148 @@ describe('api auth and tenancy', () => {
     });
   });
 
+  it('supports case ownership and explicit close reasons for sales cases', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'sales-owner@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'sales-owner@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Owned Sales Estates',
+        slug: 'owned-sales-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    const tenantId = createTenant.body.tenant.id as string;
+    const branchId = createTenant.body.branch.id as string;
+
+    const [user] = await db
+      .select()
+      .from(schema.users)
+      .where(eq(schema.users.email, 'sales-owner@example.com'))
+      .limit(1);
+
+    if (!user) {
+      throw new Error('sales_owner_user_not_found');
+    }
+
+    const [membership] = await db
+      .select()
+      .from(schema.memberships)
+      .where(
+        and(eq(schema.memberships.tenantId, tenantId), eq(schema.memberships.userId, user.id)),
+      )
+      .limit(1);
+
+    if (!membership) {
+      throw new Error('sales_owner_membership_not_found');
+    }
+
+    const [property] = await db
+      .insert(schema.properties)
+      .values({
+        tenantId,
+        branchId,
+        displayAddress: '72 Owner Street',
+        postcode: 'M4 1AA',
+        marketingStatus: 'for_sale',
+      })
+      .returning();
+
+    if (!property) {
+      throw new Error('owned_sales_property_not_created');
+    }
+
+    const createSalesCase = await request(app)
+      .post('/api/v1/sales/cases')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        branchId,
+        propertyId: property.id,
+        ownerMembershipId: membership.id,
+        reference: 'SALES-OWNER-001',
+        title: '72 Owner Street Sale',
+        saleStatus: 'instruction',
+      });
+
+    expect(createSalesCase.status).toBe(201);
+    expect(createSalesCase.body.case).toMatchObject({
+      ownerMembershipId: membership.id,
+      closedReason: null,
+    });
+
+    const caseId = createSalesCase.body.case.id as string;
+
+    const updateSalesCase = await request(app)
+      .patch(`/api/v1/sales/cases/${caseId}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        status: 'cancelled',
+        closedReason: 'property_delisted',
+      });
+
+    expect(updateSalesCase.status).toBe(200);
+    expect(updateSalesCase.body.salesCase).toMatchObject({
+      caseId,
+    });
+
+    const detail = await request(app)
+      .get(`/api/v1/sales/cases/${caseId}`)
+      .query({ tenantId })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(detail.status).toBe(200);
+    expect(detail.body.case).toMatchObject({
+      id: caseId,
+      ownerMembershipId: membership.id,
+      status: 'cancelled',
+      closedReason: 'property_delisted',
+    });
+
+    const list = await request(app)
+      .get('/api/v1/sales/cases')
+      .query({ tenantId })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(list.status).toBe(200);
+    expect(list.body.cases).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: caseId,
+          ownerMembershipId: membership.id,
+          status: 'cancelled',
+          closedReason: 'property_delisted',
+        }),
+      ]),
+    );
+
+    const invalidOwnerUpdate = await request(app)
+      .patch(`/api/v1/sales/cases/${caseId}`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        ownerMembershipId: randomUUID(),
+      });
+
+    expect(invalidOwnerUpdate.status).toBe(404);
+    expect(invalidOwnerUpdate.body).toEqual({
+      error: 'owner_membership_not_found',
+    });
+  });
+
   it('creates and manages lettings cases, applications, and agreed-let reporting', async () => {
     await request(app).post('/api/v1/auth/signup').send({
       email: 'lettings-admin@example.com',
@@ -1837,6 +1980,129 @@ describe('api auth and tenancy', () => {
         expect.objectContaining({
           key: 'lettings_report_alignment',
           status: 'ready',
+        }),
+      ]),
+    );
+  });
+
+  it('returns reconciliation drilldown rows for stale properties and incomplete cases', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'reconciliation-drilldown@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'reconciliation-drilldown@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Reconciliation Drilldown Estates',
+        slug: 'reconciliation-drilldown-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    const tenantId = createTenant.body.tenant.id as string;
+
+    const [orphanProperty] = await db
+      .insert(schema.properties)
+      .values({
+        tenantId,
+        displayAddress: '5 Orphan Street',
+        postcode: 'M1 1AA',
+        syncState: 'active',
+      })
+      .returning();
+    const [staleProperty] = await db
+      .insert(schema.properties)
+      .values({
+        tenantId,
+        displayAddress: '9 Stale Street',
+        postcode: 'M1 1AB',
+        syncState: 'stale_candidate',
+        consecutiveMissCount: 2,
+        staleCandidateAt: new Date('2026-03-12T10:00:00.000Z'),
+      })
+      .returning();
+
+    if (!orphanProperty || !staleProperty) {
+      throw new Error('reconciliation_properties_not_created');
+    }
+
+    await db.insert(schema.externalReferences).values({
+      tenantId,
+      provider: 'dezrez',
+      entityType: 'property',
+      entityId: staleProperty.id,
+      externalType: 'property',
+      externalId: 'DRZ-STALE-1',
+    });
+
+    await db.insert(schema.cases).values([
+      {
+        tenantId,
+        caseType: 'sales',
+        status: 'open',
+        reference: 'DRILL-001',
+        title: 'Sales case missing property and workflow',
+      },
+      {
+        tenantId,
+        caseType: 'lettings',
+        status: 'open',
+        propertyId: staleProperty.id,
+        reference: 'DRILL-002',
+        title: 'Lettings case missing workflow',
+      },
+    ]);
+
+    const reconciliation = await request(app)
+      .get('/api/v1/reconciliation')
+      .query({
+        tenantId,
+      })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(reconciliation.status).toBe(200);
+    expect(reconciliation.body.reconciliation.details.propertiesWithoutExternalReference).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: orphanProperty.id,
+          displayAddress: '5 Orphan Street',
+        }),
+      ]),
+    );
+    expect(reconciliation.body.reconciliation.details.staleProperties).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: staleProperty.id,
+          displayAddress: '9 Stale Street',
+          syncState: 'stale_candidate',
+          consecutiveMissCount: 2,
+        }),
+      ]),
+    );
+    expect(reconciliation.body.reconciliation.details.casesWithoutProperty).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          reference: 'DRILL-001',
+          title: 'Sales case missing property and workflow',
+        }),
+      ]),
+    );
+    expect(reconciliation.body.reconciliation.details.casesWithoutWorkflow).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          reference: 'DRILL-001',
+        }),
+        expect.objectContaining({
+          reference: 'DRILL-002',
         }),
       ]),
     );

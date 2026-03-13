@@ -226,6 +226,135 @@ describe('processPendingPropertySyncs', () => {
     expect(updatedEvents).toHaveLength(1);
   });
 
+  it('auto-creates sales and lettings cases for OfferAccepted Dezrez roles without duplicating the same role cycle', async () => {
+    const [tenant] = await db
+      .insert(schema.tenants)
+      .values({
+        name: 'Auto Case Estates',
+        slug: 'auto-case-estates',
+      })
+      .returning();
+    if (!tenant) {
+      throw new Error('tenant_not_created');
+    }
+
+    const [integrationAccount] = await db
+      .insert(schema.integrationAccounts)
+      .values({
+        tenantId: tenant.id,
+        provider: 'dezrez',
+        name: 'Auto Case Dezrez',
+        settingsJson: {
+          seedProperties: [
+            {
+              externalId: 'SELL-100',
+              propertyId: '5001',
+              displayAddress: '1 Sales Auto Street, Manchester',
+              postcode: 'M1 1AA',
+              marketingStatus: 'OfferAccepted',
+              rawPayload: {
+                RoleId: 'SELL-100',
+                PropertyId: '5001',
+                RoleType: { SystemName: 'Selling' },
+                RoleStatus: { SystemName: 'OfferAccepted' },
+              },
+            },
+            {
+              externalId: 'LET-200',
+              propertyId: '5002',
+              displayAddress: '2 Lettings Auto Street, Manchester',
+              postcode: 'M1 1AB',
+              marketingStatus: 'OfferAccepted',
+              rawPayload: {
+                RoleId: 'LET-200',
+                PropertyId: '5002',
+                RoleType: { SystemName: 'Letting' },
+                RoleStatus: { SystemName: 'OfferAccepted' },
+              },
+            },
+          ],
+        },
+      })
+      .returning();
+    if (!integrationAccount) {
+      throw new Error('integration_account_not_created');
+    }
+
+    const enqueueSync = async () => {
+      await db.insert(schema.outboxEvents).values({
+        tenantId: tenant.id,
+        eventName: 'property.sync_requested',
+        entityType: 'property',
+        entityId: '00000000-0000-0000-0000-000000000000',
+        mutationType: 'sync_requested',
+        channelKey: buildTenantRoom(tenant.id),
+        payloadJson: {
+          integrationAccountId: integrationAccount.id,
+          requestedByUserId: null,
+        },
+      });
+    };
+
+    await enqueueSync();
+    expect(await processPendingPropertySyncs({ db })).toEqual({
+      processedEvents: 1,
+      failedEvents: 0,
+      upsertedProperties: 2,
+    });
+
+    let cases = await db
+      .select({
+        id: schema.cases.id,
+        caseType: schema.cases.caseType,
+        propertyId: schema.cases.propertyId,
+        status: schema.cases.status,
+        metadataJson: schema.cases.metadataJson,
+      })
+      .from(schema.cases)
+      .where(eq(schema.cases.tenantId, tenant.id))
+      .orderBy(asc(schema.cases.caseType));
+
+    expect(cases).toHaveLength(2);
+    expect(cases[0]).toMatchObject({
+      caseType: 'lettings',
+      status: 'open',
+    });
+    expect(cases[1]).toMatchObject({
+      caseType: 'sales',
+      status: 'open',
+    });
+    expect((cases[0]?.metadataJson as Record<string, unknown>)?.source).toMatchObject({
+      provider: 'dezrez',
+      propertyRoleId: 'LET-200',
+      autoCreated: true,
+    });
+    expect((cases[1]?.metadataJson as Record<string, unknown>)?.source).toMatchObject({
+      provider: 'dezrez',
+      propertyRoleId: 'SELL-100',
+      autoCreated: true,
+    });
+
+    const salesCases = await db.select().from(schema.salesCases);
+    const lettingsCases = await db.select().from(schema.lettingsCases);
+    expect(salesCases).toHaveLength(1);
+    expect(salesCases[0]?.saleStatus).toBe('offer_accepted');
+    expect(lettingsCases).toHaveLength(1);
+    expect(lettingsCases[0]?.lettingStatus).toBe('application_accepted');
+
+    await enqueueSync();
+    expect(await processPendingPropertySyncs({ db })).toEqual({
+      processedEvents: 1,
+      failedEvents: 0,
+      upsertedProperties: 2,
+    });
+
+    cases = await db
+      .select()
+      .from(schema.cases)
+      .where(eq(schema.cases.tenantId, tenant.id));
+    expect(cases).toHaveLength(2);
+  });
+
   it('marks unseen properties stale and then delisted after consecutive healthy misses', async () => {
     const [tenant] = await db
       .insert(schema.tenants)
@@ -472,6 +601,99 @@ describe('processPendingPropertySyncs', () => {
       staleCandidateCount: 0,
       delistedCount: 0,
     });
+  });
+
+  it('auto-cancels active cases when a property is confidently delisted by healthy misses', async () => {
+    const [tenant] = await db
+      .insert(schema.tenants)
+      .values({
+        name: 'Delisted Case Estates',
+        slug: 'delisted-case-estates',
+      })
+      .returning();
+    if (!tenant) {
+      throw new Error('tenant_not_created');
+    }
+
+    const [integrationAccount] = await db
+      .insert(schema.integrationAccounts)
+      .values({
+        tenantId: tenant.id,
+        provider: 'dezrez',
+        name: 'Delisted Case Dezrez',
+        settingsJson: {
+          seedProperties: [
+            {
+              externalId: 'SELL-DEL-1',
+              propertyId: '8001',
+              displayAddress: '9 Delisted Street, Manchester',
+              postcode: 'M2 2AA',
+              marketingStatus: 'OfferAccepted',
+              rawPayload: {
+                RoleId: 'SELL-DEL-1',
+                PropertyId: '8001',
+                RoleType: { SystemName: 'Selling' },
+                RoleStatus: { SystemName: 'OfferAccepted' },
+              },
+            },
+          ],
+        },
+      })
+      .returning();
+    if (!integrationAccount) {
+      throw new Error('integration_account_not_created');
+    }
+
+    const enqueueSync = async () => {
+      await db.insert(schema.outboxEvents).values({
+        tenantId: tenant.id,
+        eventName: 'property.sync_requested',
+        entityType: 'property',
+        entityId: '00000000-0000-0000-0000-000000000000',
+        mutationType: 'sync_requested',
+        channelKey: buildTenantRoom(tenant.id),
+        payloadJson: {
+          integrationAccountId: integrationAccount.id,
+          requestedByUserId: null,
+        },
+      });
+    };
+
+    await enqueueSync();
+    await processPendingPropertySyncs({ db });
+
+    await db
+      .update(schema.integrationAccounts)
+      .set({
+        settingsJson: {
+          seedProperties: [],
+        },
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.integrationAccounts.id, integrationAccount.id));
+
+    await enqueueSync();
+    await processPendingPropertySyncs({ db });
+    await enqueueSync();
+    await processPendingPropertySyncs({ db });
+    await enqueueSync();
+    await processPendingPropertySyncs({ db });
+
+    const [caseRecord] = await db
+      .select({
+        status: schema.cases.status,
+        closedReason: schema.cases.closedReason,
+        closedAt: schema.cases.closedAt,
+      })
+      .from(schema.cases)
+      .where(eq(schema.cases.tenantId, tenant.id))
+      .limit(1);
+
+    expect(caseRecord).toMatchObject({
+      status: 'cancelled',
+      closedReason: 'property_delisted',
+    });
+    expect(caseRecord?.closedAt).toBeTruthy();
   });
 
   it('classifies Dezrez webhooks into durable jobs and refreshes a single property role without a full sync', async () => {

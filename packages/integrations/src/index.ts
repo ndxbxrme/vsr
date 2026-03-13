@@ -32,6 +32,7 @@ const PROPERTY_STALE_CANDIDATE_MISS_THRESHOLD = 1;
 const PROPERTY_DELIST_MISS_THRESHOLD = 3;
 const PROPERTY_SYNC_ANOMALY_MIN_BASELINE = 20;
 const PROPERTY_SYNC_ANOMALY_DROP_RATIO = 0.5;
+const ACTIVE_CASE_STATUSES = new Set(['open', 'on_hold']);
 
 export type ProcessPendingPropertySyncsResult = {
   processedEvents: number;
@@ -56,6 +57,244 @@ function requireValue<T>(value: T | undefined, label: string): T {
   }
 
   return value;
+}
+
+function normalizeSyncToken(value: unknown) {
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  return null;
+}
+
+function getRawObject(value: unknown) {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+}
+
+function getRawString(value: unknown) {
+  if (typeof value === 'string' && value.trim().length > 0) {
+    return value.trim();
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  return null;
+}
+
+function getRawSystemName(value: unknown) {
+  const objectValue = getRawObject(value);
+  return (
+    getRawString(objectValue?.SystemName) ??
+    getRawString(objectValue?.Name) ??
+    getRawString(objectValue?.Value) ??
+    getRawString(value)
+  );
+}
+
+function resolveDezrezRoleType(upstreamProperty: DezrezSeedProperty) {
+  return normalizeSyncToken(getRawSystemName(getRawObject(upstreamProperty.rawPayload)?.RoleType));
+}
+
+function resolveDezrezRoleStatus(upstreamProperty: DezrezSeedProperty) {
+  return (
+    normalizeSyncToken(getRawSystemName(getRawObject(upstreamProperty.rawPayload)?.RoleStatus)) ??
+    normalizeSyncToken(upstreamProperty.marketingStatus) ??
+    normalizeSyncToken(upstreamProperty.status)
+  );
+}
+
+function getAutoCaseRoleId(metadataJson: unknown) {
+  const metadataObject = getRawObject(metadataJson);
+  const source = getRawObject(metadataObject?.source);
+  return getRawString(source?.propertyRoleId);
+}
+
+async function ensureAutoCaseForProperty(args: {
+  db: DbClient;
+  tenantId: string;
+  property: typeof schema.properties.$inferSelect;
+  upstreamProperty: DezrezSeedProperty;
+}) {
+  const roleType = resolveDezrezRoleType(args.upstreamProperty);
+  const roleStatus = resolveDezrezRoleStatus(args.upstreamProperty);
+  const roleExternalId = args.upstreamProperty.externalId;
+
+  if (roleStatus !== 'offeraccepted') {
+    return null;
+  }
+
+  const caseType =
+    roleType === 'selling' ? 'sales' : roleType === 'letting' ? 'lettings' : null;
+  if (!caseType) {
+    return null;
+  }
+
+  const existingCases = await args.db
+    .select({
+      id: schema.cases.id,
+      status: schema.cases.status,
+      metadataJson: schema.cases.metadataJson,
+    })
+    .from(schema.cases)
+    .where(
+      and(
+        eq(schema.cases.tenantId, args.tenantId),
+        eq(schema.cases.propertyId, args.property.id),
+        eq(schema.cases.caseType, caseType),
+      ),
+    )
+    .orderBy(desc(schema.cases.createdAt));
+
+  if (existingCases.some((existingCase) => ACTIVE_CASE_STATUSES.has(existingCase.status))) {
+    return null;
+  }
+
+  if (existingCases.some((existingCase) => getAutoCaseRoleId(existingCase.metadataJson) === roleExternalId)) {
+    return null;
+  }
+
+  const now = new Date();
+  const caseMetadata = {
+    source: {
+      provider: 'dezrez',
+      propertyRoleId: roleExternalId,
+      propertyId: args.upstreamProperty.propertyId ?? null,
+      roleType,
+      autoCreated: true,
+      trigger: 'offer_accepted_sync',
+    },
+  };
+
+  const [createdCase] = await args.db
+    .insert(schema.cases)
+    .values({
+      tenantId: args.tenantId,
+      branchId: args.property.branchId ?? null,
+      propertyId: args.property.id,
+      caseType,
+      status: 'open',
+      reference: null,
+      title: `${args.property.displayAddress} ${caseType === 'sales' ? 'Sale' : 'Letting'}`,
+      description: null,
+      openedAt: now,
+      metadataJson: caseMetadata,
+    })
+    .returning();
+  const caseRecord = requireValue(createdCase, 'case');
+
+  if (caseType === 'sales') {
+    await args.db.insert(schema.salesCases).values({
+      tenantId: args.tenantId,
+      caseId: caseRecord.id,
+      saleStatus: 'offer_accepted',
+      metadataJson: caseMetadata,
+    });
+  } else {
+    await args.db.insert(schema.lettingsCases).values({
+      tenantId: args.tenantId,
+      caseId: caseRecord.id,
+      lettingStatus: 'application_accepted',
+      metadataJson: caseMetadata,
+    });
+  }
+
+  await args.db.insert(schema.auditLogs).values({
+    tenantId: args.tenantId,
+    actorType: 'system',
+    entityType: 'case',
+    entityId: caseRecord.id,
+    action: 'case.auto_created',
+    summary: `Automatically created ${caseType} case for ${args.property.displayAddress}`,
+    metadataJson: caseMetadata,
+  });
+
+  await args.db.insert(schema.outboxEvents).values({
+    tenantId: args.tenantId,
+    eventName: 'case.created',
+    entityType: 'case',
+    entityId: caseRecord.id,
+    mutationType: 'created',
+    channelKey: buildTenantRoom(args.tenantId),
+    payloadJson: {
+      caseId: caseRecord.id,
+      caseType,
+      propertyId: args.property.id,
+      propertyRoleId: roleExternalId,
+    },
+  });
+
+  return caseRecord.id;
+}
+
+async function autoCloseCasesForDelistedProperty(args: {
+  db: DbClient;
+  tenantId: string;
+  propertyId: string;
+}) {
+  const activeCases = await args.db
+    .select({
+      id: schema.cases.id,
+      caseType: schema.cases.caseType,
+      title: schema.cases.title,
+      status: schema.cases.status,
+    })
+    .from(schema.cases)
+    .where(
+      and(
+        eq(schema.cases.tenantId, args.tenantId),
+        eq(schema.cases.propertyId, args.propertyId),
+      ),
+    );
+
+  const casesToClose = activeCases.filter((existingCase) =>
+    ACTIVE_CASE_STATUSES.has(existingCase.status),
+  );
+
+  for (const existingCase of casesToClose) {
+    await args.db
+      .update(schema.cases)
+      .set({
+        status: 'cancelled',
+        closedReason: 'property_delisted',
+        closedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.cases.id, existingCase.id));
+
+    await args.db.insert(schema.auditLogs).values({
+      tenantId: args.tenantId,
+      actorType: 'system',
+      entityType: 'case',
+      entityId: existingCase.id,
+      action: 'case.auto_cancelled',
+      summary: `Automatically cancelled ${existingCase.caseType} case ${existingCase.title} after property delisting`,
+      metadataJson: {
+        reason: 'property_delisted',
+      },
+    });
+
+    await args.db.insert(schema.outboxEvents).values({
+      tenantId: args.tenantId,
+      eventName: 'case.updated',
+      entityType: 'case',
+      entityId: existingCase.id,
+      mutationType: 'updated',
+      channelKey: buildTenantRoom(args.tenantId),
+      payloadJson: {
+        caseId: existingCase.id,
+        caseType: existingCase.caseType,
+        propertyId: args.propertyId,
+        status: 'cancelled',
+        closedReason: 'property_delisted',
+      },
+    });
+  }
 }
 
 async function markOutboxEventFailed(db: DbClient, eventId: string, message: string) {
@@ -1147,6 +1386,13 @@ async function upsertProperty(args: {
       },
     });
 
+    await ensureAutoCaseForProperty({
+      db: args.db,
+      tenantId: args.tenantId,
+      property,
+      upstreamProperty: args.upstreamProperty,
+    });
+
     return { propertyId: property.id, mutationType: 'updated' as const };
   }
 
@@ -1209,6 +1455,13 @@ async function upsertProperty(args: {
     },
   });
 
+  await ensureAutoCaseForProperty({
+    db: args.db,
+    tenantId: args.tenantId,
+    property,
+    upstreamProperty: args.upstreamProperty,
+  });
+
   return { propertyId: property.id, mutationType: 'created' as const };
 }
 
@@ -1246,6 +1499,7 @@ async function applyPropertySyncState(args: {
   seenRoleIds: Set<string>;
   seenProviderPropertyIds: Set<string>;
 }) {
+  const newlyDelistedPropertyIds: string[] = [];
   const propertyReferences = await args.db
     .select({
       propertyId: schema.properties.id,
@@ -1352,6 +1606,18 @@ async function applyPropertySyncState(args: {
         updatedAt: new Date(),
       })
       .where(eq(schema.properties.id, property.propertyId));
+
+    if (becomesDelisted && property.syncState !== 'delisted') {
+      newlyDelistedPropertyIds.push(property.propertyId);
+    }
+  }
+
+  for (const propertyId of newlyDelistedPropertyIds) {
+    await autoCloseCasesForDelistedProperty({
+      db: args.db,
+      tenantId: args.tenantId,
+      propertyId,
+    });
   }
 
   const [staleCandidateCountRow, delistedCountRow] = await Promise.all([
