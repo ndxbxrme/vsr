@@ -1,6 +1,12 @@
 import { type createDbClient, schema } from '@vitalspace/db';
 import { and, desc, eq, sql } from 'drizzle-orm';
-import { createCaseRecord, loadCaseDetail, loadCaseRecord } from './case-service';
+import {
+  createCaseRecord,
+  loadCaseDetail,
+  loadCaseRecord,
+  loadWorkflowSummariesForCaseIds,
+  pickPrimaryWorkflow,
+} from './case-service';
 
 type DbClient = ReturnType<typeof createDbClient>['db'];
 
@@ -279,7 +285,7 @@ export async function listSalesCaseRecords(args: {
   saleStatus?: string;
   branchId?: string;
 }) {
-  return args.db
+  const caseRows = await args.db
     .select({
       id: schema.cases.id,
       tenantId: schema.cases.tenantId,
@@ -297,9 +303,7 @@ export async function listSalesCaseRecords(args: {
       createdAt: schema.cases.createdAt,
       updatedAt: schema.cases.updatedAt,
       propertyDisplayAddress: schema.properties.displayAddress,
-      workflowInstanceId: schema.workflowInstances.id,
-      currentStageKey: schema.workflowStages.key,
-      currentStageName: schema.workflowStages.name,
+      ownerDisplayName: schema.users.displayName,
       salesCaseId: schema.salesCases.id,
       askingPrice: schema.salesCases.askingPrice,
       agreedPrice: schema.salesCases.agreedPrice,
@@ -310,11 +314,8 @@ export async function listSalesCaseRecords(args: {
     .from(schema.salesCases)
     .innerJoin(schema.cases, eq(schema.cases.id, schema.salesCases.caseId))
     .leftJoin(schema.properties, eq(schema.properties.id, schema.cases.propertyId))
-    .leftJoin(schema.workflowInstances, eq(schema.workflowInstances.caseId, schema.cases.id))
-    .leftJoin(
-      schema.workflowStages,
-      eq(schema.workflowStages.id, schema.workflowInstances.currentWorkflowStageId),
-    )
+    .leftJoin(schema.memberships, eq(schema.memberships.id, schema.cases.ownerMembershipId))
+    .leftJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
     .where(
       and(
         eq(schema.salesCases.tenantId, args.tenantId),
@@ -324,6 +325,28 @@ export async function listSalesCaseRecords(args: {
       ),
     )
     .orderBy(desc(schema.cases.updatedAt), desc(schema.cases.createdAt));
+
+  const workflowsByCaseId = await loadWorkflowSummariesForCaseIds({
+    db: args.db,
+    tenantId: args.tenantId,
+    caseIds: caseRows.map((caseRow) => caseRow.id),
+  });
+
+  return caseRows.map((caseRow) => {
+    const workflows = workflowsByCaseId.get(caseRow.id) ?? [];
+    const primaryWorkflow = pickPrimaryWorkflow({
+      caseType: 'sales',
+      workflows: workflows as Array<{ track: string; templateSide?: string | null }>,
+    }) as Record<string, unknown> | null;
+
+    return {
+      ...caseRow,
+      workflowInstanceId: (primaryWorkflow?.id as string | undefined) ?? null,
+      currentStageKey: (primaryWorkflow?.currentStageKey as string | undefined) ?? null,
+      currentStageName: (primaryWorkflow?.currentStageName as string | undefined) ?? null,
+      workflows,
+    };
+  });
 }
 
 export async function loadSalesCaseDetail(args: {

@@ -1,8 +1,37 @@
 import { type createDbClient, schema } from '@vitalspace/db';
-import { and, asc, desc, eq, isNull, or } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, or, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { listCaseCommunicationDispatches } from './communications-service';
+import {
+  buildProjectedCaseDates,
+  calculateWorkflowStageRuntimes,
+  mergeWorkflowStagesWithRuntime,
+  transitionWorkflowStageRuntimes,
+} from './scheduling-engine';
 
 type DbClient = ReturnType<typeof createDbClient>['db'];
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+async function isTenantWorkflowAutostartEnabled(args: {
+  db: DbClient;
+  tenantId: string;
+}) {
+  const [tenant] = await args.db
+    .select({
+      settingsJson: schema.tenants.settingsJson,
+    })
+    .from(schema.tenants)
+    .where(eq(schema.tenants.id, args.tenantId))
+    .limit(1);
+
+  const settings = asRecord(tenant?.settingsJson);
+  return typeof settings.workflowAutostart === 'boolean' ? settings.workflowAutostart : true;
+}
 
 function requireValue<T>(value: T | undefined, label: string): T {
   if (value === undefined) {
@@ -57,49 +86,257 @@ export async function createWorkflowTemplateRecord(args: {
   tenantId: string;
   key: string;
   name: string;
+  side?: string | null;
   caseType?: 'sales' | 'lettings';
   status: string;
   isSystem: boolean;
   definition?: Record<string, unknown>;
   stages: Array<{
+    legacyStageId?: string | null;
     key: string;
     name: string;
     stageOrder: number;
     isTerminal?: boolean;
     config?: Record<string, unknown>;
   }>;
+  edges?: Array<{
+    fromStageKey?: string | null;
+    toStageKey: string;
+    edgeType?: string;
+    triggerOn?: string | null;
+    metadata?: Record<string, unknown>;
+  }>;
+  actions?: Array<{
+    stageKey: string;
+    legacyActionId?: string | null;
+    actionOrder: number;
+    triggerOn?: string;
+    actionType: string;
+    name?: string | null;
+    templateReference?: string | null;
+    targetLegacyStageId?: string | null;
+    targetStageKey?: string | null;
+    recipientGroups?: unknown;
+    specificUserReference?: string | null;
+    metadata?: Record<string, unknown>;
+  }>;
 }) {
-  const createdTemplates = await args.db
-    .insert(schema.workflowTemplates)
-    .values({
-      tenantId: args.tenantId,
-      key: args.key,
-      name: args.name,
-      caseType: args.caseType ?? null,
-      status: args.status,
-      isSystem: args.isSystem,
-      definitionJson: args.definition ?? null,
-    })
-    .returning();
-  const workflowTemplate = requireValue(createdTemplates[0], 'workflow_template');
+  return args.db.transaction(async (tx) => {
+    const existingTemplates = await tx
+      .select()
+      .from(schema.workflowTemplates)
+      .where(
+        and(
+          eq(schema.workflowTemplates.tenantId, args.tenantId),
+          eq(schema.workflowTemplates.key, args.key),
+        ),
+      )
+      .orderBy(desc(schema.workflowTemplates.versionNumber), desc(schema.workflowTemplates.createdAt));
 
-  const stagesToInsert = args.stages.map((stage) => ({
-    workflowTemplateId: workflowTemplate.id,
-    key: stage.key,
-    name: stage.name,
-    stageOrder: stage.stageOrder,
-    isTerminal: stage.isTerminal ?? false,
-    configJson: stage.config ?? null,
-  }));
+    const latestVersion = existingTemplates[0] ?? null;
+    const versionNumber = latestVersion ? latestVersion.versionNumber + 1 : 1;
 
+    if (latestVersion) {
+      await tx
+        .update(schema.workflowTemplates)
+        .set({
+          isActiveVersion: false,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(schema.workflowTemplates.tenantId, args.tenantId),
+            eq(schema.workflowTemplates.key, args.key),
+            eq(schema.workflowTemplates.isActiveVersion, true),
+          ),
+        );
+    }
+
+    const createdTemplates = await tx
+      .insert(schema.workflowTemplates)
+      .values({
+        tenantId: args.tenantId,
+        key: args.key,
+        name: args.name,
+        side: args.side ?? null,
+        caseType: args.caseType ?? null,
+        versionNumber,
+        isActiveVersion: true,
+        previousWorkflowTemplateId: latestVersion?.id ?? null,
+        status: args.status,
+        isSystem: args.isSystem,
+        definitionJson: args.definition ?? null,
+      })
+      .returning();
+    const workflowTemplate = requireValue(createdTemplates[0], 'workflow_template');
+
+    const stagesToInsert = args.stages.map((stage) => ({
+      workflowTemplateId: workflowTemplate.id,
+      legacyStageId: stage.legacyStageId ?? null,
+      key: stage.key,
+      name: stage.name,
+      stageOrder: stage.stageOrder,
+      isTerminal: stage.isTerminal ?? false,
+      configJson: stage.config ?? null,
+    }));
+
+    const workflowStages = await tx
+      .insert(schema.workflowStages)
+      .values(stagesToInsert)
+      .returning();
+
+    const stagesByKey = new Map(workflowStages.map((stage) => [stage.key, stage]));
+
+    if (args.edges?.length) {
+      const edgesToInsert = args.edges
+        .map((edge) => {
+          const toStage = stagesByKey.get(edge.toStageKey);
+          if (!toStage) {
+            return null;
+          }
+
+          const fromStage = edge.fromStageKey ? stagesByKey.get(edge.fromStageKey) ?? null : null;
+          return {
+            workflowTemplateId: workflowTemplate.id,
+            fromWorkflowStageId: fromStage?.id ?? null,
+            toWorkflowStageId: toStage.id,
+            edgeType: edge.edgeType ?? 'trigger',
+            triggerOn: edge.triggerOn ?? null,
+            metadataJson: edge.metadata ?? null,
+          };
+        })
+        .filter((edge): edge is NonNullable<typeof edge> => edge !== null);
+
+      if (edgesToInsert.length) {
+        await tx.insert(schema.workflowStageEdges).values(edgesToInsert);
+      }
+    }
+
+    if (args.actions?.length) {
+      const actionsToInsert = args.actions
+        .map((action) => {
+          const stage = stagesByKey.get(action.stageKey);
+          if (!stage) {
+            return null;
+          }
+
+          const targetStage = action.targetStageKey
+            ? stagesByKey.get(action.targetStageKey) ?? null
+            : null;
+
+          return {
+            workflowTemplateId: workflowTemplate.id,
+            workflowStageId: stage.id,
+            legacyActionId: action.legacyActionId ?? null,
+            actionOrder: action.actionOrder,
+            triggerOn: action.triggerOn ?? 'Complete',
+            actionType: action.actionType,
+            name: action.name ?? null,
+            templateReference: action.templateReference ?? null,
+            targetLegacyStageId: action.targetLegacyStageId ?? null,
+            targetWorkflowStageId: targetStage?.id ?? null,
+            recipientGroupsJson: action.recipientGroups ?? null,
+            specificUserReference: action.specificUserReference ?? null,
+            metadataJson: action.metadata ?? null,
+          };
+        })
+        .filter((action): action is NonNullable<typeof action> => action !== null);
+
+      if (actionsToInsert.length) {
+        await tx.insert(schema.workflowStageActions).values(actionsToInsert);
+      }
+    }
+
+    return {
+      workflowTemplate,
+      workflowStages,
+    };
+  });
+}
+
+async function loadWorkflowTemplateGraph(args: {
+  db: DbClient;
+  workflowTemplateIds: string[];
+}) {
+  if (!args.workflowTemplateIds.length) {
+    return {
+      stagesByTemplateId: new Map<string, Array<typeof schema.workflowStages.$inferSelect>>(),
+      edgesByTemplateId: new Map<string, Array<typeof schema.workflowStageEdges.$inferSelect>>(),
+      actionsByTemplateId: new Map<string, Array<typeof schema.workflowStageActions.$inferSelect>>(),
+    };
+  }
+
+  const templateIdPredicates = args.workflowTemplateIds.map((templateId) =>
+    eq(schema.workflowStages.workflowTemplateId, templateId),
+  );
   const workflowStages = await args.db
-    .insert(schema.workflowStages)
-    .values(stagesToInsert)
-    .returning();
+    .select()
+    .from(schema.workflowStages)
+    .where(or(...templateIdPredicates))
+    .orderBy(asc(schema.workflowStages.stageOrder), asc(schema.workflowStages.createdAt));
+
+  const workflowStageEdges = await args.db
+    .select()
+    .from(schema.workflowStageEdges)
+    .where(
+      or(
+        ...args.workflowTemplateIds.map((templateId) =>
+          eq(schema.workflowStageEdges.workflowTemplateId, templateId),
+        ),
+      ),
+    )
+    .orderBy(
+      asc(schema.workflowStageEdges.createdAt),
+      asc(schema.workflowStageEdges.toWorkflowStageId),
+    );
+
+  const workflowStageActions = await args.db
+    .select()
+    .from(schema.workflowStageActions)
+    .where(
+      or(
+        ...args.workflowTemplateIds.map((templateId) =>
+          eq(schema.workflowStageActions.workflowTemplateId, templateId),
+        ),
+      ),
+    )
+    .orderBy(
+      asc(schema.workflowStageActions.workflowStageId),
+      asc(schema.workflowStageActions.actionOrder),
+      asc(schema.workflowStageActions.createdAt),
+    );
+
+  const stagesByTemplateId = new Map<string, Array<typeof schema.workflowStages.$inferSelect>>();
+  for (const stage of workflowStages) {
+    const existing = stagesByTemplateId.get(stage.workflowTemplateId) ?? [];
+    existing.push(stage);
+    stagesByTemplateId.set(stage.workflowTemplateId, existing);
+  }
+
+  const edgesByTemplateId = new Map<
+    string,
+    Array<typeof schema.workflowStageEdges.$inferSelect>
+  >();
+  for (const edge of workflowStageEdges) {
+    const existing = edgesByTemplateId.get(edge.workflowTemplateId) ?? [];
+    existing.push(edge);
+    edgesByTemplateId.set(edge.workflowTemplateId, existing);
+  }
+
+  const actionsByTemplateId = new Map<
+    string,
+    Array<typeof schema.workflowStageActions.$inferSelect>
+  >();
+  for (const action of workflowStageActions) {
+    const existing = actionsByTemplateId.get(action.workflowTemplateId) ?? [];
+    existing.push(action);
+    actionsByTemplateId.set(action.workflowTemplateId, existing);
+  }
 
   return {
-    workflowTemplate,
-    workflowStages,
+    stagesByTemplateId,
+    edgesByTemplateId,
+    actionsByTemplateId,
   };
 }
 
@@ -118,31 +355,24 @@ export async function listWorkflowTemplates(args: {
           isNull(schema.workflowTemplates.tenantId),
         ),
         args.caseType ? eq(schema.workflowTemplates.caseType, args.caseType) : undefined,
+        eq(schema.workflowTemplates.isActiveVersion, true),
       ),
     )
     .orderBy(asc(schema.workflowTemplates.name), asc(schema.workflowTemplates.createdAt));
 
   const templateIds = templates.map((template) => template.id);
-  const workflowStages = templateIds.length
-    ? await args.db
-        .select()
-        .from(schema.workflowStages)
-        .where(
-          or(...templateIds.map((templateId) => eq(schema.workflowStages.workflowTemplateId, templateId))),
-        )
-        .orderBy(asc(schema.workflowStages.stageOrder), asc(schema.workflowStages.createdAt))
-    : [];
-
-  const stagesByTemplateId = new Map<string, typeof workflowStages>();
-  for (const stage of workflowStages) {
-    const existing = stagesByTemplateId.get(stage.workflowTemplateId) ?? [];
-    existing.push(stage);
-    stagesByTemplateId.set(stage.workflowTemplateId, existing);
-  }
+  const { stagesByTemplateId, edgesByTemplateId, actionsByTemplateId } = await loadWorkflowTemplateGraph(
+    {
+      db: args.db,
+      workflowTemplateIds: templateIds,
+    },
+  );
 
   return templates.map((template) => ({
     ...template,
     stages: stagesByTemplateId.get(template.id) ?? [],
+    edges: edgesByTemplateId.get(template.id) ?? [],
+    actions: actionsByTemplateId.get(template.id) ?? [],
   }));
 }
 
@@ -174,16 +404,378 @@ async function loadWorkflowTemplateForCase(args: {
     throw new Error('workflow_template_case_type_mismatch');
   }
 
-  const workflowStages = await args.db
-    .select()
-    .from(schema.workflowStages)
-    .where(eq(schema.workflowStages.workflowTemplateId, workflowTemplate.id))
-    .orderBy(asc(schema.workflowStages.stageOrder), asc(schema.workflowStages.createdAt));
+  const { stagesByTemplateId, edgesByTemplateId, actionsByTemplateId } = await loadWorkflowTemplateGraph(
+    {
+      db: args.db,
+      workflowTemplateIds: [workflowTemplate.id],
+    },
+  );
+  const workflowStages = stagesByTemplateId.get(workflowTemplate.id) ?? [];
 
   return {
     workflowTemplate,
     workflowStages,
+    workflowEdges: edgesByTemplateId.get(workflowTemplate.id) ?? [],
+    workflowActions: actionsByTemplateId.get(workflowTemplate.id) ?? [],
   };
+}
+
+async function syncCaseWorkflowStageRuntimeRows(args: {
+  db: DbClient;
+  tenantId: string;
+  caseId: string;
+  runtimeSeedsByInstanceId?: Map<string, Array<typeof schema.workflowStageRuntimes.$inferSelect>>;
+  calculatedAt?: Date;
+}) {
+  const workflowInstances = await args.db
+    .select()
+    .from(schema.workflowInstances)
+    .where(
+      and(
+        eq(schema.workflowInstances.tenantId, args.tenantId),
+        eq(schema.workflowInstances.caseId, args.caseId),
+      ),
+    )
+    .orderBy(asc(schema.workflowInstances.track), asc(schema.workflowInstances.createdAt));
+
+  if (!workflowInstances.length) {
+    return new Map<string, Array<typeof schema.workflowStageRuntimes.$inferSelect>>();
+  }
+
+  const templateIds = [...new Set(workflowInstances.map((instance) => instance.workflowTemplateId))];
+  const { stagesByTemplateId, edgesByTemplateId } = await loadWorkflowTemplateGraph({
+    db: args.db,
+    workflowTemplateIds: templateIds,
+  });
+
+  const existingRuntimes = await args.db
+    .select()
+    .from(schema.workflowStageRuntimes)
+    .where(
+      or(
+        ...workflowInstances.map((workflowInstance) =>
+          eq(schema.workflowStageRuntimes.workflowInstanceId, workflowInstance.id),
+        ),
+      ),
+    )
+    .orderBy(asc(schema.workflowStageRuntimes.createdAt));
+
+  const runtimeMap = new Map<string, Array<typeof schema.workflowStageRuntimes.$inferSelect>>();
+  for (const workflowInstance of workflowInstances) {
+    runtimeMap.set(
+      workflowInstance.id,
+      args.runtimeSeedsByInstanceId?.get(workflowInstance.id) ??
+        existingRuntimes.filter((runtime) => runtime.workflowInstanceId === workflowInstance.id),
+    );
+  }
+
+  for (const workflowInstance of workflowInstances) {
+    const stages = stagesByTemplateId.get(workflowInstance.workflowTemplateId) ?? [];
+    const edges = edgesByTemplateId.get(workflowInstance.workflowTemplateId) ?? [];
+    const computedRuntimes = calculateWorkflowStageRuntimes({
+      workflowStartedAt: workflowInstance.startedAt,
+      currentWorkflowStageId: workflowInstance.currentWorkflowStageId,
+      stages,
+      edges,
+      existingRuntimes: runtimeMap.get(workflowInstance.id) ?? [],
+      ...(args.calculatedAt !== undefined ? { calculatedAt: args.calculatedAt } : {}),
+    });
+
+    for (const runtime of computedRuntimes) {
+      await args.db
+        .insert(schema.workflowStageRuntimes)
+        .values({
+          tenantId: args.tenantId,
+          workflowInstanceId: workflowInstance.id,
+          workflowStageId: runtime.workflowStageId,
+          status: runtime.status,
+          dependencyState: runtime.dependencyState,
+          isCurrent: runtime.isCurrent,
+          estimatedStartAt: runtime.estimatedStartAt,
+          estimatedCompleteAt: runtime.estimatedCompleteAt,
+          targetStartAt: runtime.targetStartAt,
+          targetCompleteAt: runtime.targetCompleteAt,
+          actualStartedAt: runtime.actualStartedAt,
+          actualCompletedAt: runtime.actualCompletedAt,
+          scheduleSource: runtime.scheduleSource,
+          lastRecalculatedAt: runtime.lastRecalculatedAt,
+          manualOverrideAt: runtime.manualOverrideAt,
+          manualOverrideReason: runtime.manualOverrideReason,
+          metadataJson: runtime.metadataJson,
+        })
+        .onConflictDoUpdate({
+          target: [
+            schema.workflowStageRuntimes.workflowInstanceId,
+            schema.workflowStageRuntimes.workflowStageId,
+          ],
+          set: {
+            status: runtime.status,
+            dependencyState: runtime.dependencyState,
+            isCurrent: runtime.isCurrent,
+            estimatedStartAt: runtime.estimatedStartAt,
+            estimatedCompleteAt: runtime.estimatedCompleteAt,
+            targetStartAt: runtime.targetStartAt,
+            targetCompleteAt: runtime.targetCompleteAt,
+            actualStartedAt: runtime.actualStartedAt,
+            actualCompletedAt: runtime.actualCompletedAt,
+            scheduleSource: runtime.scheduleSource,
+            lastRecalculatedAt: runtime.lastRecalculatedAt,
+            manualOverrideAt: runtime.manualOverrideAt,
+            manualOverrideReason: runtime.manualOverrideReason,
+            metadataJson: runtime.metadataJson,
+            updatedAt: new Date(),
+          },
+        });
+    }
+  }
+
+  return runtimeMap;
+}
+
+export async function recalculateCaseSchedules(args: {
+  db: DbClient;
+  tenantId: string;
+  caseId: string;
+  calculatedAt?: Date;
+}) {
+  const caseRecord = await loadCaseRecord({
+    db: args.db,
+    tenantId: args.tenantId,
+    caseId: args.caseId,
+  });
+
+  if (!caseRecord) {
+    throw new Error('case_not_found');
+  }
+
+  await syncCaseWorkflowStageRuntimeRows({
+    db: args.db,
+    tenantId: args.tenantId,
+    caseId: args.caseId,
+    ...(args.calculatedAt !== undefined ? { calculatedAt: args.calculatedAt } : {}),
+  });
+
+  return syncProjectedCaseDates({
+    db: args.db,
+    tenantId: args.tenantId,
+    caseId: args.caseId,
+    caseType: caseRecord.caseType as 'sales' | 'lettings',
+  });
+}
+
+function getWorkflowTrackLabel(args: {
+  requestedTrack?: string | null;
+  templateSide?: string | null;
+}) {
+  return args.requestedTrack ?? args.templateSide ?? 'Primary';
+}
+
+async function resolveWorkflowInstanceForCase(args: {
+  db: DbClient;
+  tenantId: string;
+  caseId: string;
+  workflowTrack?: string;
+}) {
+  const workflowInstances = await args.db
+    .select()
+    .from(schema.workflowInstances)
+    .where(
+      and(
+        eq(schema.workflowInstances.tenantId, args.tenantId),
+        eq(schema.workflowInstances.caseId, args.caseId),
+        args.workflowTrack ? eq(schema.workflowInstances.track, args.workflowTrack) : undefined,
+      ),
+    );
+
+  const workflowInstance =
+    workflowInstances.length === 1
+      ? workflowInstances[0]
+      : args.workflowTrack
+        ? workflowInstances[0]
+        : null;
+
+  if (!workflowInstance) {
+    if (!args.workflowTrack && workflowInstances.length > 1) {
+      throw new Error('workflow_track_required');
+    }
+
+    throw new Error('workflow_instance_not_found');
+  }
+
+  return workflowInstance;
+}
+
+export function pickPrimaryWorkflow(args: {
+  caseType: 'sales' | 'lettings';
+  workflows: Array<{
+    track: string;
+    templateSide?: string | null;
+  }>;
+}) {
+  const preferredTrack = args.caseType === 'sales' ? 'Seller' : 'Tenant';
+  return (
+    args.workflows.find((workflow) => workflow.track === preferredTrack) ??
+    args.workflows.find((workflow) => workflow.templateSide === preferredTrack) ??
+    args.workflows[0] ??
+    null
+  );
+}
+
+async function syncProjectedCaseDates(args: {
+  db: DbClient;
+  tenantId: string;
+  caseId: string;
+  caseType: 'sales' | 'lettings';
+}) {
+  const workflowsByCaseId = await loadWorkflowSummariesForCaseIds({
+    db: args.db,
+    tenantId: args.tenantId,
+    caseIds: [args.caseId],
+  });
+  const workflows = workflowsByCaseId.get(args.caseId) ?? [];
+  const primaryWorkflow =
+    pickPrimaryWorkflow({
+      caseType: args.caseType,
+      workflows: workflows as Array<{ track: string; templateSide?: string | null }>,
+    }) as
+      | {
+          scheduleProjection?: {
+            targetExchangeAt?: Date | null;
+            targetCompletionAt?: Date | null;
+            agreedLetAt?: Date | null;
+            moveInAt?: Date | null;
+          } | null;
+        }
+      | null;
+
+  const projection = primaryWorkflow?.scheduleProjection ?? null;
+
+  if (args.caseType === 'sales') {
+    await args.db
+      .update(schema.salesCases)
+      .set({
+        targetExchangeAt: projection?.targetExchangeAt ?? null,
+        targetCompletionAt: projection?.targetCompletionAt ?? null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(eq(schema.salesCases.tenantId, args.tenantId), eq(schema.salesCases.caseId, args.caseId)),
+      );
+  } else {
+    await args.db
+      .update(schema.lettingsCases)
+      .set({
+        agreedLetAt: projection?.agreedLetAt ?? null,
+        moveInAt: projection?.moveInAt ?? null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(schema.lettingsCases.tenantId, args.tenantId),
+          eq(schema.lettingsCases.caseId, args.caseId),
+        ),
+      );
+  }
+
+  return projection;
+}
+
+export async function loadWorkflowSummariesForCaseIds(args: {
+  db: DbClient;
+  tenantId: string;
+  caseIds: string[];
+}) {
+  if (!args.caseIds.length) {
+    return new Map<string, Array<Record<string, unknown>>>();
+  }
+
+  const workflowRows = await args.db
+    .select({
+      id: schema.workflowInstances.id,
+      tenantId: schema.workflowInstances.tenantId,
+      caseId: schema.workflowInstances.caseId,
+      track: schema.workflowInstances.track,
+      workflowTemplateId: schema.workflowInstances.workflowTemplateId,
+      currentWorkflowStageId: schema.workflowInstances.currentWorkflowStageId,
+      status: schema.workflowInstances.status,
+      startedAt: schema.workflowInstances.startedAt,
+      completedAt: schema.workflowInstances.completedAt,
+      metadataJson: schema.workflowInstances.metadataJson,
+      templateKey: schema.workflowTemplates.key,
+      templateName: schema.workflowTemplates.name,
+      templateCaseType: schema.workflowTemplates.caseType,
+      templateSide: schema.workflowTemplates.side,
+      currentStageKey: schema.workflowStages.key,
+      currentStageName: schema.workflowStages.name,
+      currentStageOrder: schema.workflowStages.stageOrder,
+    })
+    .from(schema.workflowInstances)
+    .innerJoin(
+      schema.workflowTemplates,
+      eq(schema.workflowTemplates.id, schema.workflowInstances.workflowTemplateId),
+    )
+    .leftJoin(
+      schema.workflowStages,
+      eq(schema.workflowStages.id, schema.workflowInstances.currentWorkflowStageId),
+    )
+    .where(
+      and(
+        eq(schema.workflowInstances.tenantId, args.tenantId),
+        or(...args.caseIds.map((caseId) => eq(schema.workflowInstances.caseId, caseId))),
+      ),
+    )
+    .orderBy(
+      asc(schema.workflowInstances.caseId),
+      asc(schema.workflowInstances.track),
+      asc(schema.workflowStages.stageOrder),
+  );
+
+  const templateIds = [...new Set(workflowRows.map((row) => row.workflowTemplateId))];
+  const { stagesByTemplateId } = await loadWorkflowTemplateGraph({
+    db: args.db,
+    workflowTemplateIds: templateIds,
+  });
+  const workflowInstanceIds = workflowRows.map((row) => row.id);
+  const workflowStageRuntimes = workflowInstanceIds.length
+    ? await args.db
+        .select()
+        .from(schema.workflowStageRuntimes)
+        .where(
+          or(
+            ...workflowInstanceIds.map((workflowInstanceId) =>
+              eq(schema.workflowStageRuntimes.workflowInstanceId, workflowInstanceId),
+            ),
+          ),
+        )
+        .orderBy(asc(schema.workflowStageRuntimes.createdAt))
+    : [];
+  const runtimesByInstanceId = new Map<string, Array<typeof schema.workflowStageRuntimes.$inferSelect>>();
+  for (const runtime of workflowStageRuntimes) {
+    const existing = runtimesByInstanceId.get(runtime.workflowInstanceId) ?? [];
+    existing.push(runtime);
+    runtimesByInstanceId.set(runtime.workflowInstanceId, existing);
+  }
+
+  const workflowMap = new Map<string, Array<Record<string, unknown>>>();
+  for (const workflowRow of workflowRows) {
+    const existing = workflowMap.get(workflowRow.caseId) ?? [];
+    const mergedStages = mergeWorkflowStagesWithRuntime({
+      stages: stagesByTemplateId.get(workflowRow.workflowTemplateId) ?? [],
+      runtimes: runtimesByInstanceId.get(workflowRow.id) ?? [],
+    });
+    existing.push({
+      ...workflowRow,
+      stages: mergedStages,
+      scheduleProjection: buildProjectedCaseDates({
+        caseType:
+          workflowRow.templateCaseType === 'lettings' ? 'lettings' : 'sales',
+        stages: mergedStages,
+      }),
+    });
+    workflowMap.set(workflowRow.caseId, existing);
+  }
+
+  return workflowMap;
 }
 
 export async function createCaseRecord(args: {
@@ -193,6 +785,10 @@ export async function createCaseRecord(args: {
   propertyId?: string | null;
   ownerMembershipId?: string | null;
   workflowTemplateId?: string | null;
+  workflowTemplates?: Array<{
+    workflowTemplateId: string;
+    track?: string | null;
+  }>;
   caseType: 'sales' | 'lettings';
   status: 'open' | 'on_hold' | 'completed' | 'cancelled';
   closedReason?: string | null;
@@ -201,6 +797,11 @@ export async function createCaseRecord(args: {
   description?: string;
   metadata?: Record<string, unknown>;
 }) {
+  const workflowAutostart = await isTenantWorkflowAutostartEnabled({
+    db: args.db,
+    tenantId: args.tenantId,
+  });
+
   if (args.ownerMembershipId) {
     const [membership] = await args.db
       .select()
@@ -236,15 +837,27 @@ export async function createCaseRecord(args: {
     .returning();
   const caseRecord = requireValue(createdCases[0], 'case');
 
-  let workflowTemplate: typeof schema.workflowTemplates.$inferSelect | null = null;
-  let workflowStages: Array<typeof schema.workflowStages.$inferSelect> = [];
-  let workflowInstance: typeof schema.workflowInstances.$inferSelect | null = null;
+  const requestedWorkflowTemplates =
+    args.workflowTemplates ??
+    (args.workflowTemplateId
+      ? [
+          {
+            workflowTemplateId: args.workflowTemplateId,
+          },
+        ]
+      : []);
 
-  if (args.workflowTemplateId) {
+  const createdWorkflowBundles: Array<{
+    workflowTemplate: typeof schema.workflowTemplates.$inferSelect;
+    workflowStages: Array<typeof schema.workflowStages.$inferSelect>;
+    workflowInstance: typeof schema.workflowInstances.$inferSelect;
+  }> = [];
+
+  for (const requestedWorkflowTemplate of requestedWorkflowTemplates) {
     const workflowTemplateBundle = await loadWorkflowTemplateForCase({
       db: args.db,
       tenantId: args.tenantId,
-      workflowTemplateId: args.workflowTemplateId,
+      workflowTemplateId: requestedWorkflowTemplate.workflowTemplateId,
       caseType: args.caseType,
     });
 
@@ -252,30 +865,86 @@ export async function createCaseRecord(args: {
       throw new Error('workflow_template_not_found');
     }
 
-    workflowTemplate = workflowTemplateBundle.workflowTemplate;
-    workflowStages = workflowTemplateBundle.workflowStages;
-    const initialStage = workflowStages[0] ?? null;
-
+    const initialStage = workflowTemplateBundle.workflowStages[0] ?? null;
     const createdInstances = await args.db
       .insert(schema.workflowInstances)
       .values({
         tenantId: args.tenantId,
         caseId: caseRecord.id,
-        workflowTemplateId: workflowTemplate.id,
-        currentWorkflowStageId: initialStage?.id ?? null,
-        status: initialStage?.isTerminal ? 'completed' : 'active',
+        track: getWorkflowTrackLabel({
+          requestedTrack: requestedWorkflowTemplate.track ?? null,
+          templateSide: workflowTemplateBundle.workflowTemplate.side,
+        }),
+        workflowTemplateId: workflowTemplateBundle.workflowTemplate.id,
+        currentWorkflowStageId:
+          workflowAutostart
+            ? (initialStage?.id ?? null)
+            : null,
+        status:
+          workflowAutostart
+            ? (initialStage?.isTerminal ? 'completed' : 'active')
+            : 'not_started',
         completedAt: initialStage?.isTerminal ? new Date() : null,
       })
       .returning();
 
-    workflowInstance = requireValue(createdInstances[0], 'workflow_instance');
+    const workflowInstance = requireValue(createdInstances[0], 'workflow_instance');
+    createdWorkflowBundles.push({
+      workflowTemplate: workflowTemplateBundle.workflowTemplate,
+      workflowStages: workflowTemplateBundle.workflowStages,
+      workflowInstance,
+    });
   }
+
+  if (createdWorkflowBundles.length) {
+    await syncCaseWorkflowStageRuntimeRows({
+      db: args.db,
+      tenantId: args.tenantId,
+      caseId: caseRecord.id,
+      calculatedAt: caseRecord.openedAt,
+    });
+
+    await syncProjectedCaseDates({
+      db: args.db,
+      tenantId: args.tenantId,
+      caseId: caseRecord.id,
+      caseType: args.caseType,
+    });
+  }
+
+  const primaryWorkflowBundle =
+    pickPrimaryWorkflow({
+      caseType: args.caseType,
+      workflows: createdWorkflowBundles.map((bundle) => ({
+        track: bundle.workflowInstance.track,
+        templateSide: bundle.workflowTemplate.side,
+      })),
+    }) ?? null;
+  const selectedPrimaryBundle =
+    primaryWorkflowBundle
+      ? createdWorkflowBundles.find(
+          (bundle) =>
+            bundle.workflowInstance.track === primaryWorkflowBundle.track &&
+            bundle.workflowTemplate.side === (primaryWorkflowBundle.templateSide ?? bundle.workflowTemplate.side),
+        ) ?? createdWorkflowBundles[0] ?? null
+      : createdWorkflowBundles[0] ?? null;
 
   return {
     caseRecord,
-    workflowTemplate,
-    workflowStages,
-    workflowInstance,
+    workflowTemplate: selectedPrimaryBundle?.workflowTemplate ?? null,
+    workflowStages: selectedPrimaryBundle?.workflowStages ?? [],
+    workflowInstance: selectedPrimaryBundle?.workflowInstance ?? null,
+    workflows: createdWorkflowBundles.map((bundle) => ({
+      ...bundle.workflowInstance,
+      templateKey: bundle.workflowTemplate.key,
+      templateName: bundle.workflowTemplate.name,
+      templateCaseType: bundle.workflowTemplate.caseType,
+      templateSide: bundle.workflowTemplate.side,
+      currentStageKey: bundle.workflowStages[0]?.key ?? null,
+      currentStageName: bundle.workflowStages[0]?.name ?? null,
+      currentStageOrder: bundle.workflowStages[0]?.stageOrder ?? null,
+      stages: bundle.workflowStages,
+    })),
   };
 }
 
@@ -355,70 +1024,177 @@ export async function transitionWorkflowInstance(args: {
   tenantId: string;
   caseId: string;
   actorUserId?: string | null;
+  workflowTrack?: string;
+  fromStageKey?: string;
   toStageKey: string;
   summary?: string;
   metadata?: Record<string, unknown>;
 }) {
-  const [workflowInstance] = await args.db
-    .select()
-    .from(schema.workflowInstances)
-    .where(
-      and(
-        eq(schema.workflowInstances.tenantId, args.tenantId),
-        eq(schema.workflowInstances.caseId, args.caseId),
-      ),
-    )
-    .limit(1);
+  const caseRecord = await loadCaseRecord({
+    db: args.db,
+    tenantId: args.tenantId,
+    caseId: args.caseId,
+  });
 
-  if (!workflowInstance) {
-    throw new Error('workflow_instance_not_found');
+  if (!caseRecord) {
+    throw new Error('case_not_found');
   }
 
-  const [targetStage] = await args.db
-    .select()
-    .from(schema.workflowStages)
-    .where(
-      and(
-        eq(schema.workflowStages.workflowTemplateId, workflowInstance.workflowTemplateId),
-        eq(schema.workflowStages.key, args.toStageKey),
-      ),
-    )
-    .limit(1);
+  const workflowInstance = await resolveWorkflowInstanceForCase({
+    db: args.db,
+    tenantId: args.tenantId,
+    caseId: args.caseId,
+    ...(args.workflowTrack !== undefined ? { workflowTrack: args.workflowTrack } : {}),
+  });
 
+  const { stagesByTemplateId, actionsByTemplateId } = await loadWorkflowTemplateGraph({
+    db: args.db,
+    workflowTemplateIds: [workflowInstance.workflowTemplateId],
+  });
+  const workflowStages = stagesByTemplateId.get(workflowInstance.workflowTemplateId) ?? [];
+  const workflowActions = actionsByTemplateId.get(workflowInstance.workflowTemplateId) ?? [];
+  const workflowStageByKey = new Map(workflowStages.map((stage) => [stage.key, stage]));
+  const workflowStageById = new Map(workflowStages.map((stage) => [stage.id, stage]));
+
+  const targetStage = workflowStageByKey.get(args.toStageKey) ?? null;
   if (!targetStage) {
     throw new Error('workflow_stage_not_found');
   }
 
-  const [currentStage] = workflowInstance.currentWorkflowStageId
-    ? await args.db
-        .select()
-        .from(schema.workflowStages)
-        .where(eq(schema.workflowStages.id, workflowInstance.currentWorkflowStageId))
-        .limit(1)
-    : [];
+  const transitionOccurredAt = new Date();
+  const existingStageRuntimes = await args.db
+    .select()
+    .from(schema.workflowStageRuntimes)
+    .where(eq(schema.workflowStageRuntimes.workflowInstanceId, workflowInstance.id));
+  const activeStageRuntimes = existingStageRuntimes.filter((runtime) => runtime.status === 'active');
+  const currentStage = args.fromStageKey
+    ? workflowStageByKey.get(args.fromStageKey) ?? null
+    : activeStageRuntimes.length === 1
+      ? workflowStageById.get(activeStageRuntimes[0]!.workflowStageId) ?? null
+      : workflowInstance.currentWorkflowStageId
+        ? workflowStageById.get(workflowInstance.currentWorkflowStageId) ?? null
+        : null;
 
-  const completedAt = targetStage.isTerminal ? new Date() : null;
+  if (args.fromStageKey && !currentStage) {
+    throw new Error('workflow_stage_not_found');
+  }
+
+  if (args.fromStageKey) {
+    const runtime = existingStageRuntimes.find(
+      (item) => item.workflowStageId === currentStage?.id && item.status === 'active',
+    );
+    if (!runtime) {
+      throw new Error('workflow_source_stage_not_active');
+    }
+  } else if (activeStageRuntimes.length > 1) {
+    throw new Error('workflow_source_stage_required');
+  }
+
+  const isStartingWorkflow =
+    !currentStage && (workflowInstance.currentWorkflowStageId === null || workflowInstance.status === 'not_started');
+  const nextStartedAt = isStartingWorkflow ? transitionOccurredAt : workflowInstance.startedAt;
+  const normalizedTriggerOn = (value: string | null | undefined) =>
+    value?.trim().toLowerCase() === 'start' ? 'start' : 'complete';
+  const triggerTargetStageIds = new Set<string>();
+
+  if (!targetStage.isTerminal) {
+    triggerTargetStageIds.add(targetStage.id);
+  }
+
+  for (const action of workflowActions) {
+    if (action.actionType !== 'Trigger' || !action.targetWorkflowStageId) {
+      continue;
+    }
+
+    if (
+      currentStage &&
+      action.workflowStageId === currentStage.id &&
+      normalizedTriggerOn(action.triggerOn) === 'complete'
+    ) {
+      triggerTargetStageIds.add(action.targetWorkflowStageId);
+    }
+
+    if (
+      action.workflowStageId === targetStage.id &&
+      normalizedTriggerOn(action.triggerOn) === 'start'
+    ) {
+      triggerTargetStageIds.add(action.targetWorkflowStageId);
+    }
+  }
+
+  triggerTargetStageIds.delete(currentStage?.id ?? '');
+
+  const terminalWorkflowStageIds = targetStage.isTerminal ? [targetStage.id] : [];
+  const activatedWorkflowStageIds = [...triggerTargetStageIds];
+  const primaryActiveWorkflowStageId = activatedWorkflowStageIds.includes(targetStage.id)
+    ? targetStage.id
+    : activatedWorkflowStageIds[0] ?? null;
+
+  const nextRuntimeSeeds = transitionWorkflowStageRuntimes({
+    runtimes: existingStageRuntimes,
+    fromWorkflowStageId: currentStage?.id ?? null,
+    ...(primaryActiveWorkflowStageId ? { toWorkflowStageId: primaryActiveWorkflowStageId } : {}),
+    activatedWorkflowStageIds,
+    occurredAt: transitionOccurredAt,
+    terminalWorkflowStageIds,
+  });
+
+  const nextActiveWorkflowStageIds = nextRuntimeSeeds
+    .filter((runtime) => runtime.status === 'active')
+    .map((runtime) => runtime.workflowStageId);
+  const isWorkflowCompleted =
+    nextRuntimeSeeds.length > 0 &&
+    nextRuntimeSeeds.every((runtime) => runtime.status === 'completed' || runtime.status === 'skipped');
+  const nextCurrentWorkflowStageId =
+    (primaryActiveWorkflowStageId && nextActiveWorkflowStageIds.includes(primaryActiveWorkflowStageId)
+      ? primaryActiveWorkflowStageId
+      : nextActiveWorkflowStageIds[0] ?? null);
+  const completedAt = isWorkflowCompleted ? transitionOccurredAt : null;
 
   await args.db
     .update(schema.workflowInstances)
     .set({
-      currentWorkflowStageId: targetStage.id,
-      status: targetStage.isTerminal ? 'completed' : 'active',
+      currentWorkflowStageId: nextCurrentWorkflowStageId,
+      status: isWorkflowCompleted ? 'completed' : 'active',
+      startedAt: nextStartedAt,
       completedAt,
-      updatedAt: new Date(),
+      updatedAt: transitionOccurredAt,
     })
     .where(eq(schema.workflowInstances.id, workflowInstance.id));
 
-  if (targetStage.isTerminal) {
-    await args.db
-      .update(schema.cases)
-      .set({
-      status: 'completed',
-      closedAt: completedAt,
-      closedReason: 'progression_completed',
-      updatedAt: new Date(),
-    })
-    .where(eq(schema.cases.id, args.caseId));
+  await syncCaseWorkflowStageRuntimeRows({
+    db: args.db,
+    tenantId: args.tenantId,
+    caseId: args.caseId,
+    runtimeSeedsByInstanceId: new Map([[workflowInstance.id, nextRuntimeSeeds]]),
+    calculatedAt: completedAt ?? transitionOccurredAt,
+  });
+
+  if (isWorkflowCompleted) {
+    const [remainingActiveWorkflows] = await args.db
+      .select({
+        count: sql<number>`count(*)`,
+      })
+      .from(schema.workflowInstances)
+      .where(
+        and(
+          eq(schema.workflowInstances.caseId, args.caseId),
+          eq(schema.workflowInstances.tenantId, args.tenantId),
+          eq(schema.workflowInstances.status, 'active'),
+        ),
+      );
+
+    if (Number(remainingActiveWorkflows?.count ?? 0) === 0) {
+      await args.db
+        .update(schema.cases)
+        .set({
+          status: 'completed',
+          closedAt: completedAt,
+          closedReason: 'progression_completed',
+          updatedAt: transitionOccurredAt,
+        })
+        .where(eq(schema.cases.id, args.caseId));
+    }
   }
 
   const createdTransitions = await args.db
@@ -435,8 +1211,17 @@ export async function transitionWorkflowInstance(args: {
         args.summary ??
         `Moved workflow from ${currentStage?.name ?? 'Start'} to ${targetStage.name}`,
       metadataJson: args.metadata ?? null,
+      occurredAt: transitionOccurredAt,
+      createdAt: transitionOccurredAt,
     })
     .returning();
+
+  await syncProjectedCaseDates({
+    db: args.db,
+    tenantId: args.tenantId,
+    caseId: args.caseId,
+    caseType: caseRecord.caseType as 'sales' | 'lettings',
+  });
 
   return {
     workflowInstanceId: workflowInstance.id,
@@ -445,6 +1230,192 @@ export async function transitionWorkflowInstance(args: {
     transitionEvent: requireValue(createdTransitions[0], 'workflow_transition_event'),
     completedAt,
   };
+}
+
+export async function createWorkflowDelayRequestRecord(args: {
+  db: DbClient;
+  tenantId: string;
+  caseId: string;
+  requestedByUserId?: string | null;
+  workflowTrack?: string;
+  workflowStageId?: string;
+  requestedTargetAt: Date;
+  reason: string;
+}) {
+  const caseRecord = await loadCaseRecord({
+    db: args.db,
+    tenantId: args.tenantId,
+    caseId: args.caseId,
+  });
+
+  if (!caseRecord) {
+    throw new Error('case_not_found');
+  }
+
+  const workflowInstance = await resolveWorkflowInstanceForCase({
+    db: args.db,
+    tenantId: args.tenantId,
+    caseId: args.caseId,
+    ...(args.workflowTrack !== undefined ? { workflowTrack: args.workflowTrack } : {}),
+  });
+  const targetWorkflowStageId = args.workflowStageId ?? workflowInstance.currentWorkflowStageId ?? null;
+  if (!targetWorkflowStageId) {
+    throw new Error('workflow_stage_not_found');
+  }
+
+  if (workflowInstance.currentWorkflowStageId !== targetWorkflowStageId) {
+    throw new Error('workflow_delay_stage_must_be_current');
+  }
+
+  const [workflowStageRuntime] = await args.db
+    .select()
+    .from(schema.workflowStageRuntimes)
+    .where(
+      and(
+        eq(schema.workflowStageRuntimes.workflowInstanceId, workflowInstance.id),
+        eq(schema.workflowStageRuntimes.workflowStageId, targetWorkflowStageId),
+      ),
+    )
+    .limit(1);
+
+  if (!workflowStageRuntime) {
+    throw new Error('workflow_stage_runtime_not_found');
+  }
+
+  const oldTargetAt =
+    workflowStageRuntime.targetCompleteAt ?? workflowStageRuntime.estimatedCompleteAt ?? null;
+
+  const createdDelayRequests = await args.db
+    .insert(schema.workflowDelayRequests)
+    .values({
+      tenantId: args.tenantId,
+      caseId: args.caseId,
+      workflowInstanceId: workflowInstance.id,
+      workflowStageId: targetWorkflowStageId,
+      requestedByUserId: args.requestedByUserId ?? null,
+      workflowTrack: workflowInstance.track,
+      dateField: 'targetCompleteAt',
+      reason: args.reason,
+      oldTargetAt,
+      requestedTargetAt: args.requestedTargetAt,
+    })
+    .returning();
+
+  return {
+    caseRecord,
+    workflowInstance,
+    delayRequest: requireValue(createdDelayRequests[0], 'workflow_delay_request'),
+  };
+}
+
+export async function reviewWorkflowDelayRequestRecord(args: {
+  db: DbClient;
+  tenantId: string;
+  caseId: string;
+  delayRequestId: string;
+  reviewedByUserId?: string | null;
+  decision: 'approve' | 'reject';
+  reviewNote?: string;
+}) {
+  const [delayRequest] = await args.db
+    .select()
+    .from(schema.workflowDelayRequests)
+    .where(
+      and(
+        eq(schema.workflowDelayRequests.tenantId, args.tenantId),
+        eq(schema.workflowDelayRequests.caseId, args.caseId),
+        eq(schema.workflowDelayRequests.id, args.delayRequestId),
+      ),
+    )
+    .limit(1);
+
+  if (!delayRequest) {
+    throw new Error('workflow_delay_request_not_found');
+  }
+
+  if (delayRequest.status !== 'pending') {
+    throw new Error('workflow_delay_request_not_pending');
+  }
+
+  const [updatedDelayRequest] = await args.db
+    .update(schema.workflowDelayRequests)
+    .set({
+      status: args.decision === 'approve' ? 'approved' : 'rejected',
+      reviewNote: args.reviewNote ?? null,
+      reviewedByUserId: args.reviewedByUserId ?? null,
+      reviewedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(schema.workflowDelayRequests.id, delayRequest.id))
+    .returning();
+  const reviewedDelayRequest = requireValue(updatedDelayRequest, 'workflow_delay_request');
+
+  if (args.decision === 'approve') {
+    const caseRecord = await loadCaseRecord({
+      db: args.db,
+      tenantId: args.tenantId,
+      caseId: args.caseId,
+    });
+
+    if (!caseRecord) {
+      throw new Error('case_not_found');
+    }
+
+    const [workflowInstance] = await args.db
+      .select()
+      .from(schema.workflowInstances)
+      .where(eq(schema.workflowInstances.id, reviewedDelayRequest.workflowInstanceId))
+      .limit(1);
+
+    if (!workflowInstance) {
+      throw new Error('workflow_instance_not_found');
+    }
+
+    const existingRuntimes = await args.db
+      .select()
+      .from(schema.workflowStageRuntimes)
+      .where(eq(schema.workflowStageRuntimes.workflowInstanceId, workflowInstance.id))
+      .orderBy(asc(schema.workflowStageRuntimes.createdAt));
+
+    const targetRuntime = existingRuntimes.find(
+      (runtime) => runtime.workflowStageId === reviewedDelayRequest.workflowStageId,
+    );
+
+    if (!targetRuntime) {
+      throw new Error('workflow_stage_runtime_not_found');
+    }
+
+    const now = reviewedDelayRequest.reviewedAt ?? new Date();
+    const runtimeSeeds = existingRuntimes.map((runtime) =>
+      runtime.id === targetRuntime.id
+        ? {
+            ...runtime,
+            targetCompleteAt: reviewedDelayRequest.requestedTargetAt,
+            scheduleSource: 'manual_delay_request',
+            manualOverrideAt: now,
+            manualOverrideReason: reviewedDelayRequest.reason,
+            updatedAt: now,
+          }
+        : runtime,
+    );
+
+    await syncCaseWorkflowStageRuntimeRows({
+      db: args.db,
+      tenantId: args.tenantId,
+      caseId: args.caseId,
+      runtimeSeedsByInstanceId: new Map([[workflowInstance.id, runtimeSeeds]]),
+      calculatedAt: now,
+    });
+
+    await syncProjectedCaseDates({
+      db: args.db,
+      tenantId: args.tenantId,
+      caseId: args.caseId,
+      caseType: caseRecord.caseType as 'sales' | 'lettings',
+    });
+  }
+
+  return reviewedDelayRequest;
 }
 
 export async function loadCaseRecord(args: {
@@ -512,21 +1483,11 @@ export async function listCaseRecords(args: {
       updatedAt: schema.cases.updatedAt,
       propertyDisplayAddress: schema.properties.displayAddress,
       ownerDisplayName: schema.users.displayName,
-      workflowInstanceId: schema.workflowInstances.id,
-      workflowStatus: schema.workflowInstances.status,
-      workflowTemplateId: schema.workflowInstances.workflowTemplateId,
-      currentStageKey: schema.workflowStages.key,
-      currentStageName: schema.workflowStages.name,
     })
     .from(schema.cases)
     .leftJoin(schema.properties, eq(schema.properties.id, schema.cases.propertyId))
     .leftJoin(schema.memberships, eq(schema.memberships.id, schema.cases.ownerMembershipId))
     .leftJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
-    .leftJoin(schema.workflowInstances, eq(schema.workflowInstances.caseId, schema.cases.id))
-    .leftJoin(
-      schema.workflowStages,
-      eq(schema.workflowStages.id, schema.workflowInstances.currentWorkflowStageId),
-    )
     .where(
       and(
         eq(schema.cases.tenantId, args.tenantId),
@@ -537,7 +1498,29 @@ export async function listCaseRecords(args: {
     )
     .orderBy(desc(schema.cases.updatedAt), desc(schema.cases.createdAt));
 
-  return caseRows;
+  const workflowsByCaseId = await loadWorkflowSummariesForCaseIds({
+    db: args.db,
+    tenantId: args.tenantId,
+    caseIds: caseRows.map((caseRow) => caseRow.id),
+  });
+
+  return caseRows.map((caseRow) => {
+    const workflows = workflowsByCaseId.get(caseRow.id) ?? [];
+    const primaryWorkflow = pickPrimaryWorkflow({
+      caseType: caseRow.caseType as 'sales' | 'lettings',
+      workflows: workflows as Array<{ track: string; templateSide?: string | null }>,
+    }) as Record<string, unknown> | null;
+
+    return {
+      ...caseRow,
+      workflowInstanceId: (primaryWorkflow?.id as string | undefined) ?? null,
+      workflowStatus: (primaryWorkflow?.status as string | undefined) ?? null,
+      workflowTemplateId: (primaryWorkflow?.workflowTemplateId as string | undefined) ?? null,
+      currentStageKey: (primaryWorkflow?.currentStageKey as string | undefined) ?? null,
+      currentStageName: (primaryWorkflow?.currentStageName as string | undefined) ?? null,
+      workflows,
+    };
+  });
 }
 
 export async function loadCaseDetail(args: {
@@ -545,6 +1528,9 @@ export async function loadCaseDetail(args: {
   tenantId: string;
   caseId: string;
 }) {
+  const requestedByUser = alias(schema.users, 'requested_by');
+  const reviewedByUser = alias(schema.users, 'reviewed_by');
+
   const caseRecord = await loadCaseRecord(args);
   if (!caseRecord) {
     return null;
@@ -617,49 +1603,17 @@ export async function loadCaseDetail(args: {
     )
     .orderBy(desc(schema.fileObjects.createdAt));
 
-  const [workflowInstance] = await args.db
-    .select({
-      id: schema.workflowInstances.id,
-      tenantId: schema.workflowInstances.tenantId,
-      caseId: schema.workflowInstances.caseId,
-      workflowTemplateId: schema.workflowInstances.workflowTemplateId,
-      currentWorkflowStageId: schema.workflowInstances.currentWorkflowStageId,
-      status: schema.workflowInstances.status,
-      startedAt: schema.workflowInstances.startedAt,
-      completedAt: schema.workflowInstances.completedAt,
-      metadataJson: schema.workflowInstances.metadataJson,
-      templateKey: schema.workflowTemplates.key,
-      templateName: schema.workflowTemplates.name,
-      templateCaseType: schema.workflowTemplates.caseType,
-      currentStageKey: schema.workflowStages.key,
-      currentStageName: schema.workflowStages.name,
-      currentStageOrder: schema.workflowStages.stageOrder,
-    })
-    .from(schema.workflowInstances)
-    .innerJoin(
-      schema.workflowTemplates,
-      eq(schema.workflowTemplates.id, schema.workflowInstances.workflowTemplateId),
-    )
-    .leftJoin(
-      schema.workflowStages,
-      eq(schema.workflowStages.id, schema.workflowInstances.currentWorkflowStageId),
-    )
-    .where(
-      and(
-        eq(schema.workflowInstances.tenantId, args.tenantId),
-        eq(schema.workflowInstances.caseId, args.caseId),
-      ),
-    )
-    .limit(1);
-
-  const workflowStages =
-    workflowInstance
-      ? await args.db
-          .select()
-          .from(schema.workflowStages)
-          .where(eq(schema.workflowStages.workflowTemplateId, workflowInstance.workflowTemplateId))
-          .orderBy(asc(schema.workflowStages.stageOrder), asc(schema.workflowStages.createdAt))
-      : [];
+  const workflowsByCaseId = await loadWorkflowSummariesForCaseIds({
+    db: args.db,
+    tenantId: args.tenantId,
+    caseIds: [args.caseId],
+  });
+  const workflows = workflowsByCaseId.get(args.caseId) ?? [];
+  const workflowInstance =
+    pickPrimaryWorkflow({
+      caseType: caseRecord.caseType as 'sales' | 'lettings',
+      workflows: workflows as Array<{ track: string; templateSide?: string | null }>,
+    }) as Record<string, unknown> | null;
 
   const workflowTransitions = await args.db
     .select({
@@ -682,6 +1636,42 @@ export async function loadCaseDetail(args: {
       ),
     )
     .orderBy(desc(schema.workflowTransitionEvents.occurredAt), desc(schema.workflowTransitionEvents.createdAt));
+
+  const workflowDelayRequests = await args.db
+    .select({
+      id: schema.workflowDelayRequests.id,
+      workflowInstanceId: schema.workflowDelayRequests.workflowInstanceId,
+      workflowStageId: schema.workflowDelayRequests.workflowStageId,
+      workflowStageKey: schema.workflowStages.key,
+      workflowStageName: schema.workflowStages.name,
+      workflowTrack: schema.workflowDelayRequests.workflowTrack,
+      dateField: schema.workflowDelayRequests.dateField,
+      status: schema.workflowDelayRequests.status,
+      reason: schema.workflowDelayRequests.reason,
+      reviewNote: schema.workflowDelayRequests.reviewNote,
+      oldTargetAt: schema.workflowDelayRequests.oldTargetAt,
+      requestedTargetAt: schema.workflowDelayRequests.requestedTargetAt,
+      requestedByUserId: schema.workflowDelayRequests.requestedByUserId,
+      reviewedByUserId: schema.workflowDelayRequests.reviewedByUserId,
+      reviewedAt: schema.workflowDelayRequests.reviewedAt,
+      createdAt: schema.workflowDelayRequests.createdAt,
+      requestedByDisplayName: requestedByUser.displayName,
+      reviewedByDisplayName: reviewedByUser.displayName,
+    })
+    .from(schema.workflowDelayRequests)
+    .leftJoin(
+      schema.workflowStages,
+      eq(schema.workflowStages.id, schema.workflowDelayRequests.workflowStageId),
+    )
+    .leftJoin(requestedByUser, eq(requestedByUser.id, schema.workflowDelayRequests.requestedByUserId))
+    .leftJoin(reviewedByUser, eq(reviewedByUser.id, schema.workflowDelayRequests.reviewedByUserId))
+    .where(
+      and(
+        eq(schema.workflowDelayRequests.tenantId, args.tenantId),
+        eq(schema.workflowDelayRequests.caseId, args.caseId),
+      ),
+    )
+    .orderBy(desc(schema.workflowDelayRequests.createdAt), desc(schema.workflowDelayRequests.updatedAt));
 
   const caseAudit = await args.db
     .select()
@@ -718,6 +1708,20 @@ export async function loadCaseDetail(args: {
       occurredAt: transition.occurredAt,
       actor: transition.actorDisplayName ?? null,
     })),
+    ...workflowDelayRequests.map((delayRequest) => ({
+      source: 'workflow_delay_request',
+      id: delayRequest.id,
+      title: `delay_request.${delayRequest.status}`,
+      body:
+        delayRequest.status === 'pending'
+          ? `${delayRequest.workflowTrack} requested a delay for ${delayRequest.workflowStageName ?? 'current milestone'} to ${delayRequest.requestedTargetAt.toISOString()}`
+          : `${delayRequest.workflowTrack} ${delayRequest.status} a delay for ${delayRequest.workflowStageName ?? 'current milestone'} to ${delayRequest.requestedTargetAt.toISOString()}`,
+      occurredAt: delayRequest.reviewedAt ?? delayRequest.createdAt,
+      actor:
+        delayRequest.status === 'pending'
+          ? delayRequest.requestedByDisplayName ?? null
+          : delayRequest.reviewedByDisplayName ?? delayRequest.requestedByDisplayName ?? null,
+    })),
     ...caseAudit.map((auditRow) => ({
       source: 'audit',
       id: auditRow.id,
@@ -729,7 +1733,7 @@ export async function loadCaseDetail(args: {
     ...communications.map((dispatch) => ({
       source: 'communication',
       id: dispatch.id,
-      title: `${dispatch.channel}.sent`,
+      title: `${dispatch.channel}.${dispatch.status}`,
       body:
         dispatch.channel === 'email'
           ? dispatch.subject ?? dispatch.body
@@ -748,12 +1752,13 @@ export async function loadCaseDetail(args: {
       sizeBytes: Number(file.sizeBytes),
     })),
     communications,
+    delayRequests: workflowDelayRequests,
     workflow: workflowInstance
       ? {
           ...workflowInstance,
-          stages: workflowStages,
         }
       : null,
+    workflows,
     timelineEntries,
   };
 }

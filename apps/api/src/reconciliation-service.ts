@@ -53,16 +53,27 @@ export async function loadTenantReconciliation(args: {
 
   const [salesCaseSummary] = await args.db
     .select({
-      salesCaseCount: sql<number>`count(*)`,
-      salesOpenCaseCount: sql<number>`count(*) filter (where ${schema.cases.status} = 'open')`,
-      salesCompletedCaseCount: sql<number>`count(*) filter (where ${schema.cases.status} = 'completed')`,
-      salesOfferAcceptedCaseCount: sql<number>`count(*) filter (where ${schema.salesCases.saleStatus} = 'offer_accepted')`,
-      salesCasesWithoutPropertyCount: sql<number>`count(*) filter (where ${schema.cases.propertyId} is null)`,
-      salesCasesWithoutWorkflowCount: sql<number>`count(*) filter (where ${schema.workflowInstances.id} is null)`,
+      salesCaseCount: sql<number>`count(distinct ${schema.cases.id})`,
+      salesOpenCaseCount:
+        sql<number>`count(distinct ${schema.cases.id}) filter (where ${schema.cases.status} = 'open')`,
+      salesCompletedCaseCount:
+        sql<number>`count(distinct ${schema.cases.id}) filter (where ${schema.cases.status} = 'completed')`,
+      salesOfferAcceptedCaseCount:
+        sql<number>`count(distinct ${schema.cases.id}) filter (where ${schema.salesCases.saleStatus} = 'offer_accepted')`,
+      salesCasesWithoutPropertyCount:
+        sql<number>`count(distinct ${schema.cases.id}) filter (where ${schema.cases.propertyId} is null)`,
+      salesCasesWithoutWorkflowCount: sql<number>`
+        count(distinct ${schema.cases.id}) filter (
+          where not exists (
+            select 1
+            from workflow_instances wi
+            where wi.case_id = ${schema.cases.id}
+          )
+        )
+      `,
     })
     .from(schema.salesCases)
     .innerJoin(schema.cases, eq(schema.cases.id, schema.salesCases.caseId))
-    .leftJoin(schema.workflowInstances, eq(schema.workflowInstances.caseId, schema.cases.id))
     .where(eq(schema.salesCases.tenantId, args.tenantId));
 
   const [salesOfferSummary] = await args.db
@@ -75,16 +86,31 @@ export async function loadTenantReconciliation(args: {
 
   const [lettingsCaseSummary] = await args.db
     .select({
-      lettingsCaseCount: sql<number>`count(*)`,
-      lettingsOpenCaseCount: sql<number>`count(*) filter (where ${schema.cases.status} = 'open')`,
-      lettingsCompletedCaseCount: sql<number>`count(*) filter (where ${schema.cases.status} = 'completed')`,
-      lettingsAgreedLetCount: sql<number>`count(*) filter (where ${schema.lettingsCases.lettingStatus} = 'agreed_let' or ${schema.lettingsCases.lettingStatus} = 'application_accepted')`,
-      lettingsCasesWithoutPropertyCount: sql<number>`count(*) filter (where ${schema.cases.propertyId} is null)`,
-      lettingsCasesWithoutWorkflowCount: sql<number>`count(*) filter (where ${schema.workflowInstances.id} is null)`,
+      lettingsCaseCount: sql<number>`count(distinct ${schema.cases.id})`,
+      lettingsOpenCaseCount:
+        sql<number>`count(distinct ${schema.cases.id}) filter (where ${schema.cases.status} = 'open')`,
+      lettingsCompletedCaseCount:
+        sql<number>`count(distinct ${schema.cases.id}) filter (where ${schema.cases.status} = 'completed')`,
+      lettingsAgreedLetCount: sql<number>`
+        count(distinct ${schema.cases.id}) filter (
+          where ${schema.lettingsCases.lettingStatus} = 'agreed_let'
+             or ${schema.lettingsCases.lettingStatus} = 'application_accepted'
+        )
+      `,
+      lettingsCasesWithoutPropertyCount:
+        sql<number>`count(distinct ${schema.cases.id}) filter (where ${schema.cases.propertyId} is null)`,
+      lettingsCasesWithoutWorkflowCount: sql<number>`
+        count(distinct ${schema.cases.id}) filter (
+          where not exists (
+            select 1
+            from workflow_instances wi
+            where wi.case_id = ${schema.cases.id}
+          )
+        )
+      `,
     })
     .from(schema.lettingsCases)
     .innerJoin(schema.cases, eq(schema.cases.id, schema.lettingsCases.caseId))
-    .leftJoin(schema.workflowInstances, eq(schema.workflowInstances.caseId, schema.cases.id))
     .where(eq(schema.lettingsCases.tenantId, args.tenantId));
 
   const [lettingsApplicationSummary] = await args.db
@@ -191,9 +217,15 @@ export async function loadTenantReconciliation(args: {
         title: schema.cases.title,
       })
       .from(schema.cases)
-      .leftJoin(schema.workflowInstances, eq(schema.workflowInstances.caseId, schema.cases.id))
       .where(
-        and(eq(schema.cases.tenantId, args.tenantId), sql`${schema.workflowInstances.id} is null`),
+        and(
+          eq(schema.cases.tenantId, args.tenantId),
+          sql`not exists (
+            select 1
+            from workflow_instances wi
+            where wi.case_id = ${schema.cases.id}
+          )`,
+        ),
       )
       .orderBy(asc(schema.cases.caseType), asc(schema.cases.title))
       .limit(10),

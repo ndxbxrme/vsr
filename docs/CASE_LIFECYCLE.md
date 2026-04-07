@@ -22,16 +22,24 @@ Implemented:
 - `cases.owner_membership_id`
 - `cases.closed_reason`
 - sales and lettings create/update APIs can assign or clear ownership
+- tenant membership directory lookup exists for owner assignment flows
 - sales and lettings cases can be closed with an explicit reason
 - progression-complete transitions close cases with `progression_completed`
-- a shared lifecycle rules module exists for later auto-create / auto-close work
+- property sync can auto-create sales and lettings cases from qualifying Dezrez `OfferAccepted` roles
+- confident property delisting can auto-cancel active cases with `property_delisted`
+- auto-created cases record their source Dezrez role id in case metadata to avoid duplicate creation for the same marketing cycle
+- the main workspace now supports owner assignment and editing of the key operational dates used by sales and lettings cases
+- first-class workflow delay request records now exist at the milestone level on workflow tracks
+- delay requests are made against the current milestone, not against a coarse case date field
+- approved delay requests now update the current milestone target date and ripple downstream milestone targets through the scheduling engine
+- case target dates are now projected back from milestone runtime state rather than being the primary delay source of truth
+- delay requests now appear in case detail views and case timeline history
 
 Still deferred:
 
-- automatic case creation from property sync events
-- automatic case close from confident delisting
 - tenant-configurable status rules
 - richer listing-cycle logic for relist edge cases
+- approval permissions and escalation rules for delay handling beyond the current shared team workflow
 
 ## 2. Core Principle
 

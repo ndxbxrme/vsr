@@ -3,6 +3,25 @@ import { z } from 'zod';
 export const contactTypeSchema = z.enum(['person', 'company', 'organization']);
 export const caseTypeSchema = z.enum(['sales', 'lettings']);
 export const caseStatusSchema = z.enum(['open', 'on_hold', 'completed', 'cancelled']);
+export const messageChannelSchema = z.enum(['email', 'sms']);
+export const messageDeliveryModeSchema = z.enum(['live', 'redirect', 'log_only', 'disabled']);
+export const messageProviderKeySchema = z.enum(['log', 'mailgun', 'twilio_sms', 'sms24x']);
+export const tenantMessageChannelSettingsSchema = z.object({
+  defaultProviderAccountId: z.string().uuid().nullable().default(null),
+  defaultProviderKey: messageProviderKeySchema.default('log'),
+  deliveryMode: messageDeliveryModeSchema.default('log_only'),
+  redirectTo: z.string().nullable().default(null),
+  fromIdentity: z.string().nullable().default(null),
+});
+export const tenantSettingsSchema = z.object({
+  workflowAutostart: z.boolean().default(true),
+  messaging: z
+    .object({
+      email: tenantMessageChannelSettingsSchema.default({}),
+      sms: tenantMessageChannelSettingsSchema.default({}),
+    })
+    .default({}),
+});
 
 export const entityChangedEventSchema = z.object({
   tenantId: z.string().uuid(),
@@ -120,6 +139,7 @@ export const createCaseNoteSchema = z.object({
 });
 
 export const workflowStageDefinitionSchema = z.object({
+  legacyStageId: z.string().min(1).optional(),
   key: z.string().min(1),
   name: z.string().min(1),
   stageOrder: z.coerce.number().int().nonnegative(),
@@ -127,21 +147,48 @@ export const workflowStageDefinitionSchema = z.object({
   config: z.record(z.string(), z.unknown()).optional(),
 });
 
+export const workflowEdgeDefinitionSchema = z.object({
+  fromStageKey: z.string().min(1).optional().nullable(),
+  toStageKey: z.string().min(1),
+  edgeType: z.string().min(1).default('trigger'),
+  triggerOn: z.string().min(1).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const workflowActionDefinitionSchema = z.object({
+  stageKey: z.string().min(1),
+  legacyActionId: z.string().min(1).optional().nullable(),
+  actionOrder: z.coerce.number().int().nonnegative().default(0),
+  triggerOn: z.string().min(1).default('Complete'),
+  actionType: z.string().min(1),
+  name: z.string().min(1).optional().nullable(),
+  templateReference: z.string().min(1).optional().nullable(),
+  targetLegacyStageId: z.string().min(1).optional().nullable(),
+  targetStageKey: z.string().min(1).optional().nullable(),
+  recipientGroups: z.unknown().optional(),
+  specificUserReference: z.string().min(1).optional().nullable(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
 export const createWorkflowTemplateSchema = z.object({
   tenantId: z.string().uuid().optional().nullable(),
   key: z.string().min(1),
   name: z.string().min(1),
+  side: z.string().min(1).optional(),
   caseType: caseTypeSchema.optional(),
   status: z.string().min(1).default('active'),
   isSystem: z.boolean().default(false),
   definition: z.record(z.string(), z.unknown()).optional(),
   stages: z.array(workflowStageDefinitionSchema).min(1),
+  edges: z.array(workflowEdgeDefinitionSchema).optional(),
+  actions: z.array(workflowActionDefinitionSchema).optional(),
 });
 
 export const workflowInstanceSchema = z.object({
   id: z.string().uuid(),
   tenantId: z.string().uuid(),
   caseId: z.string().uuid(),
+  track: z.string().min(1),
   workflowTemplateId: z.string().uuid(),
   currentWorkflowStageId: z.string().uuid().nullable(),
   status: z.string().min(1),
@@ -150,9 +197,49 @@ export const workflowInstanceSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).nullable(),
 });
 
+export const workflowDelayDateFieldSchema = z.enum(['targetCompleteAt']);
+
+export const workflowDelayRequestStatusSchema = z.enum(['pending', 'approved', 'rejected']);
+
+export const workflowDelayRequestSchema = z.object({
+  id: z.string().uuid(),
+  tenantId: z.string().uuid(),
+  caseId: z.string().uuid(),
+  workflowInstanceId: z.string().uuid(),
+  workflowStageId: z.string().uuid().nullable(),
+  workflowTrack: z.string().min(1),
+  dateField: workflowDelayDateFieldSchema,
+  status: workflowDelayRequestStatusSchema,
+  reason: z.string().min(1),
+  reviewNote: z.string().nullable(),
+  oldTargetAt: z.string().datetime().nullable(),
+  requestedTargetAt: z.string().datetime(),
+  requestedByUserId: z.string().uuid().nullable(),
+  reviewedByUserId: z.string().uuid().nullable(),
+  reviewedAt: z.string().datetime().nullable(),
+});
+
+export const createWorkflowDelayRequestSchema = z.object({
+  tenantId: z.string().uuid(),
+  caseId: z.string().uuid(),
+  workflowTrack: z.string().min(1).optional(),
+  workflowStageId: z.string().uuid().optional(),
+  requestedTargetAt: z.string().datetime(),
+  reason: z.string().min(1),
+});
+
+export const reviewWorkflowDelayRequestSchema = z.object({
+  tenantId: z.string().uuid(),
+  caseId: z.string().uuid(),
+  decision: z.enum(['approve', 'reject']),
+  reviewNote: z.string().min(1).optional(),
+});
+
 export const createWorkflowTransitionSchema = z.object({
   tenantId: z.string().uuid(),
   caseId: z.string().uuid(),
+  workflowTrack: z.string().min(1).optional(),
+  fromStageKey: z.string().min(1).optional(),
   toStageKey: z.string().min(1),
   summary: z.string().min(1).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
@@ -273,17 +360,39 @@ export const createSmsTemplateSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
+export const createMessageProviderAccountSchema = z.object({
+  tenantId: z.string().uuid(),
+  channel: messageChannelSchema,
+  providerKey: messageProviderKeySchema,
+  name: z.string().min(1),
+  status: z.string().min(1).default('active'),
+  credentials: z.record(z.string(), z.unknown()).optional(),
+  settings: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const updateMessageProviderAccountSchema = z.object({
+  tenantId: z.string().uuid(),
+  status: z.string().min(1).optional(),
+  credentials: z.record(z.string(), z.unknown()).optional(),
+  settings: z.record(z.string(), z.unknown()).optional(),
+});
+
 export const sendCaseCommunicationSchema = z.object({
   tenantId: z.string().uuid(),
   caseId: z.string().uuid(),
-  channel: z.enum(['email', 'sms']),
+  channel: messageChannelSchema,
   templateId: z.string().uuid(),
-  templateType: z.enum(['email', 'sms']),
+  templateType: messageChannelSchema,
   recipientName: z.string().min(1).optional(),
   recipientEmail: z.string().email().optional(),
   recipientPhone: z.string().min(1).optional(),
   variables: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).default({}),
   metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const updateTenantSettingsSchema = z.object({
+  tenantId: z.string().uuid(),
+  settings: tenantSettingsSchema,
 });
 
 export type Contact = z.infer<typeof contactSchema>;
@@ -297,6 +406,9 @@ export type CreateCaseNote = z.infer<typeof createCaseNoteSchema>;
 export type CreateWorkflowTemplate = z.infer<typeof createWorkflowTemplateSchema>;
 export type CreateWorkflowTransition = z.infer<typeof createWorkflowTransitionSchema>;
 export type WorkflowInstance = z.infer<typeof workflowInstanceSchema>;
+export type WorkflowDelayRequest = z.infer<typeof workflowDelayRequestSchema>;
+export type CreateWorkflowDelayRequest = z.infer<typeof createWorkflowDelayRequestSchema>;
+export type ReviewWorkflowDelayRequest = z.infer<typeof reviewWorkflowDelayRequestSchema>;
 export type CreateSalesCase = z.infer<typeof createSalesCaseSchema>;
 export type UpdateSalesCase = z.infer<typeof updateSalesCaseSchema>;
 export type CreateSalesOffer = z.infer<typeof createSalesOfferSchema>;
@@ -305,7 +417,11 @@ export type UpdateLettingsCase = z.infer<typeof updateLettingsCaseSchema>;
 export type CreateLettingsApplication = z.infer<typeof createLettingsApplicationSchema>;
 export type CreateEmailTemplate = z.infer<typeof createEmailTemplateSchema>;
 export type CreateSmsTemplate = z.infer<typeof createSmsTemplateSchema>;
+export type CreateMessageProviderAccount = z.infer<typeof createMessageProviderAccountSchema>;
+export type UpdateMessageProviderAccount = z.infer<typeof updateMessageProviderAccountSchema>;
 export type SendCaseCommunication = z.infer<typeof sendCaseCommunicationSchema>;
+export type TenantSettings = z.infer<typeof tenantSettingsSchema>;
+export type UpdateTenantSettings = z.infer<typeof updateTenantSettingsSchema>;
 
 export const dezrezSeedPropertySchema = z.object({
   externalId: z.string().min(1),

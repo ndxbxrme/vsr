@@ -14,6 +14,10 @@ It exists because progressions are not a minor case detail. They are one of the 
 
 The current remake already has a usable shared case/workflow slice. That slice should be treated as an interim operational foundation, not the final progression architecture.
 
+The scheduling layer that milestone dates, ripple recalculation, and milestone-scoped delay requests should use is described separately in [SCHEDULING_ENGINE.md](/home/kieron/code/vitalspace-remake/docs/SCHEDULING_ENGINE.md).
+
+The messaging and template architecture that workflow email and SMS actions should use is described separately in [MESSAGING_ARCHITECTURE.md](/home/kieron/code/vitalspace-remake/docs/MESSAGING_ARCHITECTURE.md).
+
 ## 2. Design Goals
 
 The new progression engine should:
@@ -221,6 +225,13 @@ The current remake already has:
 
 That should stay in place as the short-term operational layer.
 
+It now also has the first workflow-template hardening needed for the legacy migration path:
+
+- workflow templates are versioned snapshots rather than a single mutable record
+- only the active template version is listed for normal operational use
+- legacy workflow JSON can now be imported into canonical stages, edges, and action rules
+- cases can keep pointing at the exact template version row they were created with
+
 But it should be treated as an interim shape. The progression engine described here is the target for the next workflow-heavy milestone once pilot confidence is high enough.
 
 Practical rule:
@@ -231,14 +242,14 @@ Practical rule:
 
 ## 10. Delivery Approach
 
-This should not be built immediately.
+This should not be built as a blind greenfield engine ahead of pilot learning.
 
 The right approach is:
 
 1. keep the current case/workflow model stable enough for pilot work
 2. use pilot findings to identify the real progression behaviors that must be preserved
 3. design the progression-engine schema and projection layer from this document
-4. implement it as a dedicated milestone or sub-milestone
+4. implement the first progression-hardening slice inside the current pilot milestone
 5. migrate current workflow-heavy screens onto the new progression engine intentionally
 
 ## 11. Implementation Principles
@@ -256,6 +267,18 @@ The right approach is:
 This document changes planning in one important way:
 
 - workflow work already delivered should be understood as shared operational groundwork
-- the final progression engine is a later dedicated design and implementation effort
+- the next major implementation slice should now focus on progression hardening, not more sync plumbing
+
+## 13. Next Practical Slice
+
+The next progression-focused build should stay narrow and operationally useful:
+
+1. owner assignment in the workspace UI
+2. explicit workflow event history on case screens
+3. first-class delay / target-date overrides
+4. stage-entry / stage-complete communication hooks
+5. dashboard reads that prefer progression snapshots over ad hoc stage counting where possible
+
+That gives visible workflow value quickly without trying to ship the entire final engine in one step.
 
 That keeps current delivery on track without pretending the present workflow model is the end state.

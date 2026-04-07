@@ -98,6 +98,7 @@ export const tenants = pgTable(
     slug: text('slug').notNull(),
     status: text('status').notNull().default('active'),
     onboardingState: text('onboarding_state').notNull().default('created'),
+    settingsJson: jsonb('settings_json'),
     ...timestamps,
   },
   (table) => ({
@@ -486,14 +487,32 @@ export const workflowTemplates = pgTable(
     tenantId: uuid('tenant_id').references(() => tenants.id),
     key: text('key').notNull(),
     name: text('name').notNull(),
+    side: text('side'),
     caseType: text('case_type'),
+    versionNumber: integer('version_number').notNull().default(1),
+    isActiveVersion: boolean('is_active_version').notNull().default(true),
+    previousWorkflowTemplateId: uuid('previous_workflow_template_id'),
     status: text('status').notNull().default('active'),
     isSystem: boolean('is_system').notNull().default(false),
     definitionJson: jsonb('definition_json'),
     ...timestamps,
   },
   (table) => ({
-    workflowTemplateTenantKeyIdx: uniqueIndex('workflow_templates_tenant_key_idx').on(
+    workflowTemplateTenantKeyVersionIdx: uniqueIndex('workflow_templates_tenant_key_version_idx').on(
+      table.tenantId,
+      table.key,
+      table.versionNumber,
+    ),
+    workflowTemplateTenantActiveIdx: index('workflow_templates_tenant_active_idx').on(
+      table.tenantId,
+      table.caseType,
+      table.isActiveVersion,
+      table.updatedAt,
+    ),
+    workflowTemplatePreviousIdx: index('workflow_templates_previous_idx').on(
+      table.previousWorkflowTemplateId,
+    ),
+    workflowTemplateTenantKeyIdx: index('workflow_templates_tenant_key_idx').on(
       table.tenantId,
       table.key,
     ),
@@ -507,6 +526,7 @@ export const workflowStages = pgTable(
     workflowTemplateId: uuid('workflow_template_id')
       .notNull()
       .references(() => workflowTemplates.id),
+    legacyStageId: text('legacy_stage_id'),
     key: text('key').notNull(),
     name: text('name').notNull(),
     stageOrder: integer('stage_order').notNull(),
@@ -522,6 +542,68 @@ export const workflowStages = pgTable(
     workflowStageTemplateOrderIdx: uniqueIndex('workflow_stages_template_order_idx').on(
       table.workflowTemplateId,
       table.stageOrder,
+    ),
+  }),
+);
+
+export const workflowStageEdges = pgTable(
+  'workflow_stage_edges',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workflowTemplateId: uuid('workflow_template_id')
+      .notNull()
+      .references(() => workflowTemplates.id),
+    fromWorkflowStageId: uuid('from_workflow_stage_id').references(() => workflowStages.id),
+    toWorkflowStageId: uuid('to_workflow_stage_id')
+      .notNull()
+      .references(() => workflowStages.id),
+    edgeType: text('edge_type').notNull().default('trigger'),
+    triggerOn: text('trigger_on'),
+    metadataJson: jsonb('metadata_json'),
+    ...timestamps,
+  },
+  (table) => ({
+    workflowStageEdgeUniqueIdx: uniqueIndex('workflow_stage_edges_unique_idx').on(
+      table.workflowTemplateId,
+      table.fromWorkflowStageId,
+      table.toWorkflowStageId,
+      table.edgeType,
+      table.triggerOn,
+    ),
+    workflowStageEdgeTemplateIdx: index('workflow_stage_edges_template_idx').on(
+      table.workflowTemplateId,
+    ),
+  }),
+);
+
+export const workflowStageActions = pgTable(
+  'workflow_stage_actions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    workflowTemplateId: uuid('workflow_template_id')
+      .notNull()
+      .references(() => workflowTemplates.id),
+    workflowStageId: uuid('workflow_stage_id')
+      .notNull()
+      .references(() => workflowStages.id),
+    legacyActionId: text('legacy_action_id'),
+    actionOrder: integer('action_order').notNull().default(0),
+    triggerOn: text('trigger_on').notNull().default('Complete'),
+    actionType: text('action_type').notNull(),
+    name: text('name'),
+    templateReference: text('template_reference'),
+    targetLegacyStageId: text('target_legacy_stage_id'),
+    targetWorkflowStageId: uuid('target_workflow_stage_id').references(() => workflowStages.id),
+    recipientGroupsJson: jsonb('recipient_groups_json'),
+    specificUserReference: text('specific_user_reference'),
+    metadataJson: jsonb('metadata_json'),
+    ...timestamps,
+  },
+  (table) => ({
+    workflowStageActionTemplateStageIdx: index('workflow_stage_actions_template_stage_idx').on(
+      table.workflowTemplateId,
+      table.workflowStageId,
+      table.actionOrder,
     ),
   }),
 );
@@ -623,6 +705,32 @@ export const emailTemplates = pgTable(
   }),
 );
 
+export const messageProviderAccounts = pgTable(
+  'message_provider_accounts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    channel: text('channel').notNull(),
+    providerKey: text('provider_key').notNull(),
+    name: text('name').notNull(),
+    status: text('status').notNull().default('active'),
+    credentialsJsonEncrypted: jsonb('credentials_json_encrypted'),
+    settingsJson: jsonb('settings_json'),
+    ...timestamps,
+  },
+  (table) => ({
+    messageProviderAccountTenantNameIdx: uniqueIndex('message_provider_accounts_tenant_name_idx').on(
+      table.tenantId,
+      table.name,
+    ),
+    messageProviderAccountTenantChannelIdx: index('message_provider_accounts_tenant_channel_idx').on(
+      table.tenantId,
+      table.channel,
+      table.status,
+    ),
+  }),
+);
+
 export const smsTemplates = pgTable(
   'sms_templates',
   {
@@ -652,8 +760,13 @@ export const communicationDispatches = pgTable(
     channel: text('channel').notNull(),
     templateType: text('template_type').notNull(),
     templateId: uuid('template_id').notNull(),
+    providerAccountId: uuid('provider_account_id').references(() => messageProviderAccounts.id),
+    providerKey: text('provider_key'),
+    deliveryMode: text('delivery_mode').notNull().default('log_only'),
     sentByUserId: uuid('sent_by_user_id').references(() => users.id),
     recipientName: text('recipient_name'),
+    originalRecipientEmail: text('original_recipient_email'),
+    originalRecipientPhone: text('original_recipient_phone'),
     recipientEmail: text('recipient_email'),
     recipientPhone: text('recipient_phone'),
     subject: text('subject'),
@@ -677,12 +790,39 @@ export const communicationDispatches = pgTable(
   }),
 );
 
+export const communicationAttempts = pgTable(
+  'communication_attempts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    dispatchId: uuid('dispatch_id').notNull().references(() => communicationDispatches.id),
+    providerAccountId: uuid('provider_account_id').references(() => messageProviderAccounts.id),
+    providerKey: text('provider_key'),
+    requestPayloadJson: jsonb('request_payload_json'),
+    responsePayloadJson: jsonb('response_payload_json'),
+    providerMessageId: text('provider_message_id'),
+    status: text('status').notNull(),
+    errorCode: text('error_code'),
+    errorMessage: text('error_message'),
+    attemptedAt: timestamp('attempted_at', { withTimezone: true }).notNull().defaultNow(),
+    ...timestamps,
+  },
+  (table) => ({
+    communicationAttemptDispatchIdx: index('communication_attempts_dispatch_idx').on(table.dispatchId),
+    communicationAttemptTenantStatusIdx: index('communication_attempts_tenant_status_idx').on(
+      table.tenantId,
+      table.status,
+    ),
+  }),
+);
+
 export const workflowInstances = pgTable(
   'workflow_instances',
   {
     id: uuid('id').primaryKey().defaultRandom(),
     tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
     caseId: uuid('case_id').notNull().references(() => cases.id),
+    track: text('track').notNull().default('Primary'),
     workflowTemplateId: uuid('workflow_template_id')
       .notNull()
       .references(() => workflowTemplates.id),
@@ -694,10 +834,55 @@ export const workflowInstances = pgTable(
     ...timestamps,
   },
   (table) => ({
-    workflowInstanceCaseIdx: uniqueIndex('workflow_instances_case_idx').on(table.caseId),
+    workflowInstanceCaseTrackIdx: uniqueIndex('workflow_instances_case_track_idx').on(
+      table.caseId,
+      table.track,
+    ),
     workflowInstanceTenantStatusIdx: index('workflow_instances_tenant_status_idx').on(
       table.tenantId,
       table.status,
+    ),
+  }),
+);
+
+export const workflowStageRuntimes = pgTable(
+  'workflow_stage_runtimes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    workflowInstanceId: uuid('workflow_instance_id')
+      .notNull()
+      .references(() => workflowInstances.id),
+    workflowStageId: uuid('workflow_stage_id')
+      .notNull()
+      .references(() => workflowStages.id),
+    status: text('status').notNull().default('not_started'),
+    dependencyState: text('dependency_state').notNull().default('pending'),
+    isCurrent: boolean('is_current').notNull().default(false),
+    estimatedStartAt: timestamp('estimated_start_at', { withTimezone: true }),
+    estimatedCompleteAt: timestamp('estimated_complete_at', { withTimezone: true }),
+    targetStartAt: timestamp('target_start_at', { withTimezone: true }),
+    targetCompleteAt: timestamp('target_complete_at', { withTimezone: true }),
+    actualStartedAt: timestamp('actual_started_at', { withTimezone: true }),
+    actualCompletedAt: timestamp('actual_completed_at', { withTimezone: true }),
+    scheduleSource: text('schedule_source').notNull().default('calculated'),
+    lastRecalculatedAt: timestamp('last_recalculated_at', { withTimezone: true }),
+    manualOverrideAt: timestamp('manual_override_at', { withTimezone: true }),
+    manualOverrideReason: text('manual_override_reason'),
+    metadataJson: jsonb('metadata_json'),
+    ...timestamps,
+  },
+  (table) => ({
+    workflowStageRuntimeInstanceStageIdx: uniqueIndex(
+      'workflow_stage_runtimes_instance_stage_idx',
+    ).on(table.workflowInstanceId, table.workflowStageId),
+    workflowStageRuntimeTenantStatusIdx: index('workflow_stage_runtimes_tenant_status_idx').on(
+      table.tenantId,
+      table.status,
+    ),
+    workflowStageRuntimeTenantCurrentIdx: index('workflow_stage_runtimes_tenant_current_idx').on(
+      table.tenantId,
+      table.isCurrent,
     ),
   }),
 );
@@ -726,6 +911,46 @@ export const workflowTransitionEvents = pgTable(
     ).on(table.tenantId, table.caseId, table.occurredAt),
     workflowTransitionInstanceIdx: index('workflow_transition_events_instance_idx').on(
       table.workflowInstanceId,
+    ),
+  }),
+);
+
+export const workflowDelayRequests = pgTable(
+  'workflow_delay_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+    caseId: uuid('case_id').notNull().references(() => cases.id),
+    workflowInstanceId: uuid('workflow_instance_id')
+      .notNull()
+      .references(() => workflowInstances.id),
+    workflowStageId: uuid('workflow_stage_id').references(() => workflowStages.id),
+    requestedByUserId: uuid('requested_by_user_id').references(() => users.id),
+    reviewedByUserId: uuid('reviewed_by_user_id').references(() => users.id),
+    workflowTrack: text('workflow_track').notNull(),
+    dateField: text('date_field').notNull(),
+    status: text('status').notNull().default('pending'),
+    reason: text('reason').notNull(),
+    reviewNote: text('review_note'),
+    oldTargetAt: timestamp('old_target_at', { withTimezone: true }),
+    requestedTargetAt: timestamp('requested_target_at', { withTimezone: true }).notNull(),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ({
+    workflowDelayRequestTenantCaseIdx: index('workflow_delay_requests_tenant_case_idx').on(
+      table.tenantId,
+      table.caseId,
+      table.createdAt,
+    ),
+    workflowDelayRequestTenantStatusIdx: index('workflow_delay_requests_tenant_status_idx').on(
+      table.tenantId,
+      table.status,
+    ),
+    workflowDelayRequestInstanceIdx: index('workflow_delay_requests_instance_idx').on(
+      table.workflowInstanceId,
+      table.createdAt,
     ),
   }),
 );

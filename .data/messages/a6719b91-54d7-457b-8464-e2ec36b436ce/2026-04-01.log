@@ -1,0 +1,12 @@
+[2026-04-01T04:19:42.900Z] channel=email provider=log dispatch=96c3526e-70ef-4aa4-8792-c8ddc5607b80
+to=safe@example.com
+original_to=jane.seller@example.com
+subject=Update for COMMS-001
+Case 44 Template Street Sale at 44 Template Street is now assigned to Casey Operator.
+
+[2026-04-01T04:19:42.938Z] channel=sms provider=log dispatch=1ca5a71c-01e5-4bb1-aa62-e1107e5fd58b
+to=07000000000
+original_to=07123456789
+subject=
+Case COMMS-001 for M1 2AB is with Casey Operator.
+

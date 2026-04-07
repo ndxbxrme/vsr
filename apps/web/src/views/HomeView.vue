@@ -38,6 +38,10 @@ onMounted(async () => {
         <RouterLink class="ghost-button" to="/workspace/lettings">
           Open Lettings Workspace
         </RouterLink>
+        <RouterLink class="ghost-button" to="/workflows/sales">Sales Workflow Library</RouterLink>
+        <RouterLink class="ghost-button" to="/workflows/lettings">
+          Lettings Workflow Library
+        </RouterLink>
         <RouterLink class="ghost-button" to="/pilot-readiness">
           Open Pilot Readiness
         </RouterLink>
@@ -60,6 +64,7 @@ onMounted(async () => {
           <li>Tenant-scoped sales and lettings dashboards, lists, and detail flows</li>
           <li>Case actions for notes, communications, files, offers, applications, and workflow</li>
           <li>Operational reporting visible in the same workspace staff use day to day</li>
+          <li>Workflow library visibility for imported stages, edges, and action hooks</li>
         </ul>
       </article>
       <article class="status-card">

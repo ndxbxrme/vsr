@@ -12,19 +12,24 @@ import {
   createCasePartySchema,
   createCaseSchema,
   createEmailTemplateSchema,
+  createMessageProviderAccountSchema,
   createContactSchema,
   createLettingsApplicationSchema,
   createLettingsCaseSchema,
   createSalesCaseSchema,
   createSalesOfferSchema,
   createSmsTemplateSchema,
+  createWorkflowDelayRequestSchema,
   createWorkflowTemplateSchema,
   createWorkflowTransitionSchema,
   dezrezIntegrationCredentialsSchema,
   dezrezIntegrationSettingsSchema,
   dezrezWebhookPayloadSchema,
   propertySyncRequestPayloadSchema,
+  reviewWorkflowDelayRequestSchema,
   sendCaseCommunicationSchema,
+  tenantSettingsSchema,
+  updateTenantSettingsSchema,
   updateLettingsCaseSchema,
   updateSalesCaseSchema,
 } from '@vitalspace/contracts';
@@ -43,19 +48,23 @@ import {
   addCasePartyRecord,
   createCaseRecord,
   createContactRecord,
+  createWorkflowDelayRequestRecord,
   createWorkflowTemplateRecord,
   listCaseRecords,
   listContacts,
   listWorkflowTemplates,
   loadCaseDetail,
   loadCaseRecord,
+  reviewWorkflowDelayRequestRecord,
   transitionWorkflowInstance,
 } from './case-service';
 import {
   createEmailTemplateRecord,
+  createMessageProviderAccountRecord,
   createSmsTemplateRecord,
   listCaseCommunicationDispatches,
   listEmailTemplates,
+  listMessageProviderAccounts,
   listSmsTemplates,
   sendCaseCommunicationRecord,
 } from './communications-service';
@@ -129,6 +138,7 @@ const createTenantSchema = z.object({
   slug: z.string().min(1),
   branchName: z.string().min(1),
   branchSlug: z.string().min(1),
+  settings: tenantSettingsSchema.optional(),
 });
 
 const createBranchSchema = z.object({
@@ -185,6 +195,11 @@ const fileParamsSchema = z.object({
 
 const caseParamsSchema = z.object({
   caseId: z.string().uuid(),
+});
+
+const delayRequestParamsSchema = z.object({
+  caseId: z.string().uuid(),
+  delayRequestId: z.string().uuid(),
 });
 
 const tenantScopedQuerySchema = z.object({
@@ -253,6 +268,8 @@ const createSmsTemplateRequestSchema = createSmsTemplateSchema;
 const sendCaseCommunicationRequestSchema = sendCaseCommunicationSchema;
 
 const createCaseTransitionRequestSchema = createWorkflowTransitionSchema;
+const createWorkflowDelayRequestBodySchema = createWorkflowDelayRequestSchema;
+const reviewWorkflowDelayRequestBodySchema = reviewWorkflowDelayRequestSchema;
 
 const webhookQuerySchema = z.object({
   provider: z.literal('dezrez').optional().default('dezrez'),
@@ -484,6 +501,69 @@ function requireValue<T>(value: T | undefined, label: string): T {
 
 function hasTenantMembership(auth: AuthenticatedContext, tenantId: string) {
   return auth.memberships.some((membership) => membership.tenantId === tenantId);
+}
+
+async function listTenantMembershipDirectory(args: { db: DbClient; tenantId: string }) {
+  const membershipRows = await args.db
+    .select({
+      membershipId: schema.memberships.id,
+      tenantId: schema.memberships.tenantId,
+      branchId: schema.memberships.branchId,
+      userId: schema.memberships.userId,
+      status: schema.memberships.status,
+      userDisplayName: schema.users.displayName,
+      userEmail: schema.users.email,
+      roleKey: schema.roles.key,
+    })
+    .from(schema.memberships)
+    .innerJoin(schema.users, eq(schema.users.id, schema.memberships.userId))
+    .leftJoin(
+      schema.membershipRoles,
+      eq(schema.membershipRoles.membershipId, schema.memberships.id),
+    )
+    .leftJoin(schema.roles, eq(schema.roles.id, schema.membershipRoles.roleId))
+    .where(
+      and(
+        eq(schema.memberships.tenantId, args.tenantId),
+        eq(schema.memberships.status, 'active'),
+      ),
+    )
+    .orderBy(asc(schema.users.displayName), asc(schema.users.email), asc(schema.memberships.createdAt));
+
+  const memberships = new Map<
+    string,
+    {
+      membershipId: string;
+      tenantId: string;
+      branchId: string | null;
+      userId: string;
+      displayName: string;
+      email: string | null;
+      roles: string[];
+    }
+  >();
+
+  for (const row of membershipRows) {
+    const existing = memberships.get(row.membershipId);
+    if (existing) {
+      if (row.roleKey && !existing.roles.includes(row.roleKey)) {
+        existing.roles.push(row.roleKey);
+      }
+      continue;
+    }
+
+    memberships.set(row.membershipId, {
+      membershipId: row.membershipId,
+      tenantId: row.tenantId,
+      branchId: row.branchId,
+      userId: row.userId,
+      displayName: row.userDisplayName ?? row.userEmail ?? 'Unknown user',
+      email: row.userEmail,
+      roles: row.roleKey ? [row.roleKey] : [],
+    });
+  }
+
+  return [...memberships.values()];
 }
 
 async function createSession(args: {
@@ -753,7 +833,7 @@ export function createApp(deps: ApiAppDeps) {
   app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-    res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.header('Access-Control-Allow-Methods', 'GET,POST,PATCH,OPTIONS');
 
     if (req.method === 'OPTIONS') {
       return res.sendStatus(204);
@@ -1108,6 +1188,25 @@ export function createApp(deps: ApiAppDeps) {
     });
   });
 
+  app.get('/api/v1/memberships', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = tenantScopedQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_query', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const memberships = await listTenantMembershipDirectory({
+      db: deps.db,
+      tenantId: parsed.data.tenantId,
+    });
+
+    return res.json({ memberships });
+  });
+
   app.get('/api/v1/contacts', requireAuth, async (req: Request, res: Response) => {
     const authReq = req as AuthenticatedRequest;
     const parsed = listContactsQuerySchema.safeParse(req.query);
@@ -1208,17 +1307,58 @@ export function createApp(deps: ApiAppDeps) {
       tenantId: parsed.data.tenantId,
       key: parsed.data.key,
       name: parsed.data.name,
+      ...(parsed.data.side !== undefined ? { side: parsed.data.side } : {}),
       status: parsed.data.status,
       isSystem: parsed.data.isSystem,
       ...(parsed.data.caseType !== undefined ? { caseType: parsed.data.caseType } : {}),
       ...(parsed.data.definition !== undefined ? { definition: parsed.data.definition } : {}),
       stages: parsed.data.stages.map((stage) => ({
+        ...(stage.legacyStageId !== undefined ? { legacyStageId: stage.legacyStageId } : {}),
         key: stage.key,
         name: stage.name,
         stageOrder: stage.stageOrder,
         ...(stage.isTerminal !== undefined ? { isTerminal: stage.isTerminal } : {}),
         ...(stage.config !== undefined ? { config: stage.config } : {}),
       })),
+      ...(parsed.data.edges !== undefined
+        ? {
+            edges: parsed.data.edges.map((edge) => ({
+              ...(edge.fromStageKey !== undefined ? { fromStageKey: edge.fromStageKey } : {}),
+              toStageKey: edge.toStageKey,
+              ...(edge.edgeType !== undefined ? { edgeType: edge.edgeType } : {}),
+              ...(edge.triggerOn !== undefined ? { triggerOn: edge.triggerOn } : {}),
+              ...(edge.metadata !== undefined ? { metadata: edge.metadata } : {}),
+            })),
+          }
+        : {}),
+      ...(parsed.data.actions !== undefined
+        ? {
+            actions: parsed.data.actions.map((action) => ({
+              stageKey: action.stageKey,
+              actionOrder: action.actionOrder,
+              actionType: action.actionType,
+              ...(action.legacyActionId !== undefined
+                ? { legacyActionId: action.legacyActionId }
+                : {}),
+              ...(action.triggerOn !== undefined ? { triggerOn: action.triggerOn } : {}),
+              ...(action.name !== undefined ? { name: action.name } : {}),
+              ...(action.templateReference !== undefined
+                ? { templateReference: action.templateReference }
+                : {}),
+              ...(action.targetLegacyStageId !== undefined
+                ? { targetLegacyStageId: action.targetLegacyStageId }
+                : {}),
+              ...(action.targetStageKey !== undefined ? { targetStageKey: action.targetStageKey } : {}),
+              ...(action.recipientGroups !== undefined
+                ? { recipientGroups: action.recipientGroups }
+                : {}),
+              ...(action.specificUserReference !== undefined
+                ? { specificUserReference: action.specificUserReference }
+                : {}),
+              ...(action.metadata !== undefined ? { metadata: action.metadata } : {}),
+            })),
+          }
+        : {}),
     });
 
     await recordMutation({
@@ -1319,6 +1459,7 @@ export function createApp(deps: ApiAppDeps) {
               stages: createdCaseBundle.workflowStages,
             }
           : null,
+        workflows: createdCaseBundle.workflows,
       });
     } catch (error) {
       if (error instanceof Error && error.message === 'workflow_template_case_type_mismatch') {
@@ -1362,6 +1503,8 @@ export function createApp(deps: ApiAppDeps) {
       files: caseDetail.files,
       communications: caseDetail.communications,
       workflow: caseDetail.workflow,
+      workflows: caseDetail.workflows,
+      delayRequests: caseDetail.delayRequests,
       timelineEntries: caseDetail.timelineEntries,
     });
   });
@@ -1488,6 +1631,90 @@ export function createApp(deps: ApiAppDeps) {
     return res.status(201).json({ smsTemplate });
   });
 
+  app.get('/api/v1/message-provider-accounts', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = tenantScopedQuerySchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_query', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const messageProviderAccounts = await listMessageProviderAccounts({
+      db: deps.db,
+      tenantId: parsed.data.tenantId,
+    });
+
+    return res.json({ messageProviderAccounts });
+  });
+
+  app.post('/api/v1/message-provider-accounts', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = createMessageProviderAccountSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantRole(authReq.auth!, parsed.data.tenantId, 'tenant_admin')) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const encryptionSecret = process.env.APP_ENCRYPTION_KEY;
+    const credentials = parsed.data.credentials ?? {};
+    if (hasNonEmptyCredentials(credentials) && !encryptionSecret) {
+      return res.status(500).json({ error: 'app_encryption_key_not_configured' });
+    }
+
+    const storedCredentials = hasNonEmptyCredentials(credentials)
+      ? encryptJsonPayload(credentials, encryptionSecret!)
+      : null;
+
+    const messageProviderAccount = await createMessageProviderAccountRecord({
+      db: deps.db,
+      tenantId: parsed.data.tenantId,
+      channel: parsed.data.channel,
+      providerKey: parsed.data.providerKey,
+      name: parsed.data.name,
+      status: parsed.data.status,
+      credentialsJsonEncrypted: storedCredentials,
+      ...(parsed.data.settings !== undefined ? { settings: parsed.data.settings } : {}),
+    });
+
+    await recordMutation({
+      db: deps.db,
+      actorUserId: authReq.auth!.userId,
+      tenantId: parsed.data.tenantId,
+      entityType: 'message_provider_account',
+      entityId: messageProviderAccount.id,
+      action: 'message_provider_account.created',
+      summary: `Created ${parsed.data.channel} provider ${messageProviderAccount.name}`,
+      mutationType: 'created',
+      payload: {
+        channel: messageProviderAccount.channel,
+        providerKey: messageProviderAccount.providerKey,
+        status: messageProviderAccount.status,
+      },
+      publishEntityChangedEvent: deps.publishEntityChangedEvent,
+    });
+
+    return res.status(201).json({
+      messageProviderAccount: {
+        id: messageProviderAccount.id,
+        tenantId: messageProviderAccount.tenantId,
+        channel: messageProviderAccount.channel,
+        providerKey: messageProviderAccount.providerKey,
+        name: messageProviderAccount.name,
+        status: messageProviderAccount.status,
+        settingsJson: messageProviderAccount.settingsJson,
+        hasCredentials: Boolean(messageProviderAccount.credentialsJsonEncrypted),
+        createdAt: messageProviderAccount.createdAt,
+        updatedAt: messageProviderAccount.updatedAt,
+      },
+    });
+  });
+
   app.get(
     '/api/v1/cases/:caseId/communications',
     requireAuth,
@@ -1584,7 +1811,7 @@ export function createApp(deps: ApiAppDeps) {
           tenantId: parsedBody.data.tenantId,
           entityType: 'case',
           entityId: parsedParams.data.caseId,
-          action: 'case.communication_sent',
+          action: 'case.communication_processed',
           summary: result.summary,
           mutationType: 'updated',
           payload: {
@@ -1614,6 +1841,83 @@ export function createApp(deps: ApiAppDeps) {
 
         if (error instanceof Error && error.message === 'sms_template_not_found') {
           return res.status(404).json({ error: 'sms_template_not_found' });
+        }
+
+        if (error instanceof Error && error.message === 'message_channel_disabled') {
+          return res.status(409).json({ error: 'message_channel_disabled' });
+        }
+
+        if (error instanceof Error && error.message === 'message_redirect_recipient_required') {
+          return res.status(400).json({ error: 'message_redirect_recipient_required' });
+        }
+
+        if (error instanceof Error && error.message === 'message_provider_account_required') {
+          return res.status(400).json({ error: 'message_provider_account_required' });
+        }
+
+        if (error instanceof Error && error.message === 'message_provider_account_inactive') {
+          return res.status(409).json({ error: 'message_provider_account_inactive' });
+        }
+
+        if (error instanceof Error && error.message === 'message_provider_channel_mismatch') {
+          return res.status(400).json({ error: 'message_provider_channel_mismatch' });
+        }
+
+        if (error instanceof Error && error.message === 'mailgun_api_key_required') {
+          return res.status(400).json({ error: 'mailgun_api_key_required' });
+        }
+
+        if (error instanceof Error && error.message === 'mailgun_domain_required') {
+          return res.status(400).json({ error: 'mailgun_domain_required' });
+        }
+
+        if (error instanceof Error && error.message === 'mailgun_from_identity_required') {
+          return res.status(400).json({ error: 'mailgun_from_identity_required' });
+        }
+
+        if (error instanceof Error && error.message === 'twilio_account_sid_required') {
+          return res.status(400).json({ error: 'twilio_account_sid_required' });
+        }
+
+        if (error instanceof Error && error.message === 'twilio_auth_token_required') {
+          return res.status(400).json({ error: 'twilio_auth_token_required' });
+        }
+
+        if (
+          error instanceof Error &&
+          error.message === 'twilio_from_number_or_messaging_service_required'
+        ) {
+          return res.status(400).json({ error: 'twilio_from_number_or_messaging_service_required' });
+        }
+
+        if (error instanceof Error && error.message === 'sms24x_username_required') {
+          return res.status(400).json({ error: 'sms24x_username_required' });
+        }
+
+        if (error instanceof Error && error.message === 'sms24x_password_required') {
+          return res.status(400).json({ error: 'sms24x_password_required' });
+        }
+
+        if (error instanceof Error && error.message === 'sms24x_invalid_recipient') {
+          return res.status(400).json({ error: 'sms24x_invalid_recipient' });
+        }
+
+        if (error instanceof Error && error.message.startsWith('message_provider_http_error:')) {
+          const [, statusCode] = error.message.split(':');
+          return res.status(502).json({
+            error: 'message_provider_http_error',
+            providerStatusCode: Number(statusCode) || null,
+          });
+        }
+
+        if (
+          error instanceof Error &&
+          error.message.startsWith('message_provider_not_implemented:')
+        ) {
+          return res.status(501).json({
+            error: 'message_provider_not_implemented',
+            providerKey: error.message.split(':')[1] ?? null,
+          });
         }
 
         throw error;
@@ -1742,6 +2046,168 @@ export function createApp(deps: ApiAppDeps) {
     return res.status(201).json({ caseNote });
   });
 
+  app.post('/api/v1/cases/:caseId/delay-requests', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsedParams = caseParamsSchema.safeParse(req.params);
+    const parsedBody = createWorkflowDelayRequestBodySchema.safeParse(req.body);
+    if (!parsedParams.success || !parsedBody.success) {
+      return res.status(400).json({ error: 'invalid_request' });
+    }
+
+    if (parsedBody.data.caseId !== parsedParams.data.caseId) {
+      return res.status(400).json({ error: 'case_id_mismatch' });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsedBody.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const caseRecord = await loadCaseRecord({
+      db: deps.db,
+      tenantId: parsedBody.data.tenantId,
+      caseId: parsedParams.data.caseId,
+    });
+
+    if (!caseRecord) {
+      return res.status(404).json({ error: 'case_not_found' });
+    }
+
+    try {
+      const createdDelayRequest = await createWorkflowDelayRequestRecord({
+        db: deps.db,
+        tenantId: parsedBody.data.tenantId,
+        caseId: parsedParams.data.caseId,
+        requestedByUserId: authReq.auth!.userId,
+        ...(parsedBody.data.workflowTrack !== undefined
+          ? { workflowTrack: parsedBody.data.workflowTrack }
+          : {}),
+        ...(parsedBody.data.workflowStageId !== undefined
+          ? { workflowStageId: parsedBody.data.workflowStageId }
+          : {}),
+        requestedTargetAt: new Date(parsedBody.data.requestedTargetAt),
+        reason: parsedBody.data.reason,
+      });
+
+      await recordMutation({
+        db: deps.db,
+        actorUserId: authReq.auth!.userId,
+        tenantId: parsedBody.data.tenantId,
+        entityType: 'workflow_delay_request',
+        entityId: createdDelayRequest.delayRequest.id,
+        action: 'workflow_delay_request.created',
+        summary: `Requested delay for ${createdDelayRequest.delayRequest.workflowTrack} on case ${caseRecord.title}`,
+        mutationType: 'created',
+        payload: {
+          caseId: caseRecord.id,
+          workflowInstanceId: createdDelayRequest.workflowInstance.id,
+          workflowStageId: createdDelayRequest.delayRequest.workflowStageId,
+          requestedTargetAt: createdDelayRequest.delayRequest.requestedTargetAt.toISOString(),
+        },
+        publishEntityChangedEvent: deps.publishEntityChangedEvent,
+      });
+
+      return res.status(201).json({
+        delayRequest: createdDelayRequest.delayRequest,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message === 'workflow_instance_not_found') {
+        return res.status(404).json({ error: 'workflow_instance_not_found' });
+      }
+
+      if (error instanceof Error && error.message === 'workflow_track_required') {
+        return res.status(400).json({ error: 'workflow_track_required' });
+      }
+
+      if (
+        error instanceof Error &&
+        [
+          'workflow_stage_not_found',
+          'workflow_delay_stage_must_be_current',
+          'workflow_stage_runtime_not_found',
+        ].includes(error.message)
+      ) {
+        return res.status(400).json({ error: error.message });
+      }
+
+      throw error;
+    }
+  });
+
+  app.post(
+    '/api/v1/cases/:caseId/delay-requests/:delayRequestId/review',
+    requireAuth,
+    async (req: Request, res: Response) => {
+      const authReq = req as AuthenticatedRequest;
+      const parsedParams = delayRequestParamsSchema.safeParse(req.params);
+      const parsedBody = reviewWorkflowDelayRequestBodySchema.safeParse(req.body);
+      if (!parsedParams.success || !parsedBody.success) {
+        return res.status(400).json({ error: 'invalid_request' });
+      }
+
+      if (parsedBody.data.caseId !== parsedParams.data.caseId) {
+        return res.status(400).json({ error: 'case_id_mismatch' });
+      }
+
+      if (!hasTenantMembership(authReq.auth!, parsedBody.data.tenantId)) {
+        return res.status(403).json({ error: 'forbidden' });
+      }
+
+      const caseRecord = await loadCaseRecord({
+        db: deps.db,
+        tenantId: parsedBody.data.tenantId,
+        caseId: parsedParams.data.caseId,
+      });
+
+      if (!caseRecord) {
+        return res.status(404).json({ error: 'case_not_found' });
+      }
+
+      try {
+        const delayRequest = await reviewWorkflowDelayRequestRecord({
+          db: deps.db,
+          tenantId: parsedBody.data.tenantId,
+          caseId: parsedParams.data.caseId,
+          delayRequestId: parsedParams.data.delayRequestId,
+          reviewedByUserId: authReq.auth!.userId,
+          decision: parsedBody.data.decision,
+          ...(parsedBody.data.reviewNote !== undefined
+            ? { reviewNote: parsedBody.data.reviewNote }
+            : {}),
+        });
+
+        await recordMutation({
+          db: deps.db,
+          actorUserId: authReq.auth!.userId,
+          tenantId: parsedBody.data.tenantId,
+          entityType: 'workflow_delay_request',
+          entityId: delayRequest.id,
+          action: `workflow_delay_request.${delayRequest.status}`,
+          summary: `${delayRequest.status === 'approved' ? 'Approved' : 'Rejected'} delay request for case ${caseRecord.title}`,
+          mutationType: 'updated',
+          payload: {
+            caseId: caseRecord.id,
+            workflowStageId: delayRequest.workflowStageId,
+            status: delayRequest.status,
+            requestedTargetAt: delayRequest.requestedTargetAt.toISOString(),
+          },
+          publishEntityChangedEvent: deps.publishEntityChangedEvent,
+        });
+
+        return res.json({ delayRequest });
+      } catch (error) {
+        if (error instanceof Error && error.message === 'workflow_delay_request_not_found') {
+          return res.status(404).json({ error: 'workflow_delay_request_not_found' });
+        }
+
+        if (error instanceof Error && error.message === 'workflow_delay_request_not_pending') {
+          return res.status(400).json({ error: 'workflow_delay_request_not_pending' });
+        }
+
+        throw error;
+      }
+    },
+  );
+
   app.post('/api/v1/cases/:caseId/transitions', requireAuth, async (req: Request, res: Response) => {
     const authReq = req as AuthenticatedRequest;
     const parsedParams = caseParamsSchema.safeParse(req.params);
@@ -1774,6 +2240,12 @@ export function createApp(deps: ApiAppDeps) {
         tenantId: parsedBody.data.tenantId,
         caseId: parsedParams.data.caseId,
         actorUserId: authReq.auth!.userId,
+        ...(parsedBody.data.workflowTrack !== undefined
+          ? { workflowTrack: parsedBody.data.workflowTrack }
+          : {}),
+        ...(parsedBody.data.fromStageKey !== undefined
+          ? { fromStageKey: parsedBody.data.fromStageKey }
+          : {}),
         toStageKey: parsedBody.data.toStageKey,
         ...(parsedBody.data.summary !== undefined ? { summary: parsedBody.data.summary } : {}),
         ...(parsedBody.data.metadata !== undefined ? { metadata: parsedBody.data.metadata } : {}),
@@ -1808,6 +2280,18 @@ export function createApp(deps: ApiAppDeps) {
 
       if (error instanceof Error && error.message === 'workflow_stage_not_found') {
         return res.status(404).json({ error: 'workflow_stage_not_found' });
+      }
+
+      if (error instanceof Error && error.message === 'workflow_track_required') {
+        return res.status(400).json({ error: 'workflow_track_required' });
+      }
+
+      if (
+        error instanceof Error &&
+        (error.message === 'workflow_source_stage_required' ||
+          error.message === 'workflow_source_stage_not_active')
+      ) {
+        return res.status(400).json({ error: error.message });
       }
 
       throw error;
@@ -1949,6 +2433,7 @@ export function createApp(deps: ApiAppDeps) {
               stages: createdSalesCaseBundle.workflowStages,
             }
           : null,
+        workflows: createdSalesCaseBundle.workflows,
       });
     } catch (error) {
       if (error instanceof Error && error.message === 'workflow_template_case_type_mismatch') {
@@ -2096,6 +2581,8 @@ export function createApp(deps: ApiAppDeps) {
       files: detail.files,
       communications: detail.communications,
       workflow: detail.workflow,
+      workflows: detail.workflows,
+      delayRequests: detail.delayRequests,
       timelineEntries: detail.timelineEntries,
     });
   });
@@ -2547,6 +3034,7 @@ export function createApp(deps: ApiAppDeps) {
               stages: createdLettingsCaseBundle.workflowStages,
             }
           : null,
+        workflows: createdLettingsCaseBundle.workflows,
       });
     } catch (error) {
       if (error instanceof Error && error.message === 'workflow_template_case_type_mismatch') {
@@ -2688,6 +3176,8 @@ export function createApp(deps: ApiAppDeps) {
       files: detail.files,
       communications: detail.communications,
       workflow: detail.workflow,
+      workflows: detail.workflows,
+      delayRequests: detail.delayRequests,
       timelineEntries: detail.timelineEntries,
     });
   });
@@ -2969,6 +3459,7 @@ export function createApp(deps: ApiAppDeps) {
       .values({
         name: parsed.data.name,
         slug: parsed.data.slug,
+        settingsJson: parsed.data.settings ?? tenantSettingsSchema.parse({}),
       })
       .returning();
     const tenant = requireValue(createdTenants[0], 'tenant');
@@ -3029,6 +3520,93 @@ export function createApp(deps: ApiAppDeps) {
       tenant,
       branch,
       membershipId: membership.id,
+    });
+  });
+
+  app.get('/api/v1/tenants/:tenantId/settings', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = z.object({
+      tenantId: z.string().uuid(),
+    }).safeParse(req.params);
+
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_tenant_id' });
+    }
+
+    if (!hasTenantMembership(authReq.auth!, parsed.data.tenantId)) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const [tenant] = await deps.db
+      .select({
+        id: schema.tenants.id,
+        settingsJson: schema.tenants.settingsJson,
+      })
+      .from(schema.tenants)
+      .where(eq(schema.tenants.id, parsed.data.tenantId))
+      .limit(1);
+
+    if (!tenant) {
+      return res.status(404).json({ error: 'tenant_not_found' });
+    }
+
+    const settings = tenantSettingsSchema.parse(tenant.settingsJson ?? {});
+    return res.json({
+      tenantId: tenant.id,
+      settings,
+    });
+  });
+
+  app.patch('/api/v1/tenants/:tenantId/settings', requireAuth, async (req: Request, res: Response) => {
+    const authReq = req as AuthenticatedRequest;
+    const parsed = updateTenantSettingsSchema.safeParse({
+      tenantId: req.params.tenantId,
+      ...req.body,
+    });
+
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'invalid_payload', details: parsed.error.flatten() });
+    }
+
+    if (!hasTenantRole(authReq.auth!, parsed.data.tenantId, 'tenant_admin')) {
+      return res.status(403).json({ error: 'forbidden' });
+    }
+
+    const updatedTenants = await deps.db
+      .update(schema.tenants)
+      .set({
+        settingsJson: parsed.data.settings,
+        updatedAt: new Date(),
+      })
+      .where(eq(schema.tenants.id, parsed.data.tenantId))
+      .returning({
+        id: schema.tenants.id,
+        settingsJson: schema.tenants.settingsJson,
+      });
+
+    const tenant = updatedTenants[0];
+    if (!tenant) {
+      return res.status(404).json({ error: 'tenant_not_found' });
+    }
+
+    await recordMutation({
+      db: deps.db,
+      actorUserId: authReq.auth!.userId,
+      tenantId: parsed.data.tenantId,
+      entityType: 'tenant',
+      entityId: parsed.data.tenantId,
+      action: 'tenant.settings.updated',
+      summary: `Updated tenant settings for ${parsed.data.tenantId}`,
+      mutationType: 'updated',
+      payload: {
+        settings: parsed.data.settings,
+      },
+      publishEntityChangedEvent: deps.publishEntityChangedEvent,
+    });
+
+    return res.json({
+      tenantId: tenant.id,
+      settings: tenantSettingsSchema.parse(tenant.settingsJson ?? {}),
     });
   });
 

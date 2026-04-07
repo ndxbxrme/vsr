@@ -28,6 +28,16 @@ type WorkflowTemplateSummary = {
   }>;
 };
 
+type TenantMembershipOption = {
+  membershipId: string;
+  tenantId: string;
+  branchId: string | null;
+  userId: string;
+  displayName: string;
+  email: string | null;
+  roles: string[];
+};
+
 type EmailTemplate = {
   id: string;
   key: string;
@@ -47,9 +57,13 @@ type CaseListRow = {
   reference: string | null;
   title: string;
   status: string;
+  closedReason?: string | null;
+  ownerMembershipId?: string | null;
+  ownerDisplayName?: string | null;
   propertyDisplayAddress: string | null;
   currentStageKey: string | null;
   currentStageName: string | null;
+  workflows?: WorkflowTrack[];
   saleStatus?: string;
   askingPrice?: number | null;
   agreedPrice?: number | null;
@@ -58,7 +72,11 @@ type CaseListRow = {
   depositAmount?: number | null;
 };
 
-type WorkflowDetail = {
+type WorkflowTrack = {
+  id: string;
+  track: string;
+  templateName?: string | null;
+  templateSide?: string | null;
   currentStageKey: string | null;
   currentStageName: string | null;
   stages: Array<{
@@ -67,8 +85,38 @@ type WorkflowDetail = {
     name: string;
     stageOrder: number;
     isTerminal: boolean;
+    runtimeStatus?: string;
+    dependencyState?: string;
+    isCurrent?: boolean;
+    estimatedStartAt?: string | null;
+    estimatedCompleteAt?: string | null;
+    targetStartAt?: string | null;
+    targetCompleteAt?: string | null;
+    actualStartedAt?: string | null;
+    actualCompletedAt?: string | null;
+    scheduleSource?: string | null;
+    configJson?: Record<string, unknown> | null;
   }>;
-} | null;
+  scheduleProjection?: {
+    targetExchangeAt?: string | null;
+    targetCompletionAt?: string | null;
+    agreedLetAt?: string | null;
+    moveInAt?: string | null;
+  };
+};
+
+type WorkflowDetail = WorkflowTrack | null;
+
+type WorkflowBoardStage = WorkflowTrack['stages'][number] & {
+  columnIndex: number;
+  laneIndex: number;
+  dependencyLabel: string | null;
+};
+
+type WorkflowBoardColumn = {
+  columnIndex: number;
+  stages: WorkflowBoardStage[];
+};
 
 type NoteRecord = {
   id: string;
@@ -100,11 +148,30 @@ type CommunicationRecord = {
 
 type TimelineEntry = {
   id: string;
-  source: 'case_note' | 'workflow_transition' | 'audit' | 'communication';
+  source: 'case_note' | 'workflow_transition' | 'workflow_delay_request' | 'audit' | 'communication';
   title: string;
   body: string;
   occurredAt: string;
   actor: string | null;
+};
+
+type DelayRequestRecord = {
+  id: string;
+  workflowInstanceId: string;
+  workflowStageId: string | null;
+  workflowStageKey?: string | null;
+  workflowStageName?: string | null;
+  workflowTrack: string;
+  dateField: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reason: string;
+  reviewNote: string | null;
+  oldTargetAt: string | null;
+  requestedTargetAt: string;
+  requestedByDisplayName: string | null;
+  reviewedByDisplayName: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
 };
 
 type SalesOfferRecord = {
@@ -129,17 +196,26 @@ type SalesCaseDetailResponse = {
     title: string;
     reference: string | null;
     propertyDisplayAddress: string | null;
+    ownerMembershipId: string | null;
+    ownerDisplayName: string | null;
+    status: string;
+    closedReason: string | null;
   };
   salesCase: {
     saleStatus: string;
     askingPrice: number | null;
     agreedPrice: number | null;
+    memorandumSentAt: string | null;
+    targetExchangeAt: string | null;
+    targetCompletionAt: string | null;
   };
   salesOffers: SalesOfferRecord[];
   notes: NoteRecord[];
   files: FileRecord[];
   communications: CommunicationRecord[];
   workflow: WorkflowDetail;
+  workflows?: WorkflowTrack[];
+  delayRequests?: DelayRequestRecord[];
   timelineEntries: TimelineEntry[];
 };
 
@@ -149,17 +225,26 @@ type LettingsCaseDetailResponse = {
     title: string;
     reference: string | null;
     propertyDisplayAddress: string | null;
+    ownerMembershipId: string | null;
+    ownerDisplayName: string | null;
+    status: string;
+    closedReason: string | null;
   };
   lettingsCase: {
     lettingStatus: string;
     monthlyRent: number | null;
     depositAmount: number | null;
+    agreedAt: string | null;
+    moveInAt: string | null;
+    agreedLetAt: string | null;
   };
   lettingsApplications: LettingsApplicationRecord[];
   notes: NoteRecord[];
   files: FileRecord[];
   communications: CommunicationRecord[];
   workflow: WorkflowDetail;
+  workflows?: WorkflowTrack[];
+  delayRequests?: DelayRequestRecord[];
   timelineEntries: TimelineEntry[];
 };
 
@@ -242,6 +327,7 @@ const createCaseForm = ref({
   title: '',
   reference: '',
   propertyId: '',
+  ownerMembershipId: '',
   workflowTemplateId: '',
   primaryAmount: '',
   secondaryAmount: '',
@@ -249,9 +335,13 @@ const createCaseForm = ref({
 
 const updateCaseForm = ref({
   title: '',
+  ownerMembershipId: '',
   status: '',
   primaryAmount: '',
   secondaryAmount: '',
+  dateOne: '',
+  dateTwo: '',
+  dateThree: '',
 });
 
 const recordForm = ref({
@@ -261,8 +351,17 @@ const recordForm = ref({
 });
 
 const noteBody = ref('');
+const selectedWorkflowTrack = ref('');
+const transitionFromStageKey = ref('');
 const transitionStageKey = ref('');
 const transitionSummary = ref('');
+const delayRequestForm = ref({
+  workflowTrack: '',
+  workflowStageId: '',
+  requestedTargetAt: '',
+  reason: '',
+});
+const delayReviewNotes = ref<Record<string, string>>({});
 const communicationChannel = ref<'email' | 'sms'>('email');
 const communicationTemplateId = ref('');
 const communicationRecipientName = ref('');
@@ -375,6 +474,15 @@ const workflowTemplatesQuery = useQuery({
     ),
 });
 
+const membershipsQuery = useQuery({
+  queryKey: ['workspace-memberships', tenantId],
+  enabled: canLoad,
+  queryFn: () =>
+    apiGet<{ memberships: TenantMembershipOption[] }>(
+      `/memberships?tenantId=${encodeURIComponent(tenantId.value.trim())}`,
+    ),
+});
+
 const emailTemplatesQuery = useQuery({
   queryKey: ['workspace-email-templates', tenantId],
   enabled: canLoad,
@@ -442,6 +550,7 @@ const cases = computed(() => casesQuery.data.value?.cases ?? []);
 const dashboard = computed(() => dashboardQuery.data.value?.dashboard ?? null);
 const report = computed(() => reportQuery.data.value?.report ?? null);
 const detail = computed(() => caseDetailQuery.data.value ?? null);
+const memberships = computed(() => membershipsQuery.data.value?.memberships ?? []);
 const emailTemplates = computed(() => emailTemplatesQuery.data.value?.emailTemplates ?? []);
 const smsTemplates = computed(() => smsTemplatesQuery.data.value?.smsTemplates ?? []);
 const selectedTemplates = computed(() =>
@@ -452,7 +561,22 @@ const notes = computed(() => detail.value?.notes ?? []);
 const files = computed(() => detail.value?.files ?? []);
 const communications = computed(() => detail.value?.communications ?? []);
 const timelineEntries = computed(() => detail.value?.timelineEntries ?? []);
+const delayRequests = computed(() => detail.value?.delayRequests ?? []);
 const workflow = computed(() => detail.value?.workflow ?? null);
+const workflows = computed(() => detail.value?.workflows ?? (workflow.value ? [workflow.value] : []));
+const currentWorkflow = computed(
+  () =>
+    workflows.value.find((workflowItem) => workflowItem.track === selectedWorkflowTrack.value) ??
+    workflow.value ??
+    workflows.value[0] ??
+    null,
+);
+const currentWorkflowStage = computed(
+  () => currentWorkflow.value?.stages.find((stage) => stage.isCurrent) ?? null,
+);
+const activeWorkflowStages = computed(
+  () => currentWorkflow.value?.stages.filter((stage) => stage.runtimeStatus === 'active') ?? [],
+);
 const productRecords = computed(() => {
   if (!detail.value) {
     return [];
@@ -467,6 +591,7 @@ const primaryError = computed(() => {
   return (
     propertiesQuery.error.value ??
     workflowTemplatesQuery.error.value ??
+    membershipsQuery.error.value ??
     emailTemplatesQuery.error.value ??
     smsTemplatesQuery.error.value ??
     dashboardQuery.error.value ??
@@ -497,29 +622,102 @@ watch(
     if (!nextDetail) {
       updateCaseForm.value = {
         title: '',
+        ownerMembershipId: '',
         status: '',
         primaryAmount: '',
         secondaryAmount: '',
+        dateOne: '',
+        dateTwo: '',
+        dateThree: '',
       };
-      transitionStageKey.value = '';
+    transitionStageKey.value = '';
+    transitionFromStageKey.value = '';
+    selectedWorkflowTrack.value = '';
+    delayRequestForm.value = {
+      workflowTrack: '',
+      workflowStageId: '',
+      requestedTargetAt: '',
+      reason: '',
+    };
       return;
     }
 
     updateCaseForm.value.title = nextDetail.case.title;
+    updateCaseForm.value.ownerMembershipId = nextDetail.case.ownerMembershipId ?? '';
     if (product.value === 'sales') {
       const salesDetail = nextDetail as SalesCaseDetailResponse;
       updateCaseForm.value.status = salesDetail.salesCase.saleStatus;
       updateCaseForm.value.primaryAmount = salesDetail.salesCase.askingPrice?.toString() ?? '';
       updateCaseForm.value.secondaryAmount = salesDetail.salesCase.agreedPrice?.toString() ?? '';
+      updateCaseForm.value.dateOne = toDateTimeLocalValue(salesDetail.salesCase.memorandumSentAt);
+      updateCaseForm.value.dateTwo = toDateTimeLocalValue(salesDetail.salesCase.targetExchangeAt);
+      updateCaseForm.value.dateThree = toDateTimeLocalValue(salesDetail.salesCase.targetCompletionAt);
     } else {
       const lettingsDetail = nextDetail as LettingsCaseDetailResponse;
       updateCaseForm.value.status = lettingsDetail.lettingsCase.lettingStatus;
       updateCaseForm.value.primaryAmount = lettingsDetail.lettingsCase.monthlyRent?.toString() ?? '';
       updateCaseForm.value.secondaryAmount =
         lettingsDetail.lettingsCase.depositAmount?.toString() ?? '';
+      updateCaseForm.value.dateOne = toDateTimeLocalValue(lettingsDetail.lettingsCase.agreedAt);
+      updateCaseForm.value.dateTwo = toDateTimeLocalValue(lettingsDetail.lettingsCase.agreedLetAt);
+      updateCaseForm.value.dateThree = toDateTimeLocalValue(lettingsDetail.lettingsCase.moveInAt);
     }
 
+    selectedWorkflowTrack.value =
+      nextDetail.workflow?.track ?? nextDetail.workflows?.[0]?.track ?? '';
+    transitionFromStageKey.value =
+      nextDetail.workflow?.stages.find((stage) => stage.runtimeStatus === 'active')?.key ??
+      nextDetail.workflow?.currentStageKey ??
+      '';
     transitionStageKey.value = nextDetail.workflow?.currentStageKey ?? '';
+    delayRequestForm.value.workflowTrack = nextDetail.workflow?.track ?? nextDetail.workflows?.[0]?.track ?? '';
+    delayRequestForm.value.workflowStageId =
+      nextDetail.workflow?.stages.find((stage) => stage.isCurrent)?.id ??
+      nextDetail.workflows?.[0]?.stages.find((stage) => stage.isCurrent)?.id ??
+      '';
+    delayRequestForm.value.requestedTargetAt = toDateTimeLocalValue(
+      nextDetail.workflow?.stages.find((stage) => stage.isCurrent)?.targetCompleteAt ??
+        nextDetail.workflows?.[0]?.stages.find((stage) => stage.isCurrent)?.targetCompleteAt ??
+        null,
+    );
+    delayRequestForm.value.reason = '';
+  },
+  { immediate: true },
+);
+
+watch(
+  workflows,
+  (nextWorkflows) => {
+    if (!nextWorkflows.length) {
+      selectedWorkflowTrack.value = '';
+      transitionFromStageKey.value = '';
+      transitionStageKey.value = '';
+      delayRequestForm.value.workflowTrack = '';
+      return;
+    }
+
+    if (!nextWorkflows.some((workflowItem) => workflowItem.track === selectedWorkflowTrack.value)) {
+      selectedWorkflowTrack.value = nextWorkflows[0]?.track ?? '';
+    }
+
+    if (!nextWorkflows.some((workflowItem) => workflowItem.track === delayRequestForm.value.workflowTrack)) {
+      delayRequestForm.value.workflowTrack = nextWorkflows[0]?.track ?? '';
+    }
+  },
+  { immediate: true },
+);
+
+watch(
+  currentWorkflow,
+  (nextWorkflow) => {
+    transitionFromStageKey.value =
+      nextWorkflow?.stages.find((stage) => stage.runtimeStatus === 'active')?.key ?? '';
+    transitionStageKey.value = nextWorkflow?.currentStageKey ?? '';
+    delayRequestForm.value.workflowStageId =
+      nextWorkflow?.stages.find((stage) => stage.isCurrent)?.id ?? '';
+    delayRequestForm.value.requestedTargetAt = toDateTimeLocalValue(
+      nextWorkflow?.stages.find((stage) => stage.isCurrent)?.targetCompleteAt ?? null,
+    );
   },
   { immediate: true },
 );
@@ -547,6 +745,169 @@ function formatDate(value: string | null | undefined) {
   }).format(new Date(value));
 }
 
+function formatWorkflowSummary(workflowsToFormat: WorkflowTrack[] | undefined) {
+  if (!workflowsToFormat || workflowsToFormat.length === 0) {
+    return 'No workflow';
+  }
+
+  return workflowsToFormat
+    .map((workflowItem) => `${workflowItem.track}: ${workflowItem.currentStageName ?? 'Unassigned'}`)
+    .join(' • ');
+}
+
+function getStageConfigValue(
+  stage: WorkflowTrack['stages'][number] | WorkflowBoardStage,
+  key: string,
+) {
+  const config = stage.configJson;
+  if (!config || typeof config !== 'object') {
+    return null;
+  }
+
+  const value = config[key];
+  return value ?? null;
+}
+
+function asNumber(value: unknown, fallback: number) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function resolveStageDependencyLabel(
+  workflowItem: WorkflowTrack | null | undefined,
+  stage: WorkflowTrack['stages'][number],
+) {
+  if (!workflowItem) {
+    return null;
+  }
+
+  const estAfter = getStageConfigValue(stage, 'estAfter');
+  if (typeof estAfter !== 'string' || estAfter.trim().length === 0) {
+    return null;
+  }
+
+  const predecessor =
+    workflowItem.stages.find((candidate) => candidate.key === estAfter) ??
+    workflowItem.stages.find((candidate) => getStageConfigValue(candidate, 'legacyStageId') === estAfter) ??
+    null;
+
+  if (predecessor) {
+    return `After ${predecessor.name}`;
+  }
+
+  return 'After previous local milestone';
+}
+
+function buildWorkflowBoardColumns(workflowItem: WorkflowTrack | null | undefined) {
+  if (!workflowItem) {
+    return [] satisfies WorkflowBoardColumn[];
+  }
+
+  const stageRows = workflowItem.stages.map<WorkflowBoardStage>((stage, index) => ({
+    ...stage,
+    columnIndex: asNumber(getStageConfigValue(stage, 'columnIndex'), index),
+    laneIndex: asNumber(getStageConfigValue(stage, 'laneIndex'), 0),
+    dependencyLabel: resolveStageDependencyLabel(workflowItem, stage),
+  }));
+
+  const columnsByIndex = new Map<number, WorkflowBoardStage[]>();
+  for (const stage of stageRows) {
+    const existing = columnsByIndex.get(stage.columnIndex) ?? [];
+    existing.push(stage);
+    columnsByIndex.set(stage.columnIndex, existing);
+  }
+
+  return [...columnsByIndex.entries()]
+    .sort((left, right) => left[0] - right[0])
+    .map(([columnIndex, stages]) => ({
+      columnIndex,
+      stages: [...stages].sort((left, right) => {
+        if (left.laneIndex === right.laneIndex) {
+          return left.stageOrder - right.stageOrder;
+        }
+
+        return left.laneIndex - right.laneIndex;
+      }),
+    }));
+}
+
+function formatDependencyState(value: string | null | undefined) {
+  switch (value) {
+    case 'ready':
+      return 'Ready';
+    case 'satisfied':
+      return 'Satisfied';
+    case 'pending':
+      return 'Pending';
+    default:
+      return 'Pending';
+  }
+}
+
+function formatRuntimeStatus(value: string | null | undefined) {
+  switch (value) {
+    case 'active':
+      return 'Active';
+    case 'completed':
+      return 'Completed';
+    case 'blocked':
+      return 'Blocked';
+    case 'skipped':
+      return 'Skipped';
+    default:
+      return 'Not started';
+  }
+}
+
+function workflowStageTone(stage: WorkflowBoardStage | WorkflowTrack['stages'][number]) {
+  if (stage.actualCompletedAt || stage.runtimeStatus === 'completed') {
+    return 'completed';
+  }
+
+  if (stage.isCurrent || stage.runtimeStatus === 'active') {
+    return 'active';
+  }
+
+  if (stage.runtimeStatus === 'blocked' || stage.dependencyState === 'pending') {
+    return 'blocked';
+  }
+
+  if (stage.runtimeStatus === 'ready' || stage.dependencyState === 'ready') {
+    return 'ready';
+  }
+
+  return 'planned';
+}
+
+const currentWorkflowBoardColumns = computed(() => buildWorkflowBoardColumns(currentWorkflow.value));
+
+function toDateTimeLocalValue(value: string | null | undefined) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const pad = (input: number) => input.toString().padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function toIsoDateTime(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const date = new Date(trimmed);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error('invalid_datetime');
+  }
+
+  return date.toISOString();
+}
+
 function setActionState(
   state: 'idle' | 'working' | 'success' | 'failed',
   message: string,
@@ -559,6 +920,7 @@ async function refreshWorkspace() {
   await Promise.all([
     propertiesQuery.refetch(),
     workflowTemplatesQuery.refetch(),
+    membershipsQuery.refetch(),
     emailTemplatesQuery.refetch(),
     smsTemplatesQuery.refetch(),
     dashboardQuery.refetch(),
@@ -652,6 +1014,9 @@ async function createCase() {
       title: createCaseForm.value.title,
       ...(createCaseForm.value.reference ? { reference: createCaseForm.value.reference } : {}),
       ...(createCaseForm.value.propertyId ? { propertyId: createCaseForm.value.propertyId } : {}),
+      ...(createCaseForm.value.ownerMembershipId
+        ? { ownerMembershipId: createCaseForm.value.ownerMembershipId }
+        : {}),
       ...(createCaseForm.value.workflowTemplateId
         ? { workflowTemplateId: createCaseForm.value.workflowTemplateId }
         : {}),
@@ -679,6 +1044,7 @@ async function createCase() {
       title: '',
       reference: '',
       propertyId: '',
+      ownerMembershipId: '',
       workflowTemplateId: '',
       primaryAmount: '',
       secondaryAmount: '',
@@ -702,6 +1068,7 @@ async function updateCase() {
     const payload: Record<string, unknown> = {
       tenantId: tenantId.value.trim(),
       title: updateCaseForm.value.title,
+      ownerMembershipId: updateCaseForm.value.ownerMembershipId || null,
     };
 
     if (product.value === 'sales') {
@@ -712,6 +1079,9 @@ async function updateCase() {
       payload.agreedPrice = updateCaseForm.value.secondaryAmount
         ? Number(updateCaseForm.value.secondaryAmount)
         : null;
+      payload.memorandumSentAt = toIsoDateTime(updateCaseForm.value.dateOne);
+      payload.targetExchangeAt = toIsoDateTime(updateCaseForm.value.dateTwo);
+      payload.targetCompletionAt = toIsoDateTime(updateCaseForm.value.dateThree);
       await apiPatch(`/sales/cases/${selectedCaseId.value}`, payload);
     } else {
       payload.lettingStatus = updateCaseForm.value.status;
@@ -721,6 +1091,9 @@ async function updateCase() {
       payload.depositAmount = updateCaseForm.value.secondaryAmount
         ? Number(updateCaseForm.value.secondaryAmount)
         : null;
+      payload.agreedAt = toIsoDateTime(updateCaseForm.value.dateOne);
+      payload.agreedLetAt = toIsoDateTime(updateCaseForm.value.dateTwo);
+      payload.moveInAt = toIsoDateTime(updateCaseForm.value.dateThree);
       await apiPatch(`/lettings/cases/${selectedCaseId.value}`, payload);
     }
 
@@ -794,7 +1167,7 @@ async function addNote() {
 }
 
 async function transitionCase() {
-  if (!selectedCaseId.value || !transitionStageKey.value) {
+  if (!selectedCaseId.value || !transitionStageKey.value || !selectedWorkflowTrack.value) {
     setActionState('failed', 'Pick a case and target stage before transitioning.');
     return;
   }
@@ -805,6 +1178,8 @@ async function transitionCase() {
     await apiPost(`/cases/${selectedCaseId.value}/transitions`, {
       tenantId: tenantId.value.trim(),
       caseId: selectedCaseId.value,
+      workflowTrack: selectedWorkflowTrack.value,
+      ...(transitionFromStageKey.value ? { fromStageKey: transitionFromStageKey.value } : {}),
       toStageKey: transitionStageKey.value,
       ...(transitionSummary.value ? { summary: transitionSummary.value } : {}),
     });
@@ -813,6 +1188,64 @@ async function transitionCase() {
     setActionState('success', 'Workflow transitioned.');
   } catch (error) {
     setActionState('failed', error instanceof Error ? error.message : 'Workflow transition failed.');
+  }
+}
+
+async function createDelayRequest() {
+  if (
+    !selectedCaseId.value ||
+    !delayRequestForm.value.workflowTrack ||
+    !delayRequestForm.value.workflowStageId ||
+    !delayRequestForm.value.requestedTargetAt.trim()
+  ) {
+    setActionState('failed', 'Pick a case, active milestone, and requested target date first.');
+    return;
+  }
+
+  setActionState('working', 'Requesting delay...');
+
+  try {
+    await apiPost(`/cases/${selectedCaseId.value}/delay-requests`, {
+      tenantId: tenantId.value.trim(),
+      caseId: selectedCaseId.value,
+      workflowTrack: delayRequestForm.value.workflowTrack,
+      workflowStageId: delayRequestForm.value.workflowStageId,
+      requestedTargetAt: toIsoDateTime(delayRequestForm.value.requestedTargetAt),
+      reason: delayRequestForm.value.reason.trim(),
+    });
+    delayRequestForm.value.requestedTargetAt = toDateTimeLocalValue(
+      currentWorkflowStage.value?.targetCompleteAt ?? null,
+    );
+    delayRequestForm.value.reason = '';
+    await refreshWorkspace();
+    setActionState('success', 'Delay request created.');
+  } catch (error) {
+    setActionState('failed', error instanceof Error ? error.message : 'Delay request failed.');
+  }
+}
+
+async function reviewDelayRequest(delayRequestId: string, decision: 'approve' | 'reject') {
+  if (!selectedCaseId.value) {
+    setActionState('failed', 'Pick a case before reviewing a delay request.');
+    return;
+  }
+
+  setActionState('working', `${decision === 'approve' ? 'Approving' : 'Rejecting'} delay request...`);
+
+  try {
+    await apiPost(`/cases/${selectedCaseId.value}/delay-requests/${delayRequestId}/review`, {
+      tenantId: tenantId.value.trim(),
+      caseId: selectedCaseId.value,
+      decision,
+      ...(delayReviewNotes.value[delayRequestId]?.trim()
+        ? { reviewNote: delayReviewNotes.value[delayRequestId].trim() }
+        : {}),
+    });
+    delete delayReviewNotes.value[delayRequestId];
+    await refreshWorkspace();
+    setActionState('success', `Delay request ${decision}d.`);
+  } catch (error) {
+    setActionState('failed', error instanceof Error ? error.message : 'Delay review failed.');
   }
 }
 
@@ -1062,6 +1495,20 @@ const currentCaseReference = computed(() => detail.value?.case.reference ?? 'No 
             </select>
           </label>
           <label class="field">
+            <span>Owner</span>
+            <select v-model="createCaseForm.ownerMembershipId">
+              <option value="">Unassigned</option>
+              <option
+                v-for="membership in memberships"
+                :key="membership.membershipId"
+                :value="membership.membershipId"
+              >
+                {{ membership.displayName }}
+                <template v-if="membership.email"> · {{ membership.email }}</template>
+              </option>
+            </select>
+          </label>
+          <label class="field">
             <span>Workflow template</span>
             <select v-model="createCaseForm.workflowTemplateId">
               <option value="">No workflow</option>
@@ -1105,10 +1552,11 @@ const currentCaseReference = computed(() => detail.value?.case.reference ?? 'No 
           >
             <strong>{{ caseRow.title }}</strong>
             <span>{{ caseRow.propertyDisplayAddress ?? 'No property linked' }}</span>
-            <small>
+              <small>
               {{ caseRow.reference ?? 'No ref' }} •
               {{ product === 'sales' ? caseRow.saleStatus : caseRow.lettingStatus }} •
-              {{ caseRow.currentStageName ?? 'No workflow' }}
+              {{ formatWorkflowSummary(caseRow.workflows) }} •
+              {{ caseRow.ownerDisplayName ?? 'Unassigned' }}
             </small>
           </button>
         </article>
@@ -1204,7 +1652,11 @@ const currentCaseReference = computed(() => detail.value?.case.reference ?? 'No 
               </div>
               <div>
                 <dt>Stage</dt>
-                <dd>{{ workflow?.currentStageName ?? 'No workflow' }}</dd>
+                <dd>{{ currentWorkflow?.currentStageName ?? 'No workflow' }}</dd>
+              </div>
+              <div>
+                <dt>Owner</dt>
+                <dd>{{ detail.case.ownerDisplayName ?? 'Unassigned' }}</dd>
               </div>
             </dl>
           </header>
@@ -1219,6 +1671,20 @@ const currentCaseReference = computed(() => detail.value?.case.reference ?? 'No 
                 <input v-model="updateCaseForm.title" type="text" />
               </label>
               <label class="field">
+                <span>Owner</span>
+                <select v-model="updateCaseForm.ownerMembershipId">
+                  <option value="">Unassigned</option>
+                  <option
+                    v-for="membership in memberships"
+                    :key="membership.membershipId"
+                    :value="membership.membershipId"
+                  >
+                    {{ membership.displayName }}
+                    <template v-if="membership.email"> · {{ membership.email }}</template>
+                  </option>
+                </select>
+              </label>
+              <label class="field">
                 <span>{{ product === 'sales' ? 'Sale status' : 'Letting status' }}</span>
                 <input v-model="updateCaseForm.status" type="text" />
               </label>
@@ -1229,6 +1695,18 @@ const currentCaseReference = computed(() => detail.value?.case.reference ?? 'No 
               <label class="field">
                 <span>{{ product === 'sales' ? 'Agreed price' : 'Deposit amount' }}</span>
                 <input v-model="updateCaseForm.secondaryAmount" type="number" min="0" step="1" />
+              </label>
+              <label class="field">
+                <span>{{ product === 'sales' ? 'Memorandum sent' : 'Agreed at' }}</span>
+                <input v-model="updateCaseForm.dateOne" type="datetime-local" />
+              </label>
+              <label class="field">
+                <span>{{ product === 'sales' ? 'Target exchange' : 'Agreed let at' }}</span>
+                <input v-model="updateCaseForm.dateTwo" type="datetime-local" />
+              </label>
+              <label class="field">
+                <span>{{ product === 'sales' ? 'Target completion' : 'Move in at' }}</span>
+                <input v-model="updateCaseForm.dateThree" type="datetime-local" />
               </label>
               <button class="ghost-button" type="button" @click="updateCase">Save case</button>
             </article>
@@ -1275,11 +1753,44 @@ const currentCaseReference = computed(() => detail.value?.case.reference ?? 'No 
               <div class="panel-heading">
                 <h3>Workflow</h3>
               </div>
+              <label v-if="workflows.length > 1" class="field">
+                <span>Track</span>
+                <select v-model="selectedWorkflowTrack">
+                  <option
+                    v-for="workflowItem in workflows"
+                    :key="workflowItem.id"
+                    :value="workflowItem.track"
+                  >
+                    {{ workflowItem.track }}
+                    <template v-if="workflowItem.currentStageName">
+                      · {{ workflowItem.currentStageName }}
+                    </template>
+                  </option>
+                </select>
+              </label>
+              <label class="field">
+                <span>From milestone</span>
+                <select v-if="activeWorkflowStages.length > 1" v-model="transitionFromStageKey">
+                  <option
+                    v-for="stage in activeWorkflowStages"
+                    :key="stage.id"
+                    :value="stage.key"
+                  >
+                    {{ stage.name }}
+                  </option>
+                </select>
+                <input
+                  v-else
+                  :value="activeWorkflowStages[0]?.name ?? currentWorkflow?.currentStageName ?? 'No active milestone'"
+                  type="text"
+                  readonly
+                />
+              </label>
               <label class="field">
                 <span>Target stage</span>
                 <select v-model="transitionStageKey">
                   <option
-                    v-for="stage in workflow?.stages ?? []"
+                    v-for="stage in currentWorkflow?.stages ?? []"
                     :key="stage.id"
                     :value="stage.key"
                   >
@@ -1294,6 +1805,155 @@ const currentCaseReference = computed(() => detail.value?.case.reference ?? 'No 
               <button class="ghost-button" type="button" @click="transitionCase">
                 Move workflow
               </button>
+              <div v-if="currentWorkflowBoardColumns.length" class="workflow-board">
+                <div
+                  v-for="column in currentWorkflowBoardColumns"
+                  :key="`${currentWorkflow?.id ?? 'workflow'}-column-${column.columnIndex}`"
+                  class="workflow-board-column"
+                >
+                  <div class="workflow-board-column-header">
+                    <span>Step {{ column.columnIndex + 1 }}</span>
+                    <small>{{ column.stages.length }} milestone{{ column.stages.length === 1 ? '' : 's' }}</small>
+                  </div>
+                  <article
+                    v-for="stage in column.stages"
+                    :key="stage.id"
+                    class="workflow-stage-card"
+                    :class="[
+                      `workflow-stage-card-${workflowStageTone(stage)}`,
+                      { 'workflow-stage-card-current': stage.isCurrent },
+                    ]"
+                  >
+                    <div class="workflow-stage-card-header">
+                      <strong>{{ stage.name }}</strong>
+                      <span
+                        class="workflow-state-chip"
+                        :class="`workflow-state-chip-${workflowStageTone(stage)}`"
+                      >
+                        {{ formatRuntimeStatus(stage.runtimeStatus) }}
+                      </span>
+                    </div>
+                    <p class="workflow-stage-card-meta">
+                      <span
+                        class="workflow-dependency-chip"
+                        :class="`workflow-dependency-chip-${stage.dependencyState ?? 'pending'}`"
+                      >
+                        {{ formatDependencyState(stage.dependencyState) }}
+                      </span>
+                      <span v-if="stage.isCurrent">Current milestone</span>
+                      <span v-if="stage.isTerminal">Terminal</span>
+                      <span v-if="stage.dependencyLabel">{{ stage.dependencyLabel }}</span>
+                    </p>
+                    <dl class="workflow-stage-dates">
+                      <div>
+                        <dt>Target</dt>
+                        <dd>{{ stage.targetCompleteAt ? formatDate(stage.targetCompleteAt) : 'Unplanned' }}</dd>
+                      </div>
+                      <div>
+                        <dt>Estimate</dt>
+                        <dd>{{ stage.estimatedCompleteAt ? formatDate(stage.estimatedCompleteAt) : 'Unplanned' }}</dd>
+                      </div>
+                      <div>
+                        <dt>Started</dt>
+                        <dd>{{ stage.actualStartedAt ? formatDate(stage.actualStartedAt) : 'Not started' }}</dd>
+                      </div>
+                      <div>
+                        <dt>Completed</dt>
+                        <dd>{{ stage.actualCompletedAt ? formatDate(stage.actualCompletedAt) : 'Incomplete' }}</dd>
+                      </div>
+                    </dl>
+                  </article>
+                </div>
+              </div>
+              <p v-else class="muted-copy">No milestones available for this workflow.</p>
+            </article>
+
+            <article class="info-card workspace-form-card">
+              <div class="panel-heading">
+                <h3>Delay requests</h3>
+                <span>{{ delayRequests.length }}</span>
+              </div>
+              <label class="field">
+                <span>Track</span>
+                <select v-model="delayRequestForm.workflowTrack">
+                  <option
+                    v-for="workflowItem in workflows"
+                    :key="workflowItem.id"
+                    :value="workflowItem.track"
+                  >
+                    {{ workflowItem.track }}
+                  </option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Current milestone</span>
+                <input
+                  :value="currentWorkflowStage?.name ?? 'No active milestone'"
+                  type="text"
+                  readonly
+                />
+              </label>
+              <label class="field">
+                <span>Current target date</span>
+                <input
+                  :value="currentWorkflowStage?.targetCompleteAt ? formatDate(currentWorkflowStage.targetCompleteAt) : 'Unknown'"
+                  type="text"
+                  readonly
+                />
+              </label>
+              <label class="field">
+                <span>Requested milestone target date</span>
+                <input v-model="delayRequestForm.requestedTargetAt" type="datetime-local" />
+              </label>
+              <label class="field">
+                <span>Reason</span>
+                <textarea v-model="delayRequestForm.reason" rows="3" />
+              </label>
+              <button
+                class="ghost-button"
+                type="button"
+                :disabled="!currentWorkflowStage"
+                @click="createDelayRequest"
+              >
+                Request delay
+              </button>
+              <ul class="record-list">
+                <li
+                  v-for="delayRequest in delayRequests"
+                  :key="delayRequest.id"
+                  class="record-card"
+                >
+                  <strong>
+                    {{ delayRequest.workflowTrack }} · {{ delayRequest.workflowStageName ?? 'Milestone delay' }}
+                  </strong>
+                  <span>
+                    {{ delayRequest.status }} • {{ formatDate(delayRequest.requestedTargetAt) }}
+                  </span>
+                  <small>
+                    {{ delayRequest.reason }}
+                    <template v-if="delayRequest.oldTargetAt">
+                      • from {{ formatDate(delayRequest.oldTargetAt) }}
+                    </template>
+                  </small>
+                  <small v-if="delayRequest.reviewNote">
+                    Review note: {{ delayRequest.reviewNote }}
+                  </small>
+                  <template v-if="delayRequest.status === 'pending'">
+                    <label class="field">
+                      <span>Review note</span>
+                      <textarea v-model="delayReviewNotes[delayRequest.id]" rows="2" />
+                    </label>
+                    <div class="inline-actions">
+                      <button class="ghost-button" type="button" @click="reviewDelayRequest(delayRequest.id, 'approve')">
+                        Approve
+                      </button>
+                      <button class="ghost-button" type="button" @click="reviewDelayRequest(delayRequest.id, 'reject')">
+                        Reject
+                      </button>
+                    </div>
+                  </template>
+                </li>
+              </ul>
             </article>
 
             <article class="info-card workspace-form-card">

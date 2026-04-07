@@ -10,6 +10,7 @@
     "build": "pnpm -r --if-present build",
     "bootstrap:live-tenant": "bash scripts/bootstrap-live-tenant.sh",
     "dev": "pnpm --parallel --filter @vitalspace/api --filter @vitalspace/web --filter @vitalspace/worker dev",
+    "import:legacy-workflows": "tsx scripts/import-legacy-workflows.ts",
     "lint": "eslint .",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "vitest run",

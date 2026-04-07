@@ -56,7 +56,9 @@ async function truncateAllTables() {
       "workflow_instances",
       "workflow_stages",
       "workflow_templates",
+      "communication_attempts",
       "communication_dispatches",
+      "message_provider_accounts",
       "sms_templates",
       "email_templates",
       "case_notes",
@@ -69,6 +71,7 @@ async function truncateAllTables() {
       "offers",
       "viewings",
       "timeline_events",
+      "workflow_stage_runtimes",
       "external_references",
       "tenants",
       "users"

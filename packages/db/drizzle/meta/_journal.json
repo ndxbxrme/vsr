@@ -99,6 +99,48 @@
       "when": 1773364639042,
       "tag": "0013_strong_loa",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1773688869083,
+      "tag": "0014_great_imperial_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1773776245331,
+      "tag": "0015_previous_master_chief",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1774477405441,
+      "tag": "0016_medical_tigra",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1774484863275,
+      "tag": "0017_regular_silver_sable",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1774959000000,
+      "tag": "0018_happy_gorgon",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1775004000000,
+      "tag": "0019_quick_quasar",
+      "breakpoints": true
     }
   ]
 }

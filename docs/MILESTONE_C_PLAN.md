@@ -14,7 +14,7 @@ Milestone C should not widen the product. Its job is to make the rebuilt platfor
 
 Milestone B proved the product slice. Milestone C must prove that selected tenants can rely on it.
 
-Progression-engine redesign should remain planned but deferred during this milestone. Milestone C should use pilot evidence to sharpen that later implementation rather than trying to rebuild the workflow core mid-pilot. See [PROGRESSION_ENGINE.md](/home/kieron/code/vitalspace-remake/docs/PROGRESSION_ENGINE.md).
+Progression-engine work should now move from “deferred design” into a controlled hardening slice during this milestone. Milestone C should still avoid a big-bang workflow rewrite, but it should use the stabilized pilot/integration base to improve the progression experience where operators feel the product most. See [PROGRESSION_ENGINE.md](/home/kieron/code/vitalspace-remake/docs/PROGRESSION_ENGINE.md).
 
 ## 2. Milestone C Goal
 
@@ -25,6 +25,7 @@ At the end of Milestone C, the new platform should support:
 - deeper Dezrez trust through reconciliation, replay, and operational visibility
 - import or bootstrap helpers only where they remove pilot friction
 - operator tooling for investigating stale syncs, mismatched counts, and workflow discrepancies
+- enough progression/workflow polish that pilot users can meaningfully validate the rebuilt operational flow, not just the data plumbing
 - regression coverage for every blocking pilot issue found during rollout
 
 ## 3. Milestone C Position
@@ -72,6 +73,7 @@ Milestone C should be delivered as five narrow slices:
 3. Dezrez and sync hardening
 4. import/bootstrap helpers
 5. pilot operations and release discipline
+6. progression and workflow hardening
 
 ## 7. Core Capability Set
 
@@ -108,6 +110,25 @@ Milestone C should be delivered as five narrow slices:
 - runbook-style docs for pilot setup, checks, and rollback posture
 - readiness and trust dashboards focused on operators rather than developers
 - release discipline for pilot fixes
+
+### Progression Hardening
+
+- owner assignment in operational workspaces
+- explicit workflow event history on case screens
+- delay / target-date override support
+- communication hooks on key workflow transitions
+- dashboard and workload reads aligned more closely with progression behavior
+
+Current status:
+
+- owner assignment is now editable in the workspace UI
+- key sales and lettings target dates are now editable in the workspace UI
+- explicit workflow history already exists through case timeline/workflow transition views
+- workflow templates are now versioned snapshots with canonical stage-edge-action import support for the legacy JSON
+- first-class milestone-scoped delay request creation and review is now implemented in the workspace and API
+- automation hooks are still the next progression step
+- the first scheduling-foundation slice is now in place: per-stage runtime rows, a pure calculator, case-detail/workspace schedule projection, and approved delay ripple through downstream milestones
+- outbound workflow messaging should now move through a centralized multi-provider architecture with safe delivery modes rather than direct inline sends; see [MESSAGING_ARCHITECTURE.md](/home/kieron/code/vitalspace-remake/docs/MESSAGING_ARCHITECTURE.md)
 
 ## 8. Workstreams
 
@@ -175,6 +196,20 @@ Maps to:
 
 - V1
 
+## 8.6 Progression Hardening Workstream
+
+Tasks:
+
+- refine the current case/workflow layer toward the progression-engine target
+- make case ownership visible and editable in the operational UI
+- add first-class delay handling and clearer workflow history
+- attach communications to workflow transitions where that removes manual work
+- use pilot evidence to decide which branching and milestone behaviors are essential now
+
+Maps to:
+
+- M4
+
 ## 9. Testing Strategy
 
 Milestone C should keep the same three test layers, but bias them toward trust and regression rather than greenfield capability.
@@ -235,6 +270,7 @@ The execution order inside Milestone C should be:
 3. harden Dezrez sync and operator diagnosis
 4. add import/bootstrap helpers only where pilot friction remains
 5. run the pilot, close blocking gaps, and capture Milestone D handoff
+6. use the stable pilot base to harden progression behavior before broader staff testing
 
 This order is deliberate:
 
@@ -258,6 +294,25 @@ This order is deliberate:
 - delivered:
   - pilot operations view now combines pilot readiness, reconciliation, and Dezrez sync trust on one screen
   - reconciliation now includes drilldown rows for stale properties, missing external references, and incomplete cases
+
+### Batch 3
+
+- deepen Dezrez trust and webhook handling
+- reduce redundant full sync behavior
+- harden property identity, stale/delisted logic, and operator visibility
+- delivered:
+  - webhook routing now resolves tenants by `AgencyId` and `BranchId`
+  - targeted refreshes now replace most webhook-driven full syncs
+  - sync-run trust, anomaly detection, stale/delisted guards, and webhook inspection are in place
+  - property sync now auto-creates cases for qualifying sales and lettings records
+
+### Batch 4
+
+- progression and workflow hardening
+- add owner assignment to the workspace UI
+- add first delay/override support and explicit workflow-event visibility
+- add transition-driven communications where they reduce manual work
+- add browser coverage for the updated workflow experience
   - Playwright covers a stale-property pilot scenario end to end
 
 ### Batch 3

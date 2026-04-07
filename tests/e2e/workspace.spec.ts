@@ -88,9 +88,35 @@ async function createWorkspaceTenant(product: 'sales' | 'lettings') {
       stages:
         product === 'sales'
           ? [
-              { key: 'instruction', name: 'Instruction', stageOrder: 0 },
-              { key: 'conveyancing', name: 'Conveyancing', stageOrder: 1 },
-              { key: 'completed', name: 'Completed', stageOrder: 2, isTerminal: true },
+              {
+                key: 'instruction',
+                name: 'Instruction',
+                stageOrder: 0,
+                config: { legacyStageId: 'instruction', estDays: 2 },
+              },
+              {
+                key: 'conveyancing',
+                name: 'Conveyancing',
+                stageOrder: 1,
+                config: {
+                  legacyStageId: 'conveyancing',
+                  estAfter: 'instruction',
+                  estType: 'complete',
+                  estDays: 3,
+                },
+              },
+              {
+                key: 'completed',
+                name: 'Completion',
+                stageOrder: 2,
+                isTerminal: true,
+                config: {
+                  legacyStageId: 'completion',
+                  estAfter: 'conveyancing',
+                  estType: 'complete',
+                  estDays: 4,
+                },
+              },
             ]
           : [
               { key: 'application', name: 'Application', stageOrder: 0 },
@@ -208,6 +234,35 @@ test('sales workspace supports case actions and realtime invalidation', async ({
   });
 
   const detailPanel = page.locator('.workspace-detail');
+  const updateCard = detailPanel.locator('article.workspace-form-card', {
+    has: page.getByRole('heading', { name: 'Update case' }),
+  });
+  const delayCard = detailPanel.locator('article.workspace-form-card', {
+    has: page.getByRole('heading', { name: 'Delay requests' }),
+  });
+
+  await updateCard.getByLabel('Owner').selectOption({ index: 1 });
+  await updateCard.getByLabel('Memorandum sent').fill('2026-03-14T09:30');
+  await updateCard.getByLabel('Target exchange').fill('2026-03-21T11:00');
+  await updateCard.getByLabel('Target completion').fill('2026-03-28T15:00');
+  await updateCard.getByRole('button', { name: 'Save case' }).click();
+  await expect(page.getByText('Sales case updated.')).toBeVisible({ timeout: 20_000 });
+  await expect(updateCard.getByLabel('Owner')).toHaveValue(/.+/, { timeout: 20_000 });
+  await expect(updateCard.getByLabel('Target completion')).toHaveValue('2026-03-28T15:00');
+
+  await expect(delayCard.getByLabel('Current milestone')).toHaveValue('Instruction');
+  await delayCard.getByLabel('Requested milestone target date').fill('2026-04-04T12:45');
+  await delayCard.getByLabel('Reason').fill('Buyer requested more time for mortgage paperwork.');
+  await delayCard.getByRole('button', { name: 'Request delay' }).click();
+  await expect(page.getByText('Delay request created.')).toBeVisible({ timeout: 20_000 });
+  await delayCard.getByLabel('Review note').fill('Approved after checking the chain.');
+  await delayCard.getByRole('button', { name: 'Approve' }).click();
+  await expect(page.getByText('Delay request approved.')).toBeVisible({ timeout: 20_000 });
+  await expect(updateCard.getByLabel('Target completion')).toHaveValue('2026-04-11T12:45');
+  await expect(delayCard.getByText('approved').first()).toBeVisible({
+    timeout: 20_000,
+  });
+
   await detailPanel.getByLabel('Amount').fill('515000');
   await detailPanel.getByLabel('Offer notes').fill('Buyer accepted after second viewing.');
   await detailPanel.getByRole('button', { name: 'Add offer' }).click();
@@ -294,6 +349,19 @@ test('lettings workspace supports applications and agreed lets reporting', async
   ).toBeVisible({ timeout: 20_000 });
 
   const detailPanel = page.locator('.workspace-detail');
+  const updateCard = detailPanel.locator('article.workspace-form-card', {
+    has: page.getByRole('heading', { name: 'Update case' }),
+  });
+
+  await updateCard.getByLabel('Owner').selectOption({ index: 1 });
+  await updateCard.getByLabel('Agreed at').fill('2026-03-15T10:00');
+  await updateCard.getByLabel('Agreed let at').fill('2026-03-16T12:15');
+  await updateCard.getByLabel('Move in at').fill('2026-03-30T14:00');
+  await updateCard.getByRole('button', { name: 'Save case' }).click();
+  await expect(page.getByText('Lettings case updated.')).toBeVisible({ timeout: 20_000 });
+  await expect(updateCard.getByLabel('Owner')).toHaveValue(/.+/, { timeout: 20_000 });
+  await expect(updateCard.getByLabel('Move in at')).toHaveValue('2026-03-30T14:00');
+
   await detailPanel.getByLabel('Monthly rent offered').fill('1875');
   await detailPanel.getByLabel('Application notes').fill('Applicant approved.');
   await detailPanel.getByRole('button', { name: 'Add application' }).click();

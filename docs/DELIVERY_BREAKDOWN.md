@@ -77,6 +77,7 @@ Purpose:
 Success criteria:
 
 - sync, imports, reconciliation, and side-by-side validation are reliable enough for pilot usage
+- the core progression/case experience is polished enough for real operator testing rather than just data verification
 
 ### Phase 5: Secondary Domains
 
@@ -708,6 +709,10 @@ Definition of done:
 
 - properties, contacts, cases, workflow, communications, and integrations foundation work together
 
+Current direction:
+
+- outbound workflow messaging should now follow the centralized design in [MESSAGING_ARCHITECTURE.md](/home/kieron/code/vitalspace-remake/docs/MESSAGING_ARCHITECTURE.md) rather than growing from the earlier inline communications slice
+
 ### Milestone C: Pilot Hardening and Migration Trust
 
 Includes:
@@ -748,6 +753,7 @@ Definition of done:
 - realtime contract
 - workflow engine design
 - progression-engine target design and later implementation path, as defined in [PROGRESSION_ENGINE.md](/home/kieron/code/vitalspace-remake/docs/PROGRESSION_ENGINE.md)
+- progression scheduling design and later implementation path, as defined in [SCHEDULING_ENGINE.md](/home/kieron/code/vitalspace-remake/docs/SCHEDULING_ENGINE.md)
 - Dezrez integration quality
 
 ### Places where scope can easily blow up

@@ -33,6 +33,10 @@ const PROPERTY_DELIST_MISS_THRESHOLD = 3;
 const PROPERTY_SYNC_ANOMALY_MIN_BASELINE = 20;
 const PROPERTY_SYNC_ANOMALY_DROP_RATIO = 0.5;
 const ACTIVE_CASE_STATUSES = new Set(['open', 'on_hold']);
+const AUTO_CASE_WORKFLOW_SIDE_PREFERENCE: Record<'sales' | 'lettings', string[]> = {
+  sales: ['Seller', 'Buyer'],
+  lettings: ['Tenant', 'Seller', 'Landlord'],
+};
 
 export type ProcessPendingPropertySyncsResult = {
   processedEvents: number;
@@ -115,6 +119,83 @@ function getAutoCaseRoleId(metadataJson: unknown) {
   return getRawString(source?.propertyRoleId);
 }
 
+async function loadAutoCaseWorkflowTemplates(args: {
+  db: DbClient;
+  tenantId: string;
+  caseType: 'sales' | 'lettings';
+}) {
+  const templates = await args.db
+    .select()
+    .from(schema.workflowTemplates)
+    .where(
+      and(
+        eq(schema.workflowTemplates.tenantId, args.tenantId),
+        eq(schema.workflowTemplates.caseType, args.caseType),
+        eq(schema.workflowTemplates.isActiveVersion, true),
+        eq(schema.workflowTemplates.status, 'active'),
+      ),
+    )
+    .orderBy(desc(schema.workflowTemplates.updatedAt), desc(schema.workflowTemplates.createdAt));
+
+  if (!templates.length) {
+    return [];
+  }
+
+  const selectedTemplates: typeof templates = [];
+  for (const preferredSide of AUTO_CASE_WORKFLOW_SIDE_PREFERENCE[args.caseType]) {
+    const template = templates.find((candidate) => candidate.side === preferredSide);
+    if (template) {
+      selectedTemplates.push(template);
+    }
+  }
+
+  if (selectedTemplates.length > 0) {
+    return selectedTemplates;
+  }
+
+  if (templates.length === 1) {
+    return templates[0] ? [templates[0]] : [];
+  }
+
+  const sidelessTemplate = templates.find((template) => template.side === null);
+  return sidelessTemplate ? [sidelessTemplate] : templates.slice(0, 1);
+}
+
+async function createWorkflowInstanceForAutoCase(args: {
+  db: DbClient;
+  tenantId: string;
+  caseId: string;
+  track: string;
+  workflowTemplateId: string;
+}) {
+  const workflowStages = await args.db
+    .select()
+    .from(schema.workflowStages)
+    .where(eq(schema.workflowStages.workflowTemplateId, args.workflowTemplateId))
+    .orderBy(asc(schema.workflowStages.stageOrder), asc(schema.workflowStages.createdAt));
+
+  const initialStage = workflowStages[0] ?? null;
+
+  if (!initialStage) {
+    return null;
+  }
+
+  const [workflowInstance] = await args.db
+    .insert(schema.workflowInstances)
+    .values({
+      tenantId: args.tenantId,
+      caseId: args.caseId,
+      track: args.track,
+      workflowTemplateId: args.workflowTemplateId,
+      currentWorkflowStageId: initialStage.id,
+      status: initialStage.isTerminal ? 'completed' : 'active',
+      completedAt: initialStage.isTerminal ? new Date() : null,
+    })
+    .returning();
+
+  return workflowInstance ?? null;
+}
+
 async function ensureAutoCaseForProperty(args: {
   db: DbClient;
   tenantId: string;
@@ -160,6 +241,11 @@ async function ensureAutoCaseForProperty(args: {
   }
 
   const now = new Date();
+  const workflowTemplates = await loadAutoCaseWorkflowTemplates({
+    db: args.db,
+    tenantId: args.tenantId,
+    caseType,
+  });
   const caseMetadata = {
     source: {
       provider: 'dezrez',
@@ -187,6 +273,16 @@ async function ensureAutoCaseForProperty(args: {
     })
     .returning();
   const caseRecord = requireValue(createdCase, 'case');
+
+  for (const workflowTemplate of workflowTemplates) {
+    await createWorkflowInstanceForAutoCase({
+      db: args.db,
+      tenantId: args.tenantId,
+      caseId: caseRecord.id,
+      track: workflowTemplate.side ?? 'Primary',
+      workflowTemplateId: workflowTemplate.id,
+    });
+  }
 
   if (caseType === 'sales') {
     await args.db.insert(schema.salesCases).values({

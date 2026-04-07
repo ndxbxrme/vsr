@@ -14,10 +14,11 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'pnpm db:migrate && pnpm --filter @vitalspace/api dev',
+      command:
+        'corepack pnpm --filter @vitalspace/db exec drizzle-kit migrate && corepack pnpm --filter @vitalspace/api dev',
       port: 4320,
       timeout: 120_000,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       env: {
         ...process.env,
         DATABASE_URL: testDatabaseUrl,
@@ -32,10 +33,10 @@ export default defineConfig({
       },
     },
     {
-      command: 'pnpm --filter @vitalspace/web exec vite --host 127.0.0.1 --port 4321',
+      command: 'corepack pnpm --filter @vitalspace/web exec vite --host 127.0.0.1 --port 4321',
       port: 4321,
       timeout: 120_000,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       env: {
         ...process.env,
         VITE_API_BASE_URL: 'http://127.0.0.1:4320/api/v1',
@@ -43,10 +44,10 @@ export default defineConfig({
       },
     },
     {
-      command: 'pnpm exec tsx tests/e2e/worker-server.ts',
+      command: 'corepack pnpm exec tsx tests/e2e/worker-server.ts',
       port: 4322,
       timeout: 120_000,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       env: {
         ...process.env,
         DATABASE_URL: testDatabaseUrl,
@@ -56,10 +57,10 @@ export default defineConfig({
       },
     },
     {
-      command: 'pnpm exec tsx tests/e2e/mock-oidc-server.ts',
+      command: 'corepack pnpm exec tsx tests/e2e/mock-oidc-server.ts',
       port: 4323,
       timeout: 120_000,
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       env: {
         ...process.env,
         OIDC_MOCK_PORT: '4323',

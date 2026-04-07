@@ -222,6 +222,8 @@ Responsible for:
 - inbound email parsing
 - future notification preferences
 
+The target outbound model should be centralized, tenant-configurable, and provider-agnostic rather than tied to inline workflow sends. See [MESSAGING_ARCHITECTURE.md](/home/kieron/code/vitalspace-remake/docs/MESSAGING_ARCHITECTURE.md).
+
 ### 9.7 Integrations
 
 Responsible for:

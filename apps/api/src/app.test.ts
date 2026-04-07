@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -66,11 +66,15 @@ async function truncateAllTables() {
       "integration_jobs",
       "properties",
       "contacts",
+      "workflow_delay_requests",
+      "workflow_stage_runtimes",
       "workflow_transition_events",
       "workflow_instances",
       "workflow_stages",
       "workflow_templates",
+      "communication_attempts",
       "communication_dispatches",
+      "message_provider_accounts",
       "sms_templates",
       "email_templates",
       "case_notes",
@@ -419,6 +423,635 @@ describe('api auth and tenancy', () => {
     );
   });
 
+  it('supports tenant workflow autostart settings and leaves new workflows unstarted when disabled', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'tenant-settings@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'tenant-settings@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Workflow Toggle Estates',
+        slug: 'workflow-toggle-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+        settings: {
+          workflowAutostart: false,
+        },
+      });
+
+    expect(createTenant.status).toBe(201);
+
+    const tenantSettings = await request(app)
+      .get(`/api/v1/tenants/${createTenant.body.tenant.id}/settings`)
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(tenantSettings.status).toBe(200);
+    expect(tenantSettings.body.settings).toMatchObject({
+      workflowAutostart: false,
+      messaging: {
+        email: {
+          defaultProviderKey: 'log',
+          deliveryMode: 'log_only',
+        },
+        sms: {
+          defaultProviderKey: 'log',
+          deliveryMode: 'log_only',
+        },
+      },
+    });
+
+    const updateTenantSettings = await request(app)
+      .patch(`/api/v1/tenants/${createTenant.body.tenant.id}/settings`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        settings: {
+          workflowAutostart: false,
+          messaging: {
+            email: {
+              defaultProviderAccountId: null,
+              defaultProviderKey: 'log',
+              deliveryMode: 'log_only',
+              redirectTo: null,
+              fromIdentity: null,
+            },
+            sms: {
+              defaultProviderAccountId: null,
+              defaultProviderKey: 'log',
+              deliveryMode: 'log_only',
+              redirectTo: null,
+              fromIdentity: null,
+            },
+          },
+        },
+      });
+
+    expect(updateTenantSettings.status).toBe(200);
+    expect(updateTenantSettings.body.settings).toMatchObject({
+      workflowAutostart: false,
+      messaging: {
+        email: {
+          defaultProviderKey: 'log',
+          deliveryMode: 'log_only',
+        },
+        sms: {
+          defaultProviderKey: 'log',
+          deliveryMode: 'log_only',
+        },
+      },
+    });
+
+    const createWorkflowTemplate = await request(app)
+      .post('/api/v1/workflow-templates')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId: createTenant.body.tenant.id,
+        key: 'unstarted-sales-workflow',
+        name: 'Unstarted Sales Workflow',
+        caseType: 'sales',
+        stages: [
+          {
+            key: 'instruction',
+            name: 'Instruction',
+            stageOrder: 0,
+            config: {
+              legacyStageId: 'instruction',
+              estDays: 2,
+            },
+          },
+          {
+            key: 'completion',
+            name: 'Completion',
+            stageOrder: 1,
+            isTerminal: true,
+            config: {
+              legacyStageId: 'completion',
+              estAfter: 'instruction',
+              estType: 'complete',
+              estDays: 7,
+            },
+          },
+        ],
+      });
+
+    expect(createWorkflowTemplate.status).toBe(201);
+
+    const [property] = await db
+      .insert(schema.properties)
+      .values({
+        tenantId: createTenant.body.tenant.id,
+        branchId: createTenant.body.branch.id,
+        displayAddress: '1 Toggle Street',
+        postcode: 'M1 1AA',
+        marketingStatus: 'for_sale',
+      })
+      .returning();
+
+    if (!property) {
+      throw new Error('tenant_settings_property_not_created');
+    }
+
+    const createSalesCase = await request(app)
+      .post('/api/v1/sales/cases')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId: createTenant.body.tenant.id,
+        branchId: createTenant.body.branch.id,
+        propertyId: property.id,
+        workflowTemplateId: createWorkflowTemplate.body.workflowTemplate.id,
+        reference: 'WF-TOGGLE-001',
+        title: '1 Toggle Street Sale',
+        saleStatus: 'offer_accepted',
+      });
+
+    expect(createSalesCase.status).toBe(201);
+
+    const detail = await request(app)
+      .get(`/api/v1/sales/cases/${createSalesCase.body.case.id}`)
+      .query({ tenantId: createTenant.body.tenant.id })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(detail.status).toBe(200);
+    expect(detail.body.workflows).toEqual([
+      expect.objectContaining({
+        status: 'not_started',
+        currentWorkflowStageId: null,
+        currentStageKey: null,
+      }),
+    ]);
+    expect(detail.body.workflows[0].stages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'instruction',
+          runtimeStatus: 'not_started',
+          isCurrent: false,
+          actualStartedAt: null,
+        }),
+      ]),
+    );
+
+    const startWorkflow = await request(app)
+      .post(`/api/v1/cases/${createSalesCase.body.case.id}/transitions`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId: createTenant.body.tenant.id,
+        caseId: createSalesCase.body.case.id,
+        toStageKey: 'instruction',
+      });
+
+    expect(startWorkflow.status).toBe(201);
+
+    const startedDetail = await request(app)
+      .get(`/api/v1/sales/cases/${createSalesCase.body.case.id}`)
+      .query({ tenantId: createTenant.body.tenant.id })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(startedDetail.status).toBe(200);
+    expect(startedDetail.body.workflows).toEqual([
+      expect.objectContaining({
+        status: 'active',
+        currentStageKey: 'instruction',
+      }),
+    ]);
+
+    const startedInstructionStage = startedDetail.body.workflows[0].stages.find(
+      (stage: { key: string }) => stage.key === 'instruction',
+    );
+
+    expect(startedInstructionStage).toMatchObject({
+      runtimeStatus: 'active',
+      isCurrent: true,
+    });
+    expect(startedInstructionStage.actualStartedAt).toBeTruthy();
+    expect(startedInstructionStage.estimatedStartAt).toBe(startedInstructionStage.actualStartedAt);
+    expect(startedInstructionStage.targetStartAt).toBe(startedInstructionStage.actualStartedAt);
+  });
+
+  it('keeps unstarted sibling workflow tracks separate when a different track is started', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'workflow-rebase@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'workflow-rebase@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Workflow Rebase Estates',
+        slug: 'workflow-rebase-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+        settings: {
+          workflowAutostart: false,
+        },
+      });
+
+    expect(createTenant.status).toBe(201);
+
+    const tenantId = createTenant.body.tenant.id as string;
+    const branchId = createTenant.body.branch.id as string;
+
+    const [sellerTemplate] = await db
+      .insert(schema.workflowTemplates)
+      .values({
+        tenantId,
+        key: 'seller-rebase-workflow',
+        name: 'Seller Rebase Workflow',
+        caseType: 'sales',
+        side: 'Seller',
+        status: 'active',
+        isActiveVersion: true,
+        versionNumber: 1,
+      })
+      .returning();
+
+    const [buyerTemplate] = await db
+      .insert(schema.workflowTemplates)
+      .values({
+        tenantId,
+        key: 'buyer-rebase-workflow',
+        name: 'Buyer Rebase Workflow',
+        caseType: 'sales',
+        side: 'Buyer',
+        status: 'active',
+        isActiveVersion: true,
+        versionNumber: 1,
+      })
+      .returning();
+
+    if (!sellerTemplate || !buyerTemplate) {
+      throw new Error('workflow_rebase_templates_not_created');
+    }
+
+    const [sellerInstructionStage] = await db
+      .insert(schema.workflowStages)
+      .values({
+        workflowTemplateId: sellerTemplate.id,
+        legacyStageId: 'seller-instruction',
+        key: 'instruction',
+        name: 'Instruction',
+        stageOrder: 0,
+        configJson: {
+          legacyStageId: 'seller-instruction',
+        },
+      })
+      .returning();
+
+    const [sellerDependentStage] = await db
+      .insert(schema.workflowStages)
+      .values({
+        workflowTemplateId: sellerTemplate.id,
+        legacyStageId: 'seller-dependent',
+        key: 'seller-dependent',
+        name: 'Seller Dependent',
+        stageOrder: 1,
+        configJson: {
+          legacyStageId: 'seller-dependent',
+          estAfter: 'buyer-enquiries',
+          estType: 'complete',
+          estDays: 3,
+        },
+      })
+      .returning();
+
+    const [buyerEnquiriesStage] = await db
+      .insert(schema.workflowStages)
+      .values({
+        workflowTemplateId: buyerTemplate.id,
+        legacyStageId: 'buyer-enquiries',
+        key: 'buyer-enquiries',
+        name: 'Buyer Enquiries',
+        stageOrder: 0,
+        configJson: {
+          legacyStageId: 'buyer-enquiries',
+          estDays: 5,
+        },
+      })
+      .returning();
+
+    if (!sellerInstructionStage || !sellerDependentStage || !buyerEnquiriesStage) {
+      throw new Error('workflow_rebase_stages_not_created');
+    }
+
+    const [property] = await db
+      .insert(schema.properties)
+      .values({
+        tenantId,
+        branchId,
+        displayAddress: '10 Richmond Avenue',
+        postcode: 'M1 1AA',
+        marketingStatus: 'for_sale',
+      })
+      .returning();
+
+    if (!property) {
+      throw new Error('workflow_rebase_property_not_created');
+    }
+
+    const createSalesCase = await request(app)
+      .post('/api/v1/sales/cases')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        branchId,
+        propertyId: property.id,
+        workflowTemplateId: sellerTemplate.id,
+        reference: 'WF-REBASE-001',
+        title: '10 Richmond Avenue Sale',
+        saleStatus: 'offer_accepted',
+      });
+
+    expect(createSalesCase.status).toBe(201);
+
+    const caseId = createSalesCase.body.case.id as string;
+
+    await db.insert(schema.workflowInstances).values({
+      tenantId,
+      caseId,
+      track: 'Buyer',
+      workflowTemplateId: buyerTemplate.id,
+      currentWorkflowStageId: null,
+      status: 'not_started',
+      startedAt: new Date('2026-03-26T09:00:00.000Z'),
+    });
+
+    const startSellerWorkflow = await request(app)
+      .post(`/api/v1/cases/${caseId}/transitions`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        caseId,
+        workflowTrack: 'Seller',
+        toStageKey: 'instruction',
+      });
+
+    expect(startSellerWorkflow.status).toBe(201);
+
+    const [sellerWorkflowInstance, buyerWorkflowInstance] = await db
+      .select({
+        id: schema.workflowInstances.id,
+        track: schema.workflowInstances.track,
+        startedAt: schema.workflowInstances.startedAt,
+      })
+      .from(schema.workflowInstances)
+      .where(eq(schema.workflowInstances.caseId, caseId))
+      .orderBy(asc(schema.workflowInstances.track));
+
+    expect(sellerWorkflowInstance?.track).toBe('Buyer');
+    expect(buyerWorkflowInstance?.track).toBe('Seller');
+
+    const buyerStartedAt = sellerWorkflowInstance?.startedAt?.toISOString();
+    const sellerStartedAt = buyerWorkflowInstance?.startedAt?.toISOString();
+
+    expect(buyerStartedAt).toBe('2026-03-26T09:00:00.000Z');
+    expect(sellerStartedAt).toBeTruthy();
+    expect(sellerStartedAt).not.toBe(buyerStartedAt);
+
+    const detail = await request(app)
+      .get(`/api/v1/sales/cases/${caseId}`)
+      .query({ tenantId })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(detail.status).toBe(200);
+
+    const buyerWorkflow = detail.body.workflows.find(
+      (workflow: { track: string }) => workflow.track === 'Buyer',
+    );
+    const sellerWorkflow = detail.body.workflows.find(
+      (workflow: { track: string }) => workflow.track === 'Seller',
+    );
+
+    const buyerEnquiries = buyerWorkflow.stages.find(
+      (stage: { key: string }) => stage.key === 'buyer-enquiries',
+    );
+    const sellerInstruction = sellerWorkflow.stages.find(
+      (stage: { key: string }) => stage.key === 'instruction',
+    );
+    const sellerDependent = sellerWorkflow.stages.find(
+      (stage: { key: string }) => stage.key === 'seller-dependent',
+    );
+
+    expect(sellerInstruction.targetCompleteAt).toBeTruthy();
+    expect(buyerEnquiries.targetCompleteAt).toBeTruthy();
+    expect(sellerDependent.targetCompleteAt).toBeTruthy();
+    expect(new Date(sellerDependent.targetCompleteAt).getTime()).toBe(
+      new Date(sellerInstruction.targetCompleteAt).getTime() +
+        3 * 24 * 60 * 60 * 1000,
+    );
+  });
+
+  it('starts multiple milestones when a workflow stage has trigger-on-start actions', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'workflow-triggers@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'workflow-triggers@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Workflow Trigger Estates',
+        slug: 'workflow-trigger-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+        settings: {
+          workflowAutostart: false,
+        },
+      });
+
+    expect(createTenant.status).toBe(201);
+
+    const tenantId = createTenant.body.tenant.id as string;
+    const branchId = createTenant.body.branch.id as string;
+
+    const createWorkflowTemplate = await request(app)
+      .post('/api/v1/workflow-templates')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        key: 'workflow-trigger-sales',
+        name: 'Workflow Trigger Sales',
+        caseType: 'sales',
+        stages: [
+          {
+            key: 'instruction',
+            name: 'Instruction',
+            stageOrder: 0,
+            config: {
+              legacyStageId: 'instruction',
+              estDays: 1,
+            },
+          },
+          {
+            key: 'mortgage',
+            name: 'Mortgage',
+            stageOrder: 1,
+            config: {
+              legacyStageId: 'mortgage',
+              estDays: 2,
+            },
+          },
+          {
+            key: 'survey',
+            name: 'Survey',
+            stageOrder: 2,
+            config: {
+              legacyStageId: 'survey',
+              estDays: 3,
+            },
+          },
+        ],
+        actions: [
+          {
+            stageKey: 'instruction',
+            actionType: 'Trigger',
+            triggerOn: 'Start',
+            targetStageKey: 'mortgage',
+            name: 'Start mortgage',
+          },
+          {
+            stageKey: 'instruction',
+            actionType: 'Trigger',
+            triggerOn: 'Start',
+            targetStageKey: 'survey',
+            name: 'Start survey',
+          },
+        ],
+      });
+
+    expect(createWorkflowTemplate.status).toBe(201);
+
+    const [property] = await db
+      .insert(schema.properties)
+      .values({
+        tenantId,
+        branchId,
+        displayAddress: '88 Trigger Road',
+        postcode: 'M2 2BB',
+        marketingStatus: 'for_sale',
+      })
+      .returning();
+
+    if (!property) {
+      throw new Error('workflow_trigger_property_not_created');
+    }
+
+    const createSalesCase = await request(app)
+      .post('/api/v1/sales/cases')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        branchId,
+        propertyId: property.id,
+        workflowTemplateId: createWorkflowTemplate.body.workflowTemplate.id,
+        reference: 'WF-TRIGGER-001',
+        title: '88 Trigger Road Sale',
+        saleStatus: 'offer_accepted',
+      });
+
+    expect(createSalesCase.status).toBe(201);
+
+    const startWorkflow = await request(app)
+      .post(`/api/v1/cases/${createSalesCase.body.case.id}/transitions`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        caseId: createSalesCase.body.case.id,
+        toStageKey: 'instruction',
+      });
+
+    expect(startWorkflow.status).toBe(201);
+
+    const detail = await request(app)
+      .get(`/api/v1/sales/cases/${createSalesCase.body.case.id}`)
+      .query({ tenantId })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(detail.status).toBe(200);
+    expect(detail.body.workflows[0]).toMatchObject({
+      status: 'active',
+      currentStageKey: 'instruction',
+    });
+
+    const activeStages = detail.body.workflows[0].stages.filter(
+      (stage: { runtimeStatus: string }) => stage.runtimeStatus === 'active',
+    );
+
+    expect(activeStages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'instruction', isCurrent: true }),
+        expect.objectContaining({ key: 'mortgage', isCurrent: false }),
+        expect.objectContaining({ key: 'survey', isCurrent: false }),
+      ]),
+    );
+  });
+
+  it('lists active tenant memberships for owner assignment workflows', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'directory-admin@example.com',
+      password: 'Secret123',
+      firstName: 'Directory',
+      lastName: 'Admin',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'directory-admin@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Directory Estates',
+        slug: 'directory-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    expect(createTenant.status).toBe(201);
+
+    const memberships = await request(app)
+      .get('/api/v1/memberships')
+      .query({ tenantId: createTenant.body.tenant.id })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(memberships.status).toBe(200);
+    expect(memberships.body.memberships).toEqual([
+      expect.objectContaining({
+        tenantId: createTenant.body.tenant.id,
+        displayName: 'Directory Admin',
+        email: 'directory-admin@example.com',
+        roles: expect.arrayContaining(['tenant_admin']),
+      }),
+    ]);
+  });
+
   it('uploads, lists, and downloads tenant files for an attached entity', async () => {
     await request(app).post('/api/v1/auth/signup').send({
       email: 'files-admin@example.com',
@@ -569,6 +1202,85 @@ describe('api auth and tenancy', () => {
         tenantId,
         key: 'sales-default',
         name: 'Sales Default',
+        side: 'Buyer',
+        caseType: 'sales',
+        stages: [
+          {
+            legacyStageId: 'start',
+            key: 'instruction',
+            name: 'Instruction',
+            stageOrder: 0,
+          },
+          {
+            legacyStageId: 'memo',
+            key: 'memo_sent',
+            name: 'Memo Sent',
+            stageOrder: 1,
+          },
+          {
+            legacyStageId: 'complete',
+            key: 'completed',
+            name: 'Completed',
+            stageOrder: 2,
+            isTerminal: true,
+          },
+        ],
+        edges: [
+          {
+            fromStageKey: 'instruction',
+            toStageKey: 'memo_sent',
+            edgeType: 'action_trigger',
+            triggerOn: 'Complete',
+          },
+          {
+            fromStageKey: 'memo_sent',
+            toStageKey: 'completed',
+            edgeType: 'action_trigger',
+            triggerOn: 'Complete',
+          },
+        ],
+        actions: [
+          {
+            stageKey: 'instruction',
+            actionOrder: 0,
+            triggerOn: 'Complete',
+            actionType: 'Trigger',
+            name: 'Move to memo sent',
+            targetLegacyStageId: 'memo',
+            targetStageKey: 'memo_sent',
+            metadata: {
+              imported: true,
+            },
+          },
+          {
+            stageKey: 'instruction',
+            actionOrder: 1,
+            triggerOn: 'Complete',
+            actionType: 'Email',
+            name: 'Buyer update',
+            templateReference: 'legacy-email-template',
+            recipientGroups: ['purchasersContact'],
+          },
+        ],
+      });
+
+    expect(createWorkflowTemplate.status).toBe(201);
+    expect(createWorkflowTemplate.body.workflowStages).toHaveLength(3);
+    expect(createWorkflowTemplate.body.workflowTemplate).toMatchObject({
+      key: 'sales-default',
+      side: 'Buyer',
+      versionNumber: 1,
+      isActiveVersion: true,
+    });
+
+    const createWorkflowTemplateVersion = await request(app)
+      .post('/api/v1/workflow-templates')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        key: 'sales-default',
+        name: 'Sales Default v2',
+        side: 'Buyer',
         caseType: 'sales',
         stages: [
           {
@@ -577,8 +1289,8 @@ describe('api auth and tenancy', () => {
             stageOrder: 0,
           },
           {
-            key: 'memo_sent',
-            name: 'Memo Sent',
+            key: 'conveyancing',
+            name: 'Conveyancing',
             stageOrder: 1,
           },
           {
@@ -590,8 +1302,12 @@ describe('api auth and tenancy', () => {
         ],
       });
 
-    expect(createWorkflowTemplate.status).toBe(201);
-    expect(createWorkflowTemplate.body.workflowStages).toHaveLength(3);
+    expect(createWorkflowTemplateVersion.status).toBe(201);
+    expect(createWorkflowTemplateVersion.body.workflowTemplate).toMatchObject({
+      key: 'sales-default',
+      versionNumber: 2,
+      isActiveVersion: true,
+    });
 
     const createCase = await request(app)
       .post('/api/v1/cases')
@@ -600,7 +1316,7 @@ describe('api auth and tenancy', () => {
         tenantId,
         branchId,
         propertyId: property.id,
-        workflowTemplateId: createWorkflowTemplate.body.workflowTemplate.id,
+        workflowTemplateId: createWorkflowTemplateVersion.body.workflowTemplate.id,
         caseType: 'sales',
         reference: 'SALE-001',
         title: '22 Shared Core Avenue Sale',
@@ -693,6 +1409,14 @@ describe('api auth and tenancy', () => {
 
     expect(workflowTemplates.status).toBe(200);
     expect(workflowTemplates.body.workflowTemplates).toHaveLength(1);
+    expect(workflowTemplates.body.workflowTemplates[0]).toMatchObject({
+      key: 'sales-default',
+      versionNumber: 2,
+      isActiveVersion: true,
+      side: 'Buyer',
+    });
+    expect(workflowTemplates.body.workflowTemplates[0].edges).toEqual([]);
+    expect(workflowTemplates.body.workflowTemplates[0].actions).toEqual([]);
 
     const contacts = await request(app)
       .get('/api/v1/contacts')
@@ -866,6 +1590,65 @@ describe('api auth and tenancy', () => {
     expect(smsTemplates.status).toBe(200);
     expect(smsTemplates.body.smsTemplates).toHaveLength(1);
 
+    const createEmailProvider = await request(app)
+      .post('/api/v1/message-provider-accounts')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        channel: 'email',
+        providerKey: 'log',
+        name: 'Local Email Log',
+      });
+
+    expect(createEmailProvider.status).toBe(201);
+
+    const createSmsProvider = await request(app)
+      .post('/api/v1/message-provider-accounts')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        channel: 'sms',
+        providerKey: 'log',
+        name: 'Local Sms Log',
+      });
+
+    expect(createSmsProvider.status).toBe(201);
+
+    const providerAccounts = await request(app)
+      .get('/api/v1/message-provider-accounts')
+      .query({ tenantId })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(providerAccounts.status).toBe(200);
+    expect(providerAccounts.body.messageProviderAccounts).toHaveLength(2);
+
+    const updateTenantSettings = await request(app)
+      .patch(`/api/v1/tenants/${tenantId}/settings`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        settings: {
+          workflowAutostart: true,
+          messaging: {
+            email: {
+              defaultProviderAccountId: createEmailProvider.body.messageProviderAccount.id,
+              defaultProviderKey: 'log',
+              deliveryMode: 'redirect',
+              redirectTo: 'safe@example.com',
+              fromIdentity: 'noreply@example.com',
+            },
+            sms: {
+              defaultProviderAccountId: createSmsProvider.body.messageProviderAccount.id,
+              defaultProviderKey: 'log',
+              deliveryMode: 'redirect',
+              redirectTo: '07000000000',
+              fromIdentity: 'VitalSpace',
+            },
+          },
+        },
+      });
+
+    expect(updateTenantSettings.status).toBe(200);
+
     const sendEmail = await request(app)
       .post(`/api/v1/cases/${caseId}/communications`)
       .set('Authorization', `Bearer ${accessToken}`)
@@ -885,7 +1668,11 @@ describe('api auth and tenancy', () => {
     expect(sendEmail.status).toBe(201);
     expect(sendEmail.body.communication).toMatchObject({
       channel: 'email',
-      recipientEmail: 'jane.seller@example.com',
+      providerKey: 'log',
+      deliveryMode: 'redirect',
+      status: 'logged',
+      originalRecipientEmail: 'jane.seller@example.com',
+      recipientEmail: 'safe@example.com',
       subject: 'Update for COMMS-001',
     });
     expect(sendEmail.body.communication.body).toContain('44 Template Street');
@@ -910,7 +1697,11 @@ describe('api auth and tenancy', () => {
     expect(sendSms.status).toBe(201);
     expect(sendSms.body.communication).toMatchObject({
       channel: 'sms',
-      recipientPhone: '07123456789',
+      providerKey: 'log',
+      deliveryMode: 'redirect',
+      status: 'logged',
+      originalRecipientPhone: '07123456789',
+      recipientPhone: '07000000000',
     });
     expect(sendSms.body.communication.body).toContain('COMMS-001');
     expect(sendSms.body.communication.body).toContain('Casey Operator');
@@ -926,11 +1717,15 @@ describe('api auth and tenancy', () => {
       expect.arrayContaining([
         expect.objectContaining({
           channel: 'email',
-          recipientEmail: 'jane.seller@example.com',
+          status: 'logged',
+          originalRecipientEmail: 'jane.seller@example.com',
+          recipientEmail: 'safe@example.com',
         }),
         expect.objectContaining({
           channel: 'sms',
-          recipientPhone: '07123456789',
+          status: 'logged',
+          originalRecipientPhone: '07123456789',
+          recipientPhone: '07000000000',
         }),
       ]),
     );
@@ -946,18 +1741,348 @@ describe('api auth and tenancy', () => {
       expect.arrayContaining([
         expect.objectContaining({
           source: 'communication',
-          title: 'email.sent',
+          title: 'email.logged',
         }),
         expect.objectContaining({
           source: 'communication',
-          title: 'sms.sent',
+          title: 'sms.logged',
         }),
         expect.objectContaining({
           source: 'audit',
-          title: 'case.communication_sent',
+          title: 'case.communication_processed',
         }),
       ]),
     );
+  });
+
+  it('sends via Mailgun, Twilio SMS, and SMS24x provider adapters', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url.includes('mailgun.test')) {
+        expect(init?.method).toBe('POST');
+        return new Response(JSON.stringify({ id: '<mailgun-message-id>', message: 'Queued. Thank you.' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (url.includes('twilio.test')) {
+        expect(init?.method).toBe('POST');
+        return new Response(JSON.stringify({ sid: 'SM1234567890', status: 'queued' }), {
+          status: 201,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (url.includes('sms24x.test')) {
+        expect(init?.method).toBe('POST');
+        return new Response(
+          `<?xml version="1.0" encoding="utf-8"?>
+          <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+            <soap:Body>
+              <SendFullSMSResponse xmlns="http://tempuri.org/">
+                <SendFullSMSResult>SMS24X-42</SendFullSMSResult>
+              </SendFullSMSResponse>
+            </soap:Body>
+          </soap:Envelope>`,
+          {
+            status: 200,
+            headers: { 'Content-Type': 'text/xml' },
+          },
+        );
+      }
+
+      throw new Error(`unexpected_fetch:${url}`);
+    });
+
+    try {
+      await request(app).post('/api/v1/auth/signup').send({
+        email: 'provider-admin@example.com',
+        password: 'Secret123',
+      });
+
+      const login = await request(app).post('/api/v1/auth/login').send({
+        email: 'provider-admin@example.com',
+        password: 'Secret123',
+      });
+
+      const accessToken = login.body.accessToken as string;
+
+      const createTenant = await request(app)
+        .post('/api/v1/tenants')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          name: 'Provider Estates',
+          slug: 'provider-estates',
+          branchName: 'Main',
+          branchSlug: 'main',
+        });
+
+      const tenantId = createTenant.body.tenant.id as string;
+      const branchId = createTenant.body.branch.id as string;
+
+      const [property] = await db
+        .insert(schema.properties)
+        .values({
+          tenantId,
+          branchId,
+          displayAddress: '9 Adapter Street',
+          postcode: 'M3 4AA',
+        })
+        .returning();
+
+      if (!property) {
+        throw new Error('provider_test_property_not_created');
+      }
+
+      const createCase = await request(app)
+        .post('/api/v1/cases')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          tenantId,
+          branchId,
+          propertyId: property.id,
+          caseType: 'sales',
+          reference: 'PROV-001',
+          title: '9 Adapter Street Sale',
+        });
+
+      expect(createCase.status).toBe(201);
+      const caseId = createCase.body.case.id as string;
+
+      const createEmailTemplate = await request(app)
+        .post('/api/v1/email-templates')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          tenantId,
+          key: 'provider-email',
+          name: 'Provider Email',
+          subjectTemplate: 'Provider test {{case.reference}}',
+          bodyTextTemplate: 'Email body for {{property.displayAddress}}',
+          bodyHtmlTemplate: '<p>Email body for {{property.displayAddress}}</p>',
+        });
+
+      const createSmsTemplate = await request(app)
+        .post('/api/v1/sms-templates')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          tenantId,
+          key: 'provider-sms',
+          name: 'Provider SMS',
+          bodyTemplate: 'SMS for {{case.reference}}',
+        });
+
+      expect(createEmailTemplate.status).toBe(201);
+      expect(createSmsTemplate.status).toBe(201);
+
+      const mailgunAccount = await request(app)
+        .post('/api/v1/message-provider-accounts')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          tenantId,
+          channel: 'email',
+          providerKey: 'mailgun',
+          name: 'Mailgun Live',
+          credentials: {
+            apiKey: 'mailgun-key',
+          },
+          settings: {
+            domain: 'mg.example.com',
+            apiBaseUrl: 'https://api.mailgun.test',
+            fromIdentity: 'sales@example.com',
+          },
+        });
+
+      const twilioAccount = await request(app)
+        .post('/api/v1/message-provider-accounts')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          tenantId,
+          channel: 'sms',
+          providerKey: 'twilio_sms',
+          name: 'Twilio Live',
+          credentials: {
+            accountSid: 'AC123456789',
+            authToken: 'twilio-secret',
+          },
+          settings: {
+            apiBaseUrl: 'https://api.twilio.test',
+            fromNumber: '+447700900123',
+          },
+        });
+
+      const sms24xAccount = await request(app)
+        .post('/api/v1/message-provider-accounts')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          tenantId,
+          channel: 'sms',
+          providerKey: 'sms24x',
+          name: '24x2 Live',
+          credentials: {
+            username: 'sms24x-user',
+            password: 'sms24x-pass',
+          },
+          settings: {
+            endpointUrl: 'https://sms24x.test/service.asmx',
+            fromIdentity: 'VitalSpace',
+          },
+        });
+
+      expect(mailgunAccount.status).toBe(201);
+      expect(twilioAccount.status).toBe(201);
+      expect(sms24xAccount.status).toBe(201);
+
+      const updateEmailSettings = await request(app)
+        .patch(`/api/v1/tenants/${tenantId}/settings`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          settings: {
+            workflowAutostart: true,
+            messaging: {
+              email: {
+                defaultProviderAccountId: mailgunAccount.body.messageProviderAccount.id,
+                defaultProviderKey: 'mailgun',
+                deliveryMode: 'live',
+                redirectTo: null,
+                fromIdentity: 'sales@example.com',
+              },
+              sms: {
+                defaultProviderAccountId: null,
+                defaultProviderKey: 'log',
+                deliveryMode: 'log_only',
+                redirectTo: null,
+                fromIdentity: null,
+              },
+            },
+          },
+        });
+
+      expect(updateEmailSettings.status).toBe(200);
+
+      const sendEmail = await request(app)
+        .post(`/api/v1/cases/${caseId}/communications`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          tenantId,
+          caseId,
+          channel: 'email',
+          templateType: 'email',
+          templateId: createEmailTemplate.body.emailTemplate.id,
+          recipientEmail: 'buyer@example.com',
+          variables: {},
+        });
+
+      expect(sendEmail.status).toBe(201);
+      expect(sendEmail.body.communication).toMatchObject({
+        providerKey: 'mailgun',
+        deliveryMode: 'live',
+        status: 'sent',
+        providerMessageId: '<mailgun-message-id>',
+        recipientEmail: 'buyer@example.com',
+      });
+
+      const updateTwilioSettings = await request(app)
+        .patch(`/api/v1/tenants/${tenantId}/settings`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          settings: {
+            workflowAutostart: true,
+            messaging: {
+              email: {
+                defaultProviderAccountId: mailgunAccount.body.messageProviderAccount.id,
+                defaultProviderKey: 'mailgun',
+                deliveryMode: 'live',
+                redirectTo: null,
+                fromIdentity: 'sales@example.com',
+              },
+              sms: {
+                defaultProviderAccountId: twilioAccount.body.messageProviderAccount.id,
+                defaultProviderKey: 'twilio_sms',
+                deliveryMode: 'live',
+                redirectTo: null,
+                fromIdentity: '+447700900123',
+              },
+            },
+          },
+        });
+
+      expect(updateTwilioSettings.status).toBe(200);
+
+      const sendTwilioSms = await request(app)
+        .post(`/api/v1/cases/${caseId}/communications`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          tenantId,
+          caseId,
+          channel: 'sms',
+          templateType: 'sms',
+          templateId: createSmsTemplate.body.smsTemplate.id,
+          recipientPhone: '+447123456789',
+          variables: {},
+        });
+
+      expect(sendTwilioSms.status).toBe(201);
+      expect(sendTwilioSms.body.communication).toMatchObject({
+        providerKey: 'twilio_sms',
+        deliveryMode: 'live',
+        status: 'sent',
+        providerMessageId: 'SM1234567890',
+        recipientPhone: '+447123456789',
+      });
+
+      const updateSms24xSettings = await request(app)
+        .patch(`/api/v1/tenants/${tenantId}/settings`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          settings: {
+            workflowAutostart: true,
+            messaging: {
+              email: {
+                defaultProviderAccountId: mailgunAccount.body.messageProviderAccount.id,
+                defaultProviderKey: 'mailgun',
+                deliveryMode: 'live',
+                redirectTo: null,
+                fromIdentity: 'sales@example.com',
+              },
+              sms: {
+                defaultProviderAccountId: sms24xAccount.body.messageProviderAccount.id,
+                defaultProviderKey: 'sms24x',
+                deliveryMode: 'live',
+                redirectTo: null,
+                fromIdentity: 'VitalSpace',
+              },
+            },
+          },
+        });
+
+      expect(updateSms24xSettings.status).toBe(200);
+
+      const sendSms24xSms = await request(app)
+        .post(`/api/v1/cases/${caseId}/communications`)
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          tenantId,
+          caseId,
+          channel: 'sms',
+          templateType: 'sms',
+          templateId: createSmsTemplate.body.smsTemplate.id,
+          recipientPhone: '+447123456789',
+          variables: {},
+        });
+
+      expect(sendSms24xSms.status).toBe(201);
+      expect(sendSms24xSms.body.communication).toMatchObject({
+        providerKey: 'sms24x',
+        deliveryMode: 'live',
+        status: 'sent',
+        providerMessageId: 'SMS24X-42',
+        recipientPhone: '+447123456789',
+      });
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 
   it('creates and manages sales cases, offers, and dashboard metrics', async () => {
@@ -1350,6 +2475,219 @@ describe('api auth and tenancy', () => {
     expect(invalidOwnerUpdate.body).toEqual({
       error: 'owner_membership_not_found',
     });
+  });
+
+  it('creates and approves first-class delay requests for sales cases', async () => {
+    await request(app).post('/api/v1/auth/signup').send({
+      email: 'sales-delay@example.com',
+      password: 'Secret123',
+    });
+
+    const login = await request(app).post('/api/v1/auth/login').send({
+      email: 'sales-delay@example.com',
+      password: 'Secret123',
+    });
+
+    const accessToken = login.body.accessToken as string;
+
+    const createTenant = await request(app)
+      .post('/api/v1/tenants')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        name: 'Delay Sales Estates',
+        slug: 'delay-sales-estates',
+        branchName: 'Main',
+        branchSlug: 'main',
+      });
+
+    const tenantId = createTenant.body.tenant.id as string;
+    const branchId = createTenant.body.branch.id as string;
+
+    const [property] = await db
+      .insert(schema.properties)
+      .values({
+        tenantId,
+        branchId,
+        displayAddress: '91 Delay Avenue',
+        postcode: 'M5 2AB',
+        marketingStatus: 'for_sale',
+      })
+      .returning();
+
+    if (!property) {
+      throw new Error('delay_sales_property_not_created');
+    }
+
+    const createWorkflowTemplate = await request(app)
+      .post('/api/v1/workflow-templates')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        key: 'sales-delay-pipeline',
+        name: 'Sales Delay Pipeline',
+        caseType: 'sales',
+        stages: [
+          {
+            key: 'instruction',
+            name: 'Instruction',
+            stageOrder: 0,
+            config: {
+              legacyStageId: 'instruction',
+              estDays: 2,
+            },
+          },
+          {
+            key: 'conveyancing',
+            name: 'Conveyancing',
+            stageOrder: 1,
+            config: {
+              legacyStageId: 'conveyancing',
+              estAfter: 'instruction',
+              estType: 'complete',
+              estDays: 3,
+            },
+          },
+          {
+            key: 'completed',
+            name: 'Completion',
+            stageOrder: 2,
+            isTerminal: true,
+            config: {
+              legacyStageId: 'completion',
+              estAfter: 'conveyancing',
+              estType: 'complete',
+              estDays: 4,
+            },
+          },
+        ],
+      });
+
+    expect(createWorkflowTemplate.status).toBe(201);
+
+    const createSalesCase = await request(app)
+      .post('/api/v1/sales/cases')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        branchId,
+        propertyId: property.id,
+        workflowTemplateId: createWorkflowTemplate.body.workflowTemplate.id,
+        reference: 'SALES-DELAY-001',
+        title: '91 Delay Avenue Sale',
+        saleStatus: 'conveyancing',
+      });
+
+    expect(createSalesCase.status).toBe(201);
+
+    const caseId = createSalesCase.body.case.id as string;
+
+    const initialDetail = await request(app)
+      .get(`/api/v1/sales/cases/${caseId}`)
+      .query({ tenantId })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(initialDetail.status).toBe(200);
+
+    const instructionStage = initialDetail.body.workflows[0].stages.find(
+      (stage: { key: string }) => stage.key === 'instruction',
+    );
+    const completionStage = initialDetail.body.workflows[0].stages.find(
+      (stage: { key: string }) => stage.key === 'completed',
+    );
+
+    if (!instructionStage || !completionStage) {
+      throw new Error('delay_test_stages_not_found');
+    }
+
+    const requestedTargetAt = new Date(instructionStage.targetCompleteAt);
+    requestedTargetAt.setUTCDate(requestedTargetAt.getUTCDate() + 7);
+    const expectedCompletionTargetAt = new Date(completionStage.targetCompleteAt);
+    expectedCompletionTargetAt.setUTCDate(expectedCompletionTargetAt.getUTCDate() + 7);
+
+    const createDelayRequest = await request(app)
+      .post(`/api/v1/cases/${caseId}/delay-requests`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        caseId,
+        workflowStageId: instructionStage.id,
+        requestedTargetAt: requestedTargetAt.toISOString(),
+        reason: 'Chain requires one extra week to exchange.',
+      });
+
+    expect(createDelayRequest.status).toBe(201);
+    expect(createDelayRequest.body.delayRequest).toMatchObject({
+      caseId,
+      workflowTrack: 'Primary',
+      workflowStageId: instructionStage.id,
+      dateField: 'targetCompleteAt',
+      status: 'pending',
+      reason: 'Chain requires one extra week to exchange.',
+      oldTargetAt: instructionStage.targetCompleteAt,
+      requestedTargetAt: requestedTargetAt.toISOString(),
+    });
+
+    const reviewDelayRequest = await request(app)
+      .post(`/api/v1/cases/${caseId}/delay-requests/${createDelayRequest.body.delayRequest.id}/review`)
+      .set('Authorization', `Bearer ${accessToken}`)
+      .send({
+        tenantId,
+        caseId,
+        decision: 'approve',
+        reviewNote: 'Approved after vendor discussion.',
+      });
+
+    expect(reviewDelayRequest.status).toBe(200);
+    expect(reviewDelayRequest.body.delayRequest).toMatchObject({
+      id: createDelayRequest.body.delayRequest.id,
+      status: 'approved',
+      reviewNote: 'Approved after vendor discussion.',
+      requestedTargetAt: requestedTargetAt.toISOString(),
+    });
+
+    const detail = await request(app)
+      .get(`/api/v1/sales/cases/${caseId}`)
+      .query({ tenantId })
+      .set('Authorization', `Bearer ${accessToken}`);
+
+    expect(detail.status).toBe(200);
+    expect(detail.body.salesCase).toMatchObject({
+      targetCompletionAt: expectedCompletionTargetAt.toISOString(),
+    });
+    expect(detail.body.delayRequests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: createDelayRequest.body.delayRequest.id,
+          status: 'approved',
+          reviewNote: 'Approved after vendor discussion.',
+        }),
+      ]),
+    );
+    expect(detail.body.workflows[0].stages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          key: 'instruction',
+          runtimeStatus: expect.any(String),
+          targetCompleteAt: requestedTargetAt.toISOString(),
+        }),
+        expect.objectContaining({
+          key: 'conveyancing',
+          targetCompleteAt: expect.anything(),
+        }),
+        expect.objectContaining({
+          key: 'completed',
+          targetCompleteAt: expectedCompletionTargetAt.toISOString(),
+        }),
+      ]),
+    );
+    expect(detail.body.timelineEntries).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          source: 'workflow_delay_request',
+          title: 'delay_request.approved',
+        }),
+      ]),
+    );
   });
 
   it('creates and manages lettings cases, applications, and agreed-let reporting', async () => {
@@ -1894,6 +3232,59 @@ describe('api auth and tenancy', () => {
 
     const salesCaseId = createSalesCase.body.case.id as string;
     const lettingsCaseId = createLettingsCase.body.case.id as string;
+    const salesWorkflowTemplateId = createSalesWorkflowTemplate.body.workflowTemplate.id as string;
+    const lettingsWorkflowTemplateId =
+      createLettingsWorkflowTemplate.body.workflowTemplate.id as string;
+
+    const [salesInstructionStage] = await db
+      .select({
+        id: schema.workflowStages.id,
+      })
+      .from(schema.workflowStages)
+      .where(
+        and(
+          eq(schema.workflowStages.workflowTemplateId, salesWorkflowTemplateId),
+          eq(schema.workflowStages.key, 'instruction'),
+        ),
+      )
+      .limit(1);
+
+    const [lettingsApplicationStage] = await db
+      .select({
+        id: schema.workflowStages.id,
+      })
+      .from(schema.workflowStages)
+      .where(
+        and(
+          eq(schema.workflowStages.workflowTemplateId, lettingsWorkflowTemplateId),
+          eq(schema.workflowStages.key, 'application'),
+        ),
+      )
+      .limit(1);
+
+    expect(salesInstructionStage?.id).toBeTruthy();
+    expect(lettingsApplicationStage?.id).toBeTruthy();
+
+    await db.insert(schema.workflowInstances).values([
+      {
+        tenantId,
+        caseId: salesCaseId,
+        workflowTemplateId: salesWorkflowTemplateId,
+        currentWorkflowStageId: salesInstructionStage!.id,
+        status: 'active',
+        track: 'Buyer',
+        startedAt: new Date(),
+      },
+      {
+        tenantId,
+        caseId: lettingsCaseId,
+        workflowTemplateId: lettingsWorkflowTemplateId,
+        currentWorkflowStageId: lettingsApplicationStage!.id,
+        status: 'active',
+        track: 'Seller',
+        startedAt: new Date(),
+      },
+    ]);
 
     const addOffer = await request(app)
       .post(`/api/v1/sales/cases/${salesCaseId}/offers`)
@@ -1953,7 +3344,7 @@ describe('api auth and tenancy', () => {
       expect.arrayContaining([
         expect.objectContaining({
           currentStageKey: 'instruction',
-          count: 1,
+          count: 2,
         }),
       ]),
     );
@@ -1961,7 +3352,7 @@ describe('api auth and tenancy', () => {
       expect.arrayContaining([
         expect.objectContaining({
           currentStageKey: 'application',
-          count: 1,
+          count: 2,
         }),
       ]),
     );
